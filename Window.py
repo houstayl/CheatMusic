@@ -17,6 +17,8 @@ Removing adjacent matches
 Save pdf
 Better note detection: use png
 #TODO when deleting, delete from region and imageProcessor list
+only use top and bottom staffline
+adding and editing staff lines
 barline detection
 Clear out annotated folder at start
 On click release starting even though no rect
