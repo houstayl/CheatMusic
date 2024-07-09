@@ -1,0 +1,72 @@
+INFO, 2024-06-04 10:39:45,960, runner.py, <module>, Start software
+INFO, 2024-06-04 10:39:46,046, gui_main.py, __init__, Open GUI
+ERROR, 2024-06-04 10:39:46,065, logic_logger.py, handle_uncaught_exception, Uncaught exception occured
+Traceback (most recent call last):
+  File "C:\Users\12145\PycharmProjects\SheetMusic\runner.py", line 14, in <module>
+    app = MainGUI(root)
+          ^^^^^^^^^^^^^
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 20, in __init__
+    self.__create_main_window()
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 41, in __create_main_window
+    self.master.iconbitmap(os.path.join('viewer', 'logo.ico'))  # set logo icon
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\tkinter\__init__.py", line 2136, in wm_iconbitmap
+    return self.tk.call('wm', 'iconbitmap', self._w, bitmap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: bitmap "viewer\logo.ico" not defined
+INFO, 2024-06-04 10:42:01,936, runner.py, <module>, Start software
+INFO, 2024-06-04 10:42:02,024, gui_main.py, __init__, Open GUI
+ERROR, 2024-06-04 10:42:02,043, logic_logger.py, handle_uncaught_exception, Uncaught exception occured
+Traceback (most recent call last):
+  File "C:\Users\12145\PycharmProjects\SheetMusic\runner.py", line 14, in <module>
+    app = MainGUI(root)
+          ^^^^^^^^^^^^^
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 20, in __init__
+    self.__create_main_window()
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 41, in __create_main_window
+    self.master.iconbitmap(os.path.join('viewer', 'logo.ico'))  # set logo icon
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\tkinter\__init__.py", line 2136, in wm_iconbitmap
+    return self.tk.call('wm', 'iconbitmap', self._w, bitmap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: bitmap "viewer\logo.ico" not defined
+INFO, 2024-06-04 10:43:13,252, runner.py, <module>, Start software
+INFO, 2024-06-04 10:43:13,335, gui_main.py, __init__, Open GUI
+ERROR, 2024-06-04 10:43:13,354, logic_logger.py, handle_uncaught_exception, Uncaught exception occured
+Traceback (most recent call last):
+  File "C:\Users\12145\PycharmProjects\SheetMusic\runner.py", line 14, in <module>
+    app = MainGUI(root)
+          ^^^^^^^^^^^^^
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 20, in __init__
+    self.__create_main_window()
+  File "C:\Users\12145\PycharmProjects\SheetMusic\GUI\gui_main.py", line 41, in __create_main_window
+    self.master.iconbitmap(os.path.join('viewer', 'logo.ico'))  # set logo icon
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\tkinter\__init__.py", line 2136, in wm_iconbitmap
+    return self.tk.call('wm', 'iconbitmap', self._w, bitmap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: bitmap "viewer\logo.ico" not defined
+INFO, 2024-06-04 10:45:03,169, runner.py, <module>, Start software
+INFO, 2024-06-04 10:45:03,251, gui_main.py, __init__, Open GUI
+INFO, 2024-06-04 10:45:11,234, gui_imageframe.py, __init__, Open image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 10:46:46,498, gui_imageframe.py, destroy, Close image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 10:46:46,502, gui_main.py, destroy, Close GUI
+INFO, 2024-06-04 10:46:46,502, runner.py, <module>, Finish software
+INFO, 2024-06-04 14:08:14,264, runner.py, <module>, Start software
+INFO, 2024-06-04 14:08:14,767, gui_main.py, __init__, Open GUI
+INFO, 2024-06-04 14:08:14,881, gui_imageframe.py, __init__, Open image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:08:30,382, gui_imageframe.py, destroy, Close image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:08:30,387, gui_main.py, destroy, Close GUI
+INFO, 2024-06-04 14:08:30,387, runner.py, <module>, Finish software
+INFO, 2024-06-04 14:09:58,253, runner.py, <module>, Start software
+INFO, 2024-06-04 14:09:58,332, gui_main.py, __init__, Open GUI
+INFO, 2024-06-04 14:09:58,427, gui_imageframe.py, __init__, Open image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:10:03,196, gui_imageframe.py, destroy, Close image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:10:03,201, gui_main.py, destroy, Close GUI
+INFO, 2024-06-04 14:10:03,202, runner.py, <module>, Finish software
+INFO, 2024-06-04 14:10:41,797, runner.py, <module>, Start software
+INFO, 2024-06-04 14:10:41,885, gui_main.py, __init__, Open GUI
+INFO, 2024-06-04 14:10:41,984, gui_imageframe.py, __init__, Open image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:10:52,755, gui_imageframe.py, destroy, Close image: C:/Users/12145/PycharmProjects/SheetMusic/annotatedexample.png
+INFO, 2024-06-04 14:10:52,761, gui_main.py, destroy, Close GUI
+INFO, 2024-06-04 14:10:52,761, runner.py, <module>, Finish software
