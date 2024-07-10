@@ -20,12 +20,13 @@ Better note detection: use png
 only use top and bottom staffline
 adding and editing staff lines
 barline detection
-Clear out annotated folder at start
+Clear out annotated and images folder at start
 On click release starting even though no rect
 when opening a new file, reset everything
 image rotation
 save not only as pdf, but binary file for later editing
 multiprocessing generate regions
+key: regions and no regions
 
 """
 
