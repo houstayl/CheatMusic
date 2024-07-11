@@ -292,6 +292,11 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = histogram
 
+    """
+    automatically finds barlines in similar fashion to barlines
+    """
+    def get_barlines(self):
+        pass
     '''
     Sorts array of features from top to bottom, left to right in 1d array
     '''

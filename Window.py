@@ -13,6 +13,7 @@ import numpy as np
 
 """
 TODO
+Better drawing. Drawing that isnt region dependent
 Removing adjacent matches
 Save pdf
 Better note detection: use png
