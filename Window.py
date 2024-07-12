@@ -2,7 +2,7 @@ import tkinter as tk
 import cv2 as cv
 from tkinter import filedialog, Canvas, Scale, ttk
 from PIL import Image, ImageTk, ImageDraw
-import os
+import os, shutil
 import PDFtoImages
 from ImageProcces import ImageProcessing
 from FeatureObject import Feature
@@ -13,7 +13,7 @@ import numpy as np
 
 """
 TODO
-staffline detection scroll bar for changing shade of black
+staffline detection scroll bar for changing shade of black, multiprocessing
 show center of feature and allow moving of center
 Better drawing. Drawing that isnt region dependent
 Save pdf
@@ -21,7 +21,6 @@ Save pdf
 only use top and bottom staffline
 adding and editing staff lines
 barline detection
-Clear out annotated and images folder at start
 when opening a new file, reset everything
 image rotation
 save not only as pdf, but binary file for later editing
@@ -35,6 +34,15 @@ class ImageEditor(tk.Tk):
         super().__init__()
         self.title("Image Editor")
         self.dirname = os.path.dirname(__file__)
+
+        #clearing out SheetsMusic folder
+        directory = os.path.join(self.dirname, "SheetsMusic")
+        if os.path.isdir(directory):
+            shutil.rmtree(directory)
+        #recreating the SheetsMusic folder with Annotated folder inside it
+        os.mkdir(directory)
+        directory = os.path.join(directory, "Annotated")
+        os.mkdir(directory)
 
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
@@ -60,6 +68,11 @@ class ImageEditor(tk.Tk):
         self.staff_line_error_scale = Scale(self.left_frame, from_=0, to=42, label="Staff line error", command=self.generate_staff_lines)#todo regenerate and redraw staff lines
         self.staff_line_error_scale.set(5)
         self.staff_line_error_scale.pack()
+
+        #staff line blackness_threshold scale
+        self.staff_line_blackness_threshold_scale = Scale(self.left_frame, from_=0, to=256, label="Staff line blackness threshold", command=self.generate_staff_lines)#todo regenerate and redraw staff lines
+        self.staff_line_blackness_threshold_scale.set(250)
+        self.staff_line_blackness_threshold_scale.pack()
 
         #Feature Error Scale
         self.feature_error_scale = Scale(self.left_frame, from_=0, to=42, label="Current feature error")
@@ -265,10 +278,12 @@ class ImageEditor(tk.Tk):
             return "single"
 
     def generate_staff_lines(self, event):
-        value = self.staff_line_error_scale.get()
+        error_value = self.staff_line_error_scale.get()
+        blackness_threshold_value = self.staff_line_blackness_threshold_scale.get()
         for i in self.get_loop_array_based_on_feature_mode():
-            self.image_processor.get_stafflines(page_index=i, error=value)
-            self.image_processor.draw_stafflines(page_index=i)
+            self.image_processor.get_stafflines(page_index=i, error=error_value, blackness_threshold=blackness_threshold_value)
+            #self.image_processor.draw_stafflines(page_index=i)
+            self.draw_image_with_filters()
             #TODO replace with self.draw_image_with_filters(self.filters)
 
     def generate_regions(self, event):

@@ -248,7 +248,7 @@ class ImageProcessing:
     '''
 
     # TODO let user input error size
-    def get_stafflines(self, page_index, error=5):
+    def get_stafflines(self, page_index, error=5, blackness_threshold=250):
         # holds the row that a staff line exists in
         histogram = []
 
@@ -265,7 +265,7 @@ class ImageProcessing:
         for i in check_for_staff_line_indexes:
             count = 0
             for j in range(self.bw_images[page_index].shape[1]):
-                if self.bw_images[page_index][i][j] < 250:
+                if self.bw_images[page_index][i][j] < blackness_threshold:
                     count = count + 1
                     if count > self.bw_images[page_index].shape[1] / 2:
                         break
@@ -276,7 +276,6 @@ class ImageProcessing:
 
         # histogram.sort()
         # removing adjacent lines
-        # TODO find center staff line
         i = 0
         while i < len(histogram):
             current = i
