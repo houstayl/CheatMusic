@@ -13,16 +13,15 @@ import numpy as np
 
 """
 TODO
+staffline detection scroll bar for changing shade of black
+show center of feature and allow moving of center
 Better drawing. Drawing that isnt region dependent
-Removing adjacent matches
 Save pdf
-Better note detection: use png
 #TODO when deleting, delete from region and imageProcessor list
 only use top and bottom staffline
 adding and editing staff lines
 barline detection
 Clear out annotated and images folder at start
-On click release starting even though no rect
 when opening a new file, reset everything
 image rotation
 save not only as pdf, but binary file for later editing
@@ -263,7 +262,7 @@ class ImageEditor(tk.Tk):
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[2]:#all pages
             return range(self.num_pages)
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[3]:#single feature, no match_template
-            return
+            return "single"
 
     def generate_staff_lines(self, event):
         value = self.staff_line_error_scale.get()
@@ -311,18 +310,25 @@ class ImageEditor(tk.Tk):
             if self.current_feature is not None:
                 if c == 'a' or c == "A":
                     self.current_feature.set_letter('a')
+                    self.draw_image_with_filters()
                 if c == 'b' or c == "B":
                     self.current_feature.set_letter('b')
+                    self.draw_image_with_filters()
                 if c == 'c' or c == "C":
                     self.current_feature.set_letter('c')
+                    self.draw_image_with_filters()
                 if c == 'd' or c == "D":
                     self.current_feature.set_letter('d')
+                    self.draw_image_with_filters()
                 if c == 'e' or c == "E":
                     self.current_feature.set_letter('e')
+                    self.draw_image_with_filters()
                 if c == 'f' or c == "F":
                     self.current_feature.set_letter('f')
+                    self.draw_image_with_filters()
                 if c == 'g' or c == "G":
                     self.current_feature.set_letter('g')
+                    self.draw_image_with_filters()
                 if c == 'x' or c == "X":#DELETE
                     self.image_processor.remove_feature(self.current_feature, self.image_index)
                     print("deleted feature")
@@ -333,14 +339,19 @@ class ImageEditor(tk.Tk):
                     pass
                 if c == '1':
                     self.current_feature.set_accidental("double_sharp")
+                    self.draw_image_with_filters()
                 if c == '2':
                     self.current_feature.set_accidental("sharp")
+                    self.draw_image_with_filters()
                 if c == '3':
                     self.current_feature.set_accidental("natural")
+                    self.draw_image_with_filters()
                 if c == '4':
                     self.current_feature.set_accidental("flat")
+                    self.draw_image_with_filters()
                 if c == '5':
                     self.current_feature.set_accidental("double_flat")
+                    self.draw_image_with_filters()
 
         if self.editing_mode.get() == "add":
             if c == 'b' or c == "B":
@@ -513,13 +524,19 @@ class ImageEditor(tk.Tk):
         #Has to have image loaded onto the canvas
         if self.image is not None:
             if self.editing_mode.get() == "add":
+                if self.current_feature_type == "staff_line":
+                    y = self.canvas.canvasy(event.y)
+                    y_img = int(y / self.scale)
+                    self.image_processor.staff_lines[self.image_index].append(y_img)
+                    self.image_processor.staff_lines[self.image_index].sort()
+                    self.draw_image_with_filters()
                 self.rect_start = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
                 if self.rect:
                     self.canvas.delete(self.rect)
                 self.rect = None
             elif self.editing_mode.get() == "edit":
                 x = self.canvas.canvasx(event.x)
-                y = self.canvas.canvasx(event.y)
+                y = self.canvas.canvasy(event.y)
                 x_img = int(x / self.scale)
                 y_img = int(y / self.scale)
                 feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img)
@@ -557,40 +574,49 @@ class ImageEditor(tk.Tk):
             rectangle = Feature((x0_img, y0_img), (x1_img, y1_img), x1_img - x0_img, y1_img - y0_img, self.current_feature_type)
 
             if self.editing_mode.get() == "add":
+
                 template = self.image_processor.images[self.image_index][rectangle.topleft[1]:rectangle.bottomright[1],
                            rectangle.topleft[0]:rectangle.bottomright[0]]
+                if self.get_loop_array_based_on_feature_mode() != "single":#if the add mode is in single, dont need to match template
+                    match_template_params = (
+                        template,
+                        (0, 255, 0),
+                        rectangle.type,
+                        10,  # error
+                        True  # draw
+                    )
+                    # Prepare the arguments for each task
+                    tasks = [
+                        (i, self.image_processor.images[i], self.image_processor.gray_images[i], match_template_params)
+                        for i in self.get_loop_array_based_on_feature_mode()
+                    ]
+                    # Create a pool of worker processes
+                    with multiprocessing.Pool() as pool:
+                        results = pool.map(ImageEditor.process_feature, tasks)
+                    for i in self.get_loop_array_based_on_feature_mode():
+                        if self.image_processor.array_types_dict[rectangle.type][i] is None:
+                            self.image_processor.array_types_dict[rectangle.type][i] = results[i]
+                        else:
+                            self.image_processor.array_types_dict[rectangle.type][i] = self.image_processor.array_types_dict[rectangle.type][i] + results[i]
+                        self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][i])
 
-                match_template_params = (
-                    template,
-                    (0, 255, 0),
-                    rectangle.type,
-                    10,  # error
-                    True  # draw
-                )
-                # Prepare the arguments for each task
-                tasks = [
-                    (i, self.image_processor.images[i], self.image_processor.gray_images[i], match_template_params)
-                    for i in self.get_loop_array_based_on_feature_mode()
-                ]
-                # Create a pool of worker processes
-                with multiprocessing.Pool() as pool:
-                    results = pool.map(ImageEditor.process_feature, tasks)
-                for i in self.get_loop_array_based_on_feature_mode():
-                    if self.image_processor.array_types_dict[rectangle.type][i] is None:
-                        self.image_processor.array_types_dict[rectangle.type][i] = results[i]
+                    self.draw_image_with_filters()
+
+
+                    #TODO if staffline
+
+                    # Draw the rectangle on the actual image
+                    draw = ImageDraw.Draw(self.image)
+                    draw.rectangle([x0_img, y0_img, x1_img, y1_img], outline='red')
+                    self.display_image()
+                else:#only add single feature
+                    print("single feature")
+                    if self.image_processor.array_types_dict[rectangle.type][self.image_index] is None:
+                        self.image_processor.array_types_dict[rectangle.type][self.image_index] = [rectangle]
                     else:
-                        self.image_processor.array_types_dict[rectangle.type][i] = self.image_processor.array_types_dict[rectangle.type][i] + results[i]
-                    self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][i])
-
-                self.draw_image_with_filters()
-
-
-                #TODO if staffline
-
-                # Draw the rectangle on the actual image
-                draw = ImageDraw.Draw(self.image)
-                draw.rectangle([x0_img, y0_img, x1_img, y1_img], outline='red')
-                self.display_image()
+                        self.image_processor.array_types_dict[rectangle.type][self.image_index] = self.image_processor.array_types_dict[rectangle.type][self.image_index] + [rectangle]
+                    self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][self.image_index])
+                    self.draw_image_with_filters()
             elif self.editing_mode.get() == "edit":
                 #todo find all features in rectangle
                 pass
@@ -599,11 +625,35 @@ class ImageEditor(tk.Tk):
         else:#if rect wasnt started
             pass
 
+
     @staticmethod
     def get_distance(p1, p2):
         x2 = (p1[0] - p2[0]) * (p1[0] - p2[0])
         y2 = (p1[1] - p2[1]) * (p1[1] - p2[1])
         return (x2 + y2) ** .5
+
+    @staticmethod
+    def do_features_overlap(one, two):
+        #if one feature is to the left
+        if one.bottomright[0] < two.topleft[0] or two.bottomright[0] < one.topleft[0]:
+            return False
+        #if one feature is above
+        if one.bottomright[1] < two.topleft[1] or two.bottomright[1] < one.topleft[1]:
+            return False
+
+        return True
+    @staticmethod
+    def remove_adjacent_matches(features):
+        #Todo remove at i not j
+        i = 0
+        while features is not None and i < len(features):
+            j = i + 1
+            while j < len(features):
+                if ImageEditor.do_features_overlap(features[i], features[j]) == True:
+                    features.pop(j)
+                else:
+                    j += 1
+            i += 1
 
     @staticmethod
     def match_template_parallel(image, gray_image, template, color, type,
@@ -643,8 +693,9 @@ class ImageEditor(tk.Tk):
             if draw == True:
                 cv.rectangle(image, pt, (pt[0] + gray_template_width, pt[1] + gray_template_height),
                              color, 2)
-
+        ImageEditor.remove_adjacent_matches(features)
         return features
+
 
     @staticmethod
     def process_feature(args):

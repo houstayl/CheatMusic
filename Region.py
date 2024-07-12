@@ -137,7 +137,7 @@ class Region:
                 if accidental == "double_flat":
                     self.fill_in_feature(img, gray_img, note.topleft, (note.center[0], note.bottomright[1]), letter_colors[note.letter])
                 if accidental == "double_sharp":
-                    self.fill_in_feature(img, gray_img, (note.center[0], note.topleft[1], note.bottomright), letter_colors[note.letter])
+                    self.fill_in_feature(img, gray_img, (note.center[0], note.topleft[1]), note.bottomright, letter_colors[note.letter])
                 if accidental == "natural":
                     self.fill_in_feature(img, gray_img, note.topleft, note.bottomright, letter_colors[note.letter])
 

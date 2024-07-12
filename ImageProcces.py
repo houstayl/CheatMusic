@@ -167,7 +167,7 @@ class ImageProcessing:
         feature_list = self.array_types_dict[feature_type][page_index]
         min_distance = 1000000
         closest_feature = None
-        #barlines can be stored in 2d list, so convert to 1d to match how other features are stored
+        #TODO barlines can be stored in 2d list, so convert to 1d to match how other features are stored
         #print("feature_lsit before flatten:", feature_list)
 
         if self.is_list_2d(feature_list):
@@ -474,7 +474,8 @@ class ImageProcessing:
                 if self.notes[page_index] is not None:
                     for note in self.notes[page_index]:
                         if region.is_point_in_region(note.center):
-                            notes_in_region.append(note.copy())
+                            #notes_in_region.append(note.copy())
+                            notes_in_region.append(note)
                     region.notes = (notes_in_region)
                 else:
                     print("notes empty on page", page_index)
@@ -484,7 +485,9 @@ class ImageProcessing:
                     for accidental in self.accidentals[page_index]:
                         if region.is_point_in_region(accidental.center):
                             # print("inregion topleft: ", region.topleft, "bottomright: ", region.bottomright, "Center: ", accidental.get_center())
-                            accidentals_in_region.append(accidental.copy())
+                            #accidentals_in_region.append(accidental.copy())
+                            accidentals_in_region.append(accidental)
+
                     region.accidentals = (accidentals_in_region)
                 else:
                     print("Accidentals empty on page", page_index)
@@ -510,17 +513,60 @@ class ImageProcessing:
             for region in self.regions[i]:
                 region.fill_implied_lines()
 
+    def fill_in_feature(self, page_index, topleft, bottomright, color):
+        for i in range(topleft[1], bottomright[1], 1):
+            for j in range(topleft[0], bottomright[0], 1):
+                if self.gray_images[page_index][i][j] < 255 / 2:
+                    self.images[page_index][i][j] = color
 
     def draw_features(self, features, page_index, color):
         print("Drawing the features loop")
-        if features[page_index] is not None:
-            for feature in features[page_index]:
-                if type(feature) is not Feature:#if 2d list: barlines
-                    for f in feature:
-                        cv.rectangle(self.images[page_index], f.topleft, f.bottomright, color, 1)
+        feature_list = features[page_index]
+        if self.is_list_2d(features[page_index]):
+            print("2d list")
+            feature_list = self.flatten_2d_list(features[page_index])
+        # print("feature_lsit:",feature_list)
+        if feature_list is not None:
+            for feature in feature_list:
+                if feature is not None:
+                #if features[page_index] is not None:
+                #    for feature in features[page_index]:
+                #        if type(feature) is not Feature:#if 2d list: barlines
+                #            for f in feature:
+                #                cv.rectangle(self.images[page_index], f.topleft, f.bottomright, color, 1)
 
-                else:
-                    print("Drawing: ", feature)
+                    #print("Drawing: ", feature)
+                    # if it is a note or accidental that has a letter labeled
+                    if feature.letter != "":
+                        print("note: ", feature)
+                        if feature.accidental != "":
+                            print("note: ", feature)
+                            accidental = feature.accidental
+                            if accidental == "flat":
+                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]),
+                                                     feature.bottomright, self.letter_colors[feature.letter])
+                            if accidental == "sharp":
+                                self.fill_in_feature(page_index, feature.topleft,
+                                                     (feature.bottomright[0], feature.center[1]),
+                                                     self.letter_colors[feature.letter])
+
+                            if accidental == "double_flat":
+                                self.fill_in_feature(page_index, feature.topleft,
+                                                     (feature.center[0], feature.bottomright[1]),
+                                                     self.letter_colors[feature.letter])
+                            if accidental == "double_sharp":
+                                self.fill_in_feature(page_index,
+                                                     (feature.center[0], feature.topleft[1]), feature.bottomright,
+                                                     self.letter_colors[feature.letter])
+                            if accidental == "natural":
+                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
+                                                     self.letter_colors[feature.letter])
+
+                        else:  # note with no accidental
+                            self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
+                                                 self.letter_colors[feature.letter])
+                        # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
+                   # else:  # if not a note or accidental
                     cv.rectangle(self.images[page_index], feature.topleft, feature.bottomright, color, 1)
 
 
