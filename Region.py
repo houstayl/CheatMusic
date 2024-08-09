@@ -33,27 +33,64 @@ class Region:
                 closest_line = line
         return closest_line
 
-    def find_accidental_for_note(self):
+    '''
+    Given the center lien of a note, it finds the two adjacent implied lines and returns them in an array
+    If no adjacent lines are found, it returns an empty list
+    '''
+    def find_adjacent_lines(self, line):
+        for i in range(1, len(self.implied_lines) - 1):
+            if line.y == self.implied_lines[i].y:
+                return [self.implied_lines[i - 1].y, self.implied_lines[i + 1].y]
+        return []
+
+    def autosnap_notes_to_implied_line(self):
+        if self.notes is not None and len(self.notes) > 0:
+            for note in self.notes:
+                center = self.find_closest_line(note.center)
+                adjacent_implied_lines = self.find_adjacent_lines(center)
+                if len(adjacent_implied_lines) > 0:
+                    note.topleft = (note.topleft[0], adjacent_implied_lines[0])
+                    note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
+
+    def find_accidental_for_note(self, override=0):
         #todO KEY
         for note in self.notes:
             closest = 0
             for acc in self.accidentals:
+                print("accidental autosnapping", acc, "note: ", note.accidental)
                 # if note and accidental are on same line, and accidental is to left of note
                 #if acc.type == "flat":
                     #print("flat:", acc, "center: ", acc.get_center())
-                if note.center[1] == acc.center[1] and acc.center[0] < note.center[0]:
-                    #if fist accidental encountered
-                    if closest == 0:
-                        closest = acc
-                    #if there is another accidental on the same line
-                    else:
-                        #if current accidental is closer to note than the closest
-                        if acc.center[0] > closest.center[0]:
+                note_y = self.find_closest_line(note.center).y
+                #if note and accidental are on the same line and the accidental is to the left of the note and the note doesnt have an accidental
+                if override == 0:
+                    if note_y == acc.center[1] and acc.center[0] < note.center[0] and note.accidental == "":
+                        print("not overriding accidental")
+                        print("asdffd")
+                        #if first accidental encountered
+                        if type(closest) == int:
                             closest = acc
+                        #if there is another accidental on the same line
+                        else:
+                            #if current accidental is closer to note than the closest
+                            if acc.center[0] > closest.center[0]:
+                                closest = acc
+                else:
+                    print("overriding accidental")
+                    if note_y == acc.center[1] and acc.center[0] < note.center[0]:
+                        print("asdffd")
+                        #if first accidental encountered
+                        if type(closest) == int:
+                            closest = acc
+                        #if there is another accidental on the same line
+                        else:
+                            #if current accidental is closer to note than the closest
+                            if acc.center[0] > closest.center[0]:
+                                closest = acc
             #If accidental was found
-            if closest != 0:
+            if type(closest) != int:
                 note.accidental = closest.type#[letter, accidental]
-                #print("closest accidental: ", closest)
+                print("closest accidental: ", closest)
 
 
 
@@ -64,23 +101,21 @@ class Region:
     def autosnap_notes_and_accidentals(self):
         for i in range(len(self.notes)):
             self.autosnap(self.notes[i])
-
-
+            print("note", self.notes[i])
         for i in range(len(self.accidentals)):
             self.autosnap(self.accidentals[i])
-            #print("accidetnal: ", self.accidentals[i], "center: ", self.accidentals[i].center)
-            #closest_line = self.find_closest_line(self.accidentals[i].center)
-            #y_dif = closest_line[0] - self.accidentals[i].center[1]
-            #self.accidentals[i].topleft = (self.accidentals[i].topleft[0], self.accidentals[i].topleft[1] + y_dif)
-            #self.accidentals[i].bottomright = (self.accidentals[i].bottomright[0], self.accidentals[i].bottomright[1] + y_dif)
-            #self.accidentals[i].type = [self.accidentals[i].type, closest_line[1]]
-            #print("closest_line accidental", closest_line[0], self.accidentals[i].center[1], self.accidentals[i].type[0])
+            print("accidental", self.accidentals[i])
+
 
     def autosnap(self, feature):
         closest_line = self.find_closest_line(feature.center)
-        y_dif = closest_line.y - feature.center[1]
-        feature.topleft = (feature.topleft[0], feature.topleft[1] + y_dif)
-        feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
+        #y_dif = closest_line.y - feature.center[1]
+        #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
+        print("accidental autosnaped", closest_line.y)
+        #feature.center[1] = closest_line
+        feature.center = (feature.center[0], closest_line.y)
+        #feature.topleft = (feature.topleft[0], feature.topleft[1] + y_dif)
+        #feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
         feature.letter = closest_line.letter
 
 
@@ -89,32 +124,42 @@ class Region:
     Takes the stafflines. Finds the first staff line that is in the region. Then fills implied lines bases off that
     """
     def fill_implied_lines(self, all_staff_lines):
+        #TODO make work with 2 lines
         letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-        letter_index = 0
-        if self.clef == "t":
-            letter_index = 5
-        if len(all_staff_lines) % 5 != 0:
-            print("Staff line error. Not multiple of five")
-        #Find first staff line in the region, then base all other lines off of that one.
+        start_treble_index = 5
+        start_bass_index = 0
+        letter_index = start_bass_index
+        if self.clef == "treble_clef":
+            #print("treble clef ....")
+            letter_index = start_treble_index
+
+        lines_in_region = []
+        for line in all_staff_lines:
+            if self.topleft[1] < line < self.bottomright[1]:#if line is in region
+                lines_in_region.append(line)
+        if len(lines_in_region) > 1:
+            line_spacing = abs(lines_in_region[-1] - lines_in_region[0]) / 8
+        else:
+            print("missing staff line")
+
         for i in range(len(all_staff_lines) - 4):
             #if line is in region
             if self.topleft[1] < all_staff_lines[i] < self.bottomright[1]:
-                line_spacing = (all_staff_lines[i + 4] - all_staff_lines[i]) / 10
+                #line_spacing = (all_staff_lines[i + 4] - all_staff_lines[i]) / 8
                 start_line = all_staff_lines[i]
-                #draw lines starting from top of staff line and moving to bottom of region
-                for k in np.arange(start_line + line_spacing, self.bottomright[1], line_spacing):
-                    self.implied_lines.append(ImpliedLine(int(k), letters[letter_index]))
+                top_line = 0
+                #finding top implid line in the region
+                for k in np.arange(start_line - line_spacing, self.topleft[1], -1 * line_spacing):
+                    #self.implied_lines.append(ImpliedLine(int(k), letters[letter_index]))
                     letter_index = (letter_index + 1) % len(letters)
-                if self.clef == "t":
-                    letter_index = 4
-                else:
-                    letter_index = 6
-                # drawing lines starting from top staff line and drawing to top of region
-                for k in np.arange(start_line, self.topleft[1], -1 * line_spacing):
+                    top_line = k
+                #finding implied lines starting from top of region going down to bottom
+                for k in np.arange(top_line, self.bottomright[1], line_spacing):
                     self.implied_lines.append(ImpliedLine(int(k), letters[letter_index]))
                     letter_index = (letter_index - 1) % len(letters)
                 break
         #print("Implied lines: ", self.implied_lines)
+
 
     def fill_in_feature(self, img, gray_img, topleft, bottomright, color):
         for i in range(topleft[1], bottomright[1], 1):
@@ -137,7 +182,7 @@ class Region:
                 if accidental == "double_flat":
                     self.fill_in_feature(img, gray_img, note.topleft, (note.center[0], note.bottomright[1]), letter_colors[note.letter])
                 if accidental == "double_sharp":
-                    self.fill_in_feature(img, gray_img, (note.center[0], note.topleft[1], note.bottomright), letter_colors[note.letter])
+                    self.fill_in_feature(img, gray_img, (note.center[0], note.topleft[1]), note.bottomright, letter_colors[note.letter])
                 if accidental == "natural":
                     self.fill_in_feature(img, gray_img, note.topleft, note.bottomright, letter_colors[note.letter])
 
