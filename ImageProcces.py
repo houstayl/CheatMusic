@@ -23,24 +23,36 @@ class ImageProcessing:
         self.staff_lines = []
 
         self.letter_colors = {
-            'a': (103, 183, 58),
-            'b': (216, 161, 67),
-            'c': (247, 63, 45),
-            'd': (255, 41, 153),
-            'e': (255, 0, 225),
-            'f': (119, 52, 202),
-            'g': (0, 136, 150)
+            'a': (182, 58, 103),
+            'b': (160, 66, 216),
+            'c': (62, 47, 246),
+            'd': (41, 152, 254),
+            'e': (1, 224, 255),
+            'f': (52, 202, 119),
+            'g': (136, 151, 1)
         }
+        '''
+        self.letter_colors = {
+            'a': (103, 58, 182),
+            'b': (216, 66, 160),
+            'c': (246, 47, 62),
+            'd': (254, 152, 41),
+            'e': (255, 224, 1),
+            'f': (119, 202, 52),
+            'g': (1, 151, 136)
+        }
+        '''
         self.type_colors = {
             "bass_clef": (255, 0, 0),
-            "treble_clef": (0, 255, 0),
+            "treble_clef": (0, 125, 0),
             "note": (0, 0, 255),
             "barline": (0, 255, 255),
-            "double_flat": (255, 0, 255),
-            "flat": (255, 0, 255),
-            "natural": (255, 0, 255),
-            "sharp": (255, 0, 255),
+            "double_flat": (63, 0, 127),
+            "flat": (127, 0, 0),
+            "natural": (255, 255, 86),
+            "sharp": (0, 127, 255),
             "double_sharp": (255, 0, 255),
+            "staff_line": (0, 255, 0)
 
         }
 
@@ -49,6 +61,7 @@ class ImageProcessing:
         self.treble_clefs = [None] * self.num_pages
         self.bass_clefs = [None] * self.num_pages
         self.barlines = [None] * self.num_pages
+        self.barlines_2d = [None] * self.num_pages
 
         self.accidentals = [None] * self.num_pages
 
@@ -62,8 +75,8 @@ class ImageProcessing:
         for i in range(num_pages):
             self.images_filenames.append(dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
             self.images.append(cv.imread(self.images_filenames[i]))
-            self.image_heights.append(self.images[i].shape[1])  # TODO swap
-            self.image_widths.append(self.images[i].shape[0])
+            self.image_heights.append(self.images[i].shape[0])  # TODO swap
+            self.image_widths.append(self.images[i].shape[1])
             self.gray_images.append(cv.cvtColor(self.images[i], cv.COLOR_BGR2GRAY))
             self.bw_images.append(cv.threshold(self.gray_images[i], 200, 255, cv.THRESH_BINARY)[1])
             self.get_stafflines(page_index=-1)
@@ -82,7 +95,16 @@ class ImageProcessing:
             "note": self.notes,
             "staff_line": self.staff_lines
         }
+    '''
+    def __reduce__(self):
+        pass
+    '''
 
+    def __eq__(self, other):
+        for i in range(self.num_pages):
+            if len(other.treble_clefs[i]) == len(self.treble_clefs[i]) and len(self.bass_clefs[i]) == len(self.bass_clefs[i]) and len(other.barlines[i]) == len(self.barlines[i]):
+                if self.notes == other.notes and self.accidentals == other.acidentals:
+                    return
 
 
 
@@ -144,13 +166,6 @@ class ImageProcessing:
         if self.regions[page_index] is not None:
             pass#todo regenerate region
 
-    def is_list_2d(self, lst):
-        if lst is None:
-            return False
-        if isinstance(lst[0], list):#TODO make sure this works
-            return True
-        else:
-            return False
 
     def flatten_2d_list(self, lst):
         if lst is None:
@@ -170,9 +185,6 @@ class ImageProcessing:
         #TODO barlines can be stored in 2d list, so convert to 1d to match how other features are stored
         #print("feature_lsit before flatten:", feature_list)
 
-        if self.is_list_2d(feature_list):
-            print("2d list")
-            feature_list = self.flatten_2d_list(feature_list)
         #print("feature_lsit:",feature_list)
         for feature in feature_list:
             if self.is_point_within_feature((x, y), feature):
@@ -220,7 +232,7 @@ class ImageProcessing:
     def draw_stafflines(self, page_index):
         if self.staff_lines[page_index] is not None:
             for line in self.staff_lines[page_index]:
-                cv.line(self.images[page_index], (0, line), (self.image_widths[page_index], line), (0, 255, 0), 1)
+                cv.line(self.images[page_index], (0, line), (self.image_widths[page_index], line), self.type_colors["staff_line"], 1)
         cv.imwrite(self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(page_index) + ".png",
                    self.images[page_index])
 
@@ -285,6 +297,8 @@ class ImageProcessing:
                 # print(histogram[i], "removed")
                 histogram.remove(histogram[i])
                 # i = i + 1
+        #TODO only keep top and bottom staff_line
+
         # page index = -1 from constructor
         if page_index == -1:
             self.staff_lines.append(histogram)
@@ -304,66 +318,229 @@ class ImageProcessing:
         if features is not None:
             features.sort(key=lambda x: (x.topleft[1], x.topleft[0]))
 
+
+    def is_feature_in_rectange(self, feature, topleft, bottomright):
+        if topleft[0] < feature.center[0] < bottomright[0] and topleft[1] < feature.center[1] < bottomright[1]:
+            return True
+        else:
+            return False
+
+    def reset_accidentals(self, page_index, topleft, bottomright):
+        if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
+            for note in self.notes[page_index]:
+                if self.is_feature_in_rectange(note, topleft, bottomright) == True:
+                    note.accidental = ""
+
+    def set_key(self, page_index, topleft, bottomright, accidental_type, key):
+        if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
+            for note in self.notes[page_index]:
+                if self.is_feature_in_rectange(note, topleft, bottomright) == True and note.accidental == "":
+                    if note.letter in key:
+                        note.accidental = accidental_type
+
+    def do_features_overlap(self, one, two):
+        #if one feature is to the left
+        if one.bottomright[0] < two.topleft[0] or two.bottomright[0] < one.topleft[0]:
+            return False
+        #if one feature is above
+        if one.bottomright[1] < two.topleft[1] or two.bottomright[1] < one.topleft[1]:
+            return False
+        return True
+
+    def is_feature_to_left(self, one, two):
+        (x1_tl, y1_tl) = one.topleft
+        (x1_br, y1_br) = one.bottomright
+        (x2_tl, y2_tl) = two.topleft
+        (x2_br, y2_br) = two.bottomright
+
+        # Check if the left side of rect1 intersects with rect2
+        left_x1 = x1_tl
+        if x2_tl <= left_x1 <= x2_br:
+            # Check if the y ranges overlap
+            if not (y1_br < y2_tl or y1_tl > y2_br):
+                return True
+        return False
+
+
+    def is_feature_to_right(self, one, two):
+        (x1_tl, y1_tl) = one.topleft
+        (x1_br, y1_br) = one.bottomright
+        (x2_tl, y2_tl) = two.topleft
+        (x2_br, y2_br) = two.bottomright
+
+        # Check if the right side of rect1 intersects with rect2
+        right_x1 = x1_br
+        if x2_tl <= right_x1 <= x2_br:
+            # Check if the y ranges overlap
+            if not (y1_br < y2_tl or y1_tl > y2_br):
+                return True
+        return False
+
+    def is_feature_below(self, one, two):
+        (x1_tl, y1_tl) = one.topleft
+        (x1_br, y1_br) = one.bottomright
+        (x2_tl, y2_tl) = two.topleft
+        (x2_br, y2_br) = two.bottomright
+
+        # Check if the top side of rect1 intersects with rect2
+        top_y1 = y1_tl
+        if y2_br <= top_y1 <= y2_tl:
+            # Check if the x ranges overlap
+            if not (x1_br < x2_tl or x1_tl > x2_br):
+                return True
+        return False
+
+    def is_feature_above(self, one, two):
+        (x1_tl, y1_tl) = one.topleft
+        (x1_br, y1_br) = one.bottomright
+        (x2_tl, y2_tl) = two.topleft
+        (x2_br, y2_br) = two.bottomright
+
+        # Check if the bottom side of rect1 intersects with rect2
+        bottom_y1 = y1_br
+        if y2_br <= bottom_y1 <= y2_tl:
+            # Check if the x ranges overlap
+            if not (x1_br < x2_tl or x1_tl > x2_br):
+                return True
+        return False
+
+    def extend_notes(self, page_index, vertical, horizontal):
+        if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
+            for i in range(len(self.notes[page_index])):
+                note = self.notes[page_index][i]
+                note.topleft = (note.topleft[0] - horizontal, note.topleft[1] - vertical)
+                note.bottomright = (note.bottomright[0] + horizontal, note.bottomright[1] + vertical)
+                for j in range(len(self.notes[page_index])):
+                    if i != j:
+                        if horizontal != 0:#extending horizontally
+                            if self.is_feature_to_left(note, self.notes[page_index][j]) == True:#if overlapping
+                                note.topleft = (note.topleft[0] + horizontal, note.topleft[1])
+                            if self.is_feature_to_right(note, self.notes[page_index][j]) == True:
+                                note.bottomright = (note.bottomright[0] - horizontal, note.bottomright[1])
+                        else:#extending vertically
+                            '''
+                            if self.is_feature_above(note, self.notes[page_index][j]) == True:
+                                note.topleft = (note.topleft[0], note.topleft[1] + vertical)
+                            if self.is_feature_below(note, self.notes[page_index][j]) == True:
+                                note.bottomright = (note.bottomright[0], note.bottomright[1] - vertical)
+                            '''
+                            if self.do_features_overlap(note, self.notes[page_index][j]) == True:
+                                print("overlapping")
+                                note.topleft = (note.topleft[0] + horizontal, note.topleft[1] + vertical)
+                                note.bottomright = (note.bottomright[0] - horizontal, note.bottomright[1] - vertical)
+                                break
+                            #'''
+
+
+
+            '''
+            annotated_image = cv.imread(self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(page_index) + ".png")
+            gray_img = cv.cvtColor(annotated_image, cv.COLOR_BGR2GRAY)
+            for note in self.notes[page_index]:
+                tl = note.topleft
+                br = note.bottomright
+                #x_mid = int((br[0] + tl[0]) / 2)
+                #y_mid = int((br[1] + tl[1]) / 2)
+                darkness = 20
+                margin = 2
+                for y in range(tl[1] - 1, tl[1] - margin, -1):#extend top line up
+                    has_black = False
+                    print("moving top line")
+                    for x in range(tl[0], br[0], 1):
+                        if gray_img[y][x] < darkness:
+                            note.topleft = (tl[0], y)
+                            has_black = True
+                    if has_black == False:
+                        break
+                for y in range(br[1] + 1, br[1] + margin, 1):#Extend bottom line down#
+                    has_black = False
+                    print("moving bottom line")
+                    for x in range(tl[0], br[0], 1):
+                        print(gray_img[y][x])
+                        if gray_img[y][x] < darkness:
+                            note.bottomright = (br[0], y)
+                            has_black = True
+                    if has_black == False:
+                        break
+                for x in range(tl[0] - 1, tl[0] - margin, -1):#extend left side
+                    has_black = False
+                    print("moving left side")
+                    for y in range(tl[1], br[1], 1):
+                        if gray_img[y][x] < darkness:
+                            note.topleft = (x, tl[1])
+                            has_black = True
+                    if has_black == False:
+                        break
+                for x in range(br[0] + 1, br[0] + margin, 1):#Extend right side
+                    print("moving right side")
+                    has_black = False
+                    for y in range(tl[1], br[1], 1):
+                        if gray_img[y][x] < darkness:
+                            note.bottomright = (x, br[1])
+                            has_black = True
+                    if has_black == False:
+                        break
+            '''
+
+    def autosnap_notes_to_implied_line(self, page_index):
+        if self.regions[page_index] is not None and len(self.regions[page_index]) > 0:
+            for region in self.regions[page_index]:
+                region.autosnap_notes_to_implied_line()
+
     '''
     Takes set of bass_clef and treble_clef
     Sorts them from top to bottom then left to right in 2d array
     '''
 
     def sort_clefs(self, page_index, error=100):
-        #TODO multiple clefs in row
-        # Initialize all_clefs[page_index] as an empty list if not already initialized
+        #TODO ajust error
+        #todo multiple in row only onlast row
         if self.all_clefs[page_index] is None:
             self.all_clefs[page_index] = []
+        if self.treble_clefs[page_index] is not None and self.bass_clefs[page_index] is not None and len(self.treble_clefs[page_index]) > 0 and len(self.bass_clefs[page_index]) > 0:
+            length = len(self.bass_clefs[page_index]) + len(self.treble_clefs[page_index])
+        else:
+            print("no clefs on pags")
+            return
 
-        length = len(self.bass_clefs[page_index]) + len(self.treble_clefs[page_index])
-        i = 0
-        bass_index = 0
-        trebles_index = 0
-        current_row = []
+
         multiple_in_row = False
-
-        while i < length and trebles_index < len(self.treble_clefs[page_index]) and bass_index < len(
-                self.bass_clefs[page_index]):
-            # if clefs are in line with each other
-            if abs(self.bass_clefs[page_index][bass_index].topleft[1] -
-                   self.treble_clefs[page_index][trebles_index].topleft[1]) < error:
+        self.all_clefs[page_index] = self.treble_clefs[page_index] + self.bass_clefs[page_index]
+        self.sort_features(self.all_clefs[page_index])
+        #print("new all clefs")
+        #for i in self.all_clefs[page_index]:
+            #print(i.type, i.topleft)
+        temp = []
+        for i in range(len(self.all_clefs[page_index]) - 1):
+            #if clefs are in same row
+            if abs(self.all_clefs[page_index][i].topleft[1] - self.all_clefs[page_index][i + 1].topleft[1]) < error:
                 multiple_in_row = True
-                # left most clef
-                if self.bass_clefs[page_index][bass_index].topleft[0] < \
-                        self.treble_clefs[page_index][trebles_index].topleft[0]:
-                    current_row.append(self.bass_clefs[page_index][bass_index])
-                    bass_index += 1
-                else:
-                    current_row.append(self.treble_clefs[page_index][trebles_index])
-                    trebles_index += 1
+                current_row = [self.all_clefs[page_index][i], self.all_clefs[page_index][i + 1]]
+                i = i + 1
+                #while clefs are in same row
+                while i < len(self.all_clefs[page_index]) - 1:
+                    if abs(self.all_clefs[page_index][i].topleft[1] - self.all_clefs[page_index][i + 1].topleft[1]) < error:
+                        current_row.append(self.all_clefs[page_index][i + 1])
+                        i = i + 1
+                    else:
+                        break
+                #sort from left to right
+                current_row.sort(key=lambda x: x.topleft[0])
+                temp.append(current_row)
+            #clefs are not in same row
             else:
-                if multiple_in_row:
-                    self.all_clefs[page_index].append(current_row)
-                    current_row = []
                 multiple_in_row = False
-                # top most clef
-                if self.bass_clefs[page_index][bass_index].topleft[1] < \
-                        self.treble_clefs[page_index][trebles_index].topleft[1]:
-                    current_row.append(self.bass_clefs[page_index][bass_index])
-                    bass_index += 1
-                else:
-                    current_row.append(self.treble_clefs[page_index][trebles_index])
-                    trebles_index += 1
+                temp.append([self.all_clefs[page_index][i]])
+        #if on final iteration there was not multiple in row you have to add last clef because previous loop runs i - 1 times
+        if multiple_in_row == False:
+            temp.append([self.all_clefs[page_index][len(self.all_clefs[page_index]) - 1]])
+        self.all_clefs[page_index] = temp
 
-                self.all_clefs[page_index].append(current_row)
-                current_row = []
 
-        while bass_index < len(self.bass_clefs[page_index]):
-            current_row = [self.bass_clefs[page_index][bass_index]]
-            self.all_clefs[page_index].append(current_row)
-            bass_index += 1
-
-        while trebles_index < len(self.treble_clefs[page_index]):
-            current_row = [self.treble_clefs[page_index][trebles_index]]
-            self.all_clefs[page_index].append(current_row)
-            trebles_index += 1
-
-        print("All clefs ", self.all_clefs[page_index])
+        #print("All clefs ", self.all_clefs[page_index])
+        #for clef in self.all_clefs[page_index]:
+        #    for c in clef:
+                #print("clef: ", c.topleft, c.bottomright, c.type)
 
     '''
     Using sorted clefs, gets regions
@@ -377,6 +554,7 @@ class ImageProcessing:
             if i + 1 < len(self.staff_lines[page_index]):
                 region_lines.append(int((self.staff_lines[page_index][i] + self.staff_lines[page_index][i + 1]) / 2))
         region_lines.append(self.image_heights[page_index])
+        print("Image height: ", self.image_heights[page_index])
 
         if self.all_clefs[page_index] != None:
             #print("Clefs not empty")
@@ -384,7 +562,6 @@ class ImageProcessing:
                 for j in range(len(self.all_clefs[page_index][i])):
                     for k in range(len(region_lines)):
                         # find vertical region that clef lands in
-                        # print(all_clefs[i][j][0])
                         if self.all_clefs[page_index][i][j].topleft[1] < region_lines[k]:
                             # top left corner and bottom right corner
                             top_left = (self.all_clefs[page_index][i][j].topleft[0], region_lines[k - 1])
@@ -392,9 +569,11 @@ class ImageProcessing:
                             # if there are multiple clefs on this staff line, bottom right of region stops at next staff line
                             if len(self.all_clefs[page_index][i]) > 1:
                                 # if this staff isnt the right most staff that already goes to the end of the page
+                                print("multiple clefs on same line")
                                 if j != len(self.all_clefs[page_index][i]) - 1:
-                                    bottom_right = (
-                                    self.all_clefs[page_index][i][j + 1].topleft[0], region_lines[k - 1])
+                                    bottom_right = (self.all_clefs[page_index][i][j + 1].topleft[0], region_lines[k])
+                                    print("Multiple clefs on same line: bottom right: ", bottom_right)
+
                             r = Region(top_left, bottom_right, self.all_clefs[page_index][i][j].type, 0)
                             if self.regions[page_index] is None:
                                 self.regions[page_index] = [r]
@@ -405,6 +584,10 @@ class ImageProcessing:
         else:
             print("clefs are empty")
 
+        #print("Printing regions")
+        #for r in self.regions[page_index]:
+        #    print(r)
+
     '''
     Sorts the barlines into 2d array
     '''
@@ -413,21 +596,21 @@ class ImageProcessing:
         # Sort first by top to bottom, then left to right
         current_row = []
         sorted_bars = []
-
-        for i in range(len(self.barlines[page_index])):
-            if i < len(self.barlines[page_index]) - 1:
-                # Check if barlines are on the same line
-                if abs(self.barlines[page_index][i].topleft[1] - self.barlines[page_index][i + 1].topleft[1]) < error:
-                    current_row.append(self.barlines[page_index][i])
+        if self.barlines[page_index] is not None:
+            for i in range(len(self.barlines[page_index])):
+                if i < len(self.barlines[page_index]) - 1:
+                    # Check if barlines are on the same line
+                    if abs(self.barlines[page_index][i].topleft[1] - self.barlines[page_index][i + 1].topleft[1]) < error:
+                        current_row.append(self.barlines[page_index][i])
+                    else:
+                        current_row.append(self.barlines[page_index][i])
+                        sorted_bars.append(sorted(current_row, key=lambda tup: tup.topleft[0]))
+                        current_row = []
                 else:
+                    # Handle the last element
                     current_row.append(self.barlines[page_index][i])
                     sorted_bars.append(sorted(current_row, key=lambda tup: tup.topleft[0]))
-                    current_row = []
-            else:
-                # Handle the last element
-                current_row.append(self.barlines[page_index][i])
-                sorted_bars.append(sorted(current_row, key=lambda tup: tup.topleft[0]))
-        self.barlines[page_index] = sorted_bars
+        self.barlines_2d[page_index] = sorted_bars
         #print("Sorted barlines: ", self.barlines[page_index])
 
     def is_bar_in_region(self, region, bar):
@@ -442,7 +625,6 @@ class ImageProcessing:
     '''
     breaking up get_regions by barlines: #TODO make get regions into one
     '''
-
     def split_regions_by_bar(self, page_index):
         i = 0
         # TODO only call when regions are already split up by clef and barlines are sorted
@@ -450,21 +632,26 @@ class ImageProcessing:
             #print("Region not none")
             while i < len(self.regions[page_index]):
                 # print(regions_with_lines[i])
-                for j in range(len(self.barlines[page_index])):
-                    #print("Barline: row", self.barlines[page_index][j])
-                    for k in range(len(self.barlines[page_index][j])):
-                        if self.is_bar_in_region(self.regions[page_index][i], self.barlines[page_index][j][k]):
-                            new_region = self.regions[page_index][i].copy()
-                            new_region.type = "new region \n\n"
-                            new_topleft = (
-                            self.barlines[page_index][j][k].topleft[0], self.regions[page_index][i].topleft[1])
-                            new_region.topleft = new_topleft
-                            prev_bottomright = (
-                            self.barlines[page_index][j][k].topleft[0], self.regions[page_index][i].bottomright[1])
-                            self.regions[page_index][i].bottomright = prev_bottomright
-                            self.regions[page_index].insert(i + 1, new_region)
-                            # break
+                if self.barlines_2d[page_index] is not None:
+                    for j in range(len(self.barlines_2d[page_index])):
+                        #print("Barline: row", self.barlines_2d[page_index][j])
+                        for k in range(len(self.barlines_2d[page_index][j])):
+                            if self.is_bar_in_region(self.regions[page_index][i], self.barlines_2d[page_index][j][k]):
+                                new_region = self.regions[page_index][i].copy()
+                                new_region.type = "new region \n\n"
+                                new_topleft = (
+                                self.barlines_2d[page_index][j][k].topleft[0], self.regions[page_index][i].topleft[1])
+                                new_region.topleft = new_topleft
+                                prev_bottomright = (
+                                self.barlines_2d[page_index][j][k].topleft[0], self.regions[page_index][i].bottomright[1])
+                                self.regions[page_index][i].bottomright = prev_bottomright
+                                self.regions[page_index].insert(i + 1, new_region)
+                                # break
                 i = i + 1
+
+    def set_key_regions(self, page_index, key):
+        for region in self.regions[page_index]:
+            region.key = key;
 
     def find_notes_and_accidentals_in_region(self, page_index):
         if self.regions[page_index] is not None:#TODO is not None for all loops
@@ -518,28 +705,16 @@ class ImageProcessing:
                 if self.gray_images[page_index][i][j] < 255 / 2:
                     self.images[page_index][i][j] = color
 
-    def draw_features(self, features, page_index, color):
-        print("Drawing the features loop")
-        feature_list = features[page_index]
-        if self.is_list_2d(features[page_index]):
-            print("2d list")
-            feature_list = self.flatten_2d_list(features[page_index])
-        # print("feature_lsit:",feature_list)
-        if feature_list is not None:
-            for feature in feature_list:
+    def draw_features(self, features, page_index, draw_rectangle=True):
+        #print("Drawing the features loop")
+        if features[page_index] is not None:
+            for feature in features[page_index]:
                 if feature is not None:
-                #if features[page_index] is not None:
-                #    for feature in features[page_index]:
-                #        if type(feature) is not Feature:#if 2d list: barlines
-                #            for f in feature:
-                #                cv.rectangle(self.images[page_index], f.topleft, f.bottomright, color, 1)
-
-                    #print("Drawing: ", feature)
                     # if it is a note or accidental that has a letter labeled
                     if feature.letter != "":
-                        print("note: ", feature)
+                        #print("note: ", feature)
                         if feature.accidental != "":
-                            print("note: ", feature)
+                            #print("note: ", feature)
                             accidental = feature.accidental
                             if accidental == "flat":
                                 self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]),
@@ -565,15 +740,16 @@ class ImageProcessing:
                             self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
                                                  self.letter_colors[feature.letter])
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
-                   # else:  # if not a note or accidental
-                    cv.rectangle(self.images[page_index], feature.topleft, feature.bottomright, color, 1)
+                    else:
+                        if draw_rectangle == True:
+                            cv.rectangle(self.images[page_index], feature.topleft, feature.bottomright, self.type_colors[feature.type], 1)
 
 
     """
     Anytime match_template is called or filter is changed
     """
     def draw_image(self, filter_list, page_index):
-        print("Filter list", filter_list)
+        #print("Filter list", filter_list)
         if filter_list[0].get() == 1:#staffline
             self.draw_stafflines(page_index)
         if filter_list[1].get() == 1:#implied line
@@ -583,25 +759,22 @@ class ImageProcessing:
                         for line in region.implied_lines:
                             cv.line(self.images[page_index], (0, line.y), (self.image_widths[page_index], line.y), self.letter_colors[line.letter], 1)
         if filter_list[2].get() == 1:#bass clef
-            self.draw_features(self.bass_clefs, page_index, self.type_colors["bass_clef"])
+            self.draw_features(self.bass_clefs, page_index)
         if filter_list[3].get() == 1:#treble clef
-            print("Drawing treble clefs")
-            self.draw_features(self.treble_clefs, page_index, self.type_colors["treble_clef"])
+            #print("Drawing treble clefs")
+            self.draw_features(self.treble_clefs, page_index)
         if filter_list[4].get() == 1:#barline
-            self.draw_features(self.barlines, page_index, self.type_colors["barline"])
+            self.draw_features(self.barlines, page_index)
         if filter_list[5].get() == 1:#note
-            self.draw_features(self.notes, page_index, self.type_colors["note"])
+            self.draw_features(self.notes, page_index)
         if filter_list[6].get() == 1: #accidental
-            self.draw_features(self.accidentals, page_index, self.type_colors["flat"])
+            self.draw_features(self.accidentals, page_index)
         if filter_list[7].get() == 1:#region border
             if self.regions[page_index] is not None:
                 for region in self.regions[page_index]:
                     if region.clef == "bass_clef" or region.clef == "treble_clef":
                         cv.rectangle(self.images[page_index], region.topleft, region.bottomright, self.type_colors[region.clef], 1)
-        if filter_list[8].get() == 1:#Colored notes and accidentals
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    region.draw_region_fill_in_feature(self.images[page_index], self.gray_images[page_index], self.letter_colors)
+                        #print("Region: ", region.topleft, region.bottomright)
         print("drawing image")
         cv.imwrite(self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(page_index) + ".png", self.images[page_index])
         #clearing the image of drawings

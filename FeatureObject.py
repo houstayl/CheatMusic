@@ -1,15 +1,22 @@
 import copy
 
 class Feature:
-    def __init__(self, topleft, bottomright, width, height, type, center_y_offset = .5):
+    def __init__(self, topleft, bottomright, width, height, type, center_y_offset=.5):
         self.topleft = topleft
         self.bottomright = bottomright
         self.width = width
         self.height = height
         self.type = type
-        self.center = (int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * center_y_offset))
+        if self.type == "flat" or self.type == "double_flat":
+            self.center = (int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * .75))
+        else:
+            self.center = (int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * center_y_offset))
+
         self.letter = ""#letter only used for notes and accidentals
         self.accidental = ""#only used for notes with accidental
+    def __eq__(self, f):
+        return self.topleft == f.topleft and self.bottomright == f.bottomright and self.type == f.type#TODO maybe compare letter and accidental
+
     def get_topright(self):
         return (self.bottomright[0], self.topleft[1])
 
@@ -35,6 +42,8 @@ class Feature:
             self.accidental = accidental
         else:
             print("Current feature is not a note, so cant set accidental")
+    def __eq__(self, other):
+        return self.topleft == other.topleft and self.bottomright == other.bottomright and self.width == other.width and self.height == other.height and self.type == other.type and self.letter == other.letter and self.accidental == other.accidental
     def __str__(self):
         topleft_string = "(" + str(self.topleft[0]) + ", " + str(self.topleft[1]) + ")"
         bottomright_string = "(" + str(self.bottomright[0]) + ", " + str(self.bottomright[1]) + ")"
