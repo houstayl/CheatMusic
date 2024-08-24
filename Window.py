@@ -11,28 +11,56 @@ import cv2 as cv
 import numpy as np
 import pickle
 import copy
+from StaffLine import StaffLine
 
-
+'''
+Steps: Find clefs
+find staff lines
+find notes
+find accidentals
+find barlines
+generate regions
+expand notes horizontally
+autosnap
+expand notes vertically
+correct notes in wrong region
+'
+'''
 """
 TODO
 Big TODO
+    region override notes or not
+    half note detection: look around area of center: if mostly white. then recursion to find all white space that is enclosed
+    note centering: travel from center to right and left at same time. once white pizel is encountered, that is width
+    make all notes same size button
+    check if center of note runs along staff line 
+    dont move center on note on autosnap option
+    extending notes overlap: is edge in overlapping
+    save pdf for printing order
+    select off combobox
+    break up generate regions into individual pieces
+    half notes: if area around the center pixel is mostly white: draw from center: find first white pixel, then extend to first black pixel
+    extend notes in a single direction
+    barline: if line starts in clef area and ends in different clef area
+    find small white circles and fill them in
+    staffline drag 20 offset option
+    automatically find small notes
+    click and drag right click to remove
+    autosnapping notes that are on region border
+    expand horizontally and vertically
+    extending lines
+    sort clefs
+    staff line editing
+    parrallelize staff line detection
+    white note accidentals shown as left shade or right shade, c flat, b sharp, f flat e sharp
+    converts all notes into sharps or all notes into flats, display double flats as fully filled
+    fill in half note, find black line then fill no matter what color all the way down to mid
     draw notes over the accidentals
-    click to expand certain notes
-    for extend notes:dont do blackness scale, do until rectangles overlap
     on load binary: write annotated images
     blackness scale
-    autosnap notes further: find if colored spot borders black spot and change black spot to colored spot: and black spot is not in a note rectangleii
-    edit mode: get rid of corner moving and do side moving with keyboatrd only
-    fix keyboard controls
-    edit mode: expand rectangle
-    autosnap notes corners to implied lines. single and bulk
-    when adding features second time, dont allow overlap
-    once note is drawn with color, wont be removed by remove overlapping squares3
-    single click to add note
     edit mode select feature when zoomed in or scrolled
     remove overlaping squares loop "single"
     get_loop_array single
-    2 staff lines
     find name.pkl and name.pdf
     watermark
     use blackness bar for fill in feature
@@ -74,6 +102,28 @@ class ImageEditor(tk.Tk):
                                        textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
         self.selected_label.pack(pady=5)
 
+        # Setting the add mode
+        # editing_mode stores current state of edit
+        #self.editing_mode_label = tk.Label(self.left_frame, text="Editing Mode: ")
+        #self.editing_mode_label.pack()
+        #self.editing_modes = ["add", "edit"]
+        #self.editing_mode = tk.StringVar()
+        #self.editing_mode.set(self.editing_modes[0])
+        #self.add_mode_radio_button = ttk.Radiobutton(self.left_frame, text="Add", variable=self.editing_mode,
+        #                                             value=self.editing_modes[0], command=self.set_mode)
+        #self.add_mode_radio_button.pack()
+        #self.edit_mode_radio_button = ttk.Radiobutton(self.left_frame, text="Edit", variable=self.editing_mode,
+        #                                              value=self.editing_modes[1], command=self.set_mode)
+        #self.edit_mode_radio_button.pack()
+
+        # Setting how the features will be added to just the current page, all pages, or the current and next pages
+        self.add_mode_label = tk.Label(self.left_frame, text="Feature add mode:")
+        self.add_mode_label.pack()
+        self.add_mode_combobox_values = ["Current page and next pages", "Current Page", "All pages", "Single"]
+        self.add_mode_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.add_mode_combobox_values)
+        self.add_mode_combobox.current(0)
+        self.add_mode_combobox.pack()
+
         #Generate regions label
         self.generate_regions_button = tk.Button(self.left_frame, text="Generate Regions", command=self.generate_regions)
         self.generate_regions_button.pack(pady=5)
@@ -86,16 +136,16 @@ class ImageEditor(tk.Tk):
         self.remove_adjacents_button.pack(pady=5)
 
         #Autosnap notes button
-        self.auto_snap_notes_button = tk.Button(self.left_frame, text="Autosnap notes", command=self.autosnap_notes)
-        self.auto_snap_notes_button.pack()
+        #self.auto_snap_notes_button = tk.Button(self.left_frame, text="Autosnap notes", command=self.autosnap_notes)
+        #self.auto_snap_notes_button.pack()
 
         #Extend notes button
-        self.extend_notes_horizontal_button = tk.Button(self.left_frame, text="Extend notes horizontally", command=self.extend_notes_horizontal)
-        self.extend_notes_horizontal_button.pack()
+        #self.extend_notes_horizontal_button = tk.Button(self.left_frame, text="Extend notes horizontally", command=self.extend_notes_horizontal)
+        #self.extend_notes_horizontal_button.pack()
 
         #Extend notes verticlally
-        self.extend_notes_vertical_button = tk.Button(self.left_frame, text="Extend notes vertically", command=self.extend_notes_vertical)
-        self.extend_notes_vertical_button.pack()
+        #self.extend_notes_vertical_button = tk.Button(self.left_frame, text="Extend notes vertically", command=self.extend_notes_vertical)
+        #self.extend_notes_vertical_button.pack()
 
         #Undo label
         #This stores past versions of the self.image_processor object
@@ -113,8 +163,8 @@ class ImageEditor(tk.Tk):
         #self.redo_button.bind("<Button-1>", self.redo)
 
         #staff line generate button
-        self.generate_staff_lines_button = tk.Button(self.left_frame, text="Generate Staff lines", command=self.generate_staff_lines)
-        self.generate_staff_lines_button.pack(pady=5)
+        #self.generate_staff_lines_button = tk.Button(self.left_frame, text="Generate Staff lines", command=self.generate_staff_lines)
+        #self.generate_staff_lines_button.pack(pady=5)
         #self.generate_staff_lines_label.bind("<Button-1>", self.generate_staff_lines)
 
         #Staff line error scale
@@ -132,19 +182,18 @@ class ImageEditor(tk.Tk):
         self.threshold_scale.set(80)
         self.threshold_scale.pack()
 
+        #Used for three click staff line addition
+        self.staff_line_block_coordinates = []
+
+        #Used for two click diagonal staff line
+        self.staff_line_diagonal_coordinates = []
 
         #Feature Error Scale
         #self.feature_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Current feature error")
         #self.feature_error_scale.set(5)
         #self.feature_error_scale.pack()
 
-        #Setting how the features will be added to just the current page, all pages, or the current and next pages
-        self.add_mode_label = tk.Label(self.left_frame, text="Feature add mode:")
-        self.add_mode_label.pack()
-        self.add_mode_combobox_values = ["Current page and next pages", "Current Page", "All pages", "Single"]
-        self.add_mode_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.add_mode_combobox_values)
-        self.add_mode_combobox.current(0)
-        self.add_mode_combobox.pack()
+
 
         #Setting the key
         self.sharp_order = ['f', 'c', 'g', 'd', 'a', 'e', 'b']
@@ -157,33 +206,6 @@ class ImageEditor(tk.Tk):
         self.key_combobox.current(0)
         self.key_combobox.pack()
 
-        #Setting the add mode
-        #editing_mode stores current state of edit
-        self.editing_mode_label = tk.Label(self.left_frame, text="Editing Mode: ")
-        self.editing_mode_label.pack()
-        self.editing_modes = ["add", "edit"]
-        self.editing_mode = tk.StringVar()
-        self.editing_mode.set(self.editing_modes[0])
-        self.add_mode_radio_button = ttk.Radiobutton(self.left_frame, text="Add", variable=self.editing_mode, value=self.editing_modes[0], command=self.set_mode)
-        self.add_mode_radio_button.pack()
-        self.edit_mode_radio_button = ttk.Radiobutton(self.left_frame, text="Edit", variable=self.editing_mode, value=self.editing_modes[1], command=self.set_mode)
-        self.edit_mode_radio_button.pack()
-
-        self.corner_label = tk.Label(self.left_frame, text="Corner selected: ")
-        self.corner_label.pack()
-        self.editing_mode_corner = tk.StringVar()
-        self.editing_mode_corner_values = ["topleft", "bottomright", "topright", "bottomleft"]
-        self.editing_mode_corner.set(self.editing_mode_corner_values[0])
-        self.topleft_corner_radio_button = ttk.Radiobutton(self.left_frame, text="TopLeft corner", variable=self.editing_mode_corner, value=self.editing_mode_corner_values[0], command=self.set_corner)
-        self.topleft_corner_radio_button.pack()
-        self.bottomright_corner_radio_button = ttk.Radiobutton(self.left_frame, text="Bottomright corner", variable=self.editing_mode_corner, value=self.editing_mode_corner_values[1], command=self.set_corner)
-        self.bottomright_corner_radio_button.pack()
-        self.topright_corner_radio_button = ttk.Radiobutton(self.left_frame, text="Topright corner",variable=self.editing_mode_corner,value=self.editing_mode_corner_values[2],command=self.set_corner)
-        self.topright_corner_radio_button.pack()
-        self.bottomleft_corner_radio_button = ttk.Radiobutton(self.left_frame, text="Bottomleft corner",variable=self.editing_mode_corner,value=self.editing_mode_corner_values[3],command=self.set_corner)
-        self.bottomleft_corner_radio_button.pack()
-
-        #TODO editing mode: position of size editing
 
 
         #Filtering what is displayted
@@ -240,6 +262,11 @@ class ImageEditor(tk.Tk):
         self.num_notes_combobox.current(0)
         self.num_notes_combobox.pack()
 
+        self.page_indicator = tk.StringVar()
+        #self.page_indicator.set(str(self.image_index) + "/" + self.num_pages)
+        self.page_indicator_label = tk.Label(self.left_frame, textvariable=self.page_indicator)
+        self.page_indicator_label.pack()
+
 
 
 
@@ -260,16 +287,33 @@ class ImageEditor(tk.Tk):
         #Canvas Inputs
         self.canvas.config(yscrollcommand=self.vbar.set, xscrollcommand=self.hbar.set)
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
+        self.canvas.bind("<Control-ButtonPress-1>", self.on_control_button_press)
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
         self.canvas.bind("<MouseWheel>", self.scroll_vertical)
         self.canvas.bind("<Shift-MouseWheel>", self.scroll_horizontal)
+        self.canvas.bind("<ButtonPress-3>", self.on_right_click)
+        self.canvas.bind("<B3-Motion>", self.on_right_click_drag)
+        self.canvas.bind("<ButtonRelease-3>", self.on_right_click_release)
 
         #Changing the current image
         self.bind("<Left>", self.left_key_press)
         self.bind("<Right>", self.right_key_press)
         self.bind("<Up>", self.up_key_press)
         self.bind("<Down>", self.down_key_press)
+        self.bind("<Shift-Left>", self.shift_left_key_press)
+        self.bind("<Shift-Right>", self.shift_right_key_press)
+        self.bind("<Shift-Up>", self.shift_up_key_press)
+        self.bind("<Shift-Down>", self.shift_down_key_press)
+        self.bind("<Control-Left>", self.ctrl_left_key_press)
+        self.bind("<Control-Right>", self.ctrl_right_key_press)
+        self.bind("<Control-Up>", self.ctrl_up_key_press)
+        self.bind("<Control-Down>", self.ctrl_down_key_press)
+        self.bind("<Alt-Left>", self.alt_left_key_press)
+        self.bind("<Alt-Right>", self.alt_right_key_press)
+        self.bind("<Alt-Up>", self.alt_up_key_press)
+        self.bind("<Alt-Down>", self.alt_down_key_press)
+
 
         self.bind("<Key>", self.keypress)
         #self.bind("<Key>", self.keypress)
@@ -278,9 +322,9 @@ class ImageEditor(tk.Tk):
         self.image_processor = None
         self.num_pages = 0
         self.image = None
+
         self.image_index = 0
-        self.image_height = 0
-        self.image_width = 0
+        self.page_indicator.set(str(self.image_index + 1) + "/" + str(self.num_pages))
         self.photo = None
         self.rect = None
         self.rect_start = None
@@ -318,47 +362,199 @@ class ImageEditor(tk.Tk):
         view_menu.add_separator()
         view_menu.add_command(label="Fast editing mode", command=self.switch_fast_editing_mode)
 
-        #Staff line menu
+
+
+        #Set Feature Menu
+        set_feature_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Set Feature Type", menu=set_feature_menu)
+        set_feature_menu.add_command(label="Staff line(1 click)", command=lambda: self.set_feature_type("staff_line"))
+        set_feature_menu.add_command(label="Diagonal Staff Line(2 clicks)", command=lambda: self.set_feature_type("staff_line_diagonal"))
+        set_feature_menu.add_command(label="Staff line region(3 clicks)", command=lambda: self.set_feature_type("staff_line_block"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Bass Clef (r)", command=lambda :self.set_feature_type("bass_clef"))
+        set_feature_menu.add_command(label="Treble Clef (t)", command=lambda :self.set_feature_type("treble_clef"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Barline (y)", command=lambda :self.set_feature_type("barline"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Note (n)", command=lambda :self.set_feature_type("note"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Double Sharp (1)", command=lambda: self.set_feature_type("double_sharp"))
+        set_feature_menu.add_command(label="Sharp (2)", command=lambda: self.set_feature_type("sharp"))
+        set_feature_menu.add_command(label="Natural (3)", command=lambda: self.set_feature_type("natural"))
+        set_feature_menu.add_command(label="Flat (4)", command=lambda: self.set_feature_type("flat"))
+        set_feature_menu.add_command(label="Double Flat (5)", command=lambda: self.set_feature_type("double_flat"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Key (k)", command=lambda :self.set_feature_type("key"))
+        set_feature_menu.add_separator()
+        set_feature_menu.add_command(label="Key", command=lambda: self.set_feature_type("key"))
+
+
+
+        #Clef menu
+        clef_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Clef", menu=clef_menu)
+        clef_menu.add_command(label="Find page missing start clefs", command=self.find_page_with_missing_clefs)
+
+
+        # Staff line menu
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
-        staff_line_menu.add_command(label="Staff line", command=lambda :self.set_feature_type("staff_line"))
-        staff_line_menu.add_command(label="Show implied lines", command=self.todofunc)
+        # staff_line_menu.add_command(label="Staff line(1 click)", command=lambda :self.set_feature_type("staff_line"))
+        # staff_line_menu.add_command(label="Diagonal Staff Line(2 clicks)", command=lambda :self.set_feature_type("staff_line_diagonal"))
+        # staff_line_menu.add_command(label="Staff line region(3 clicks)", command=lambda :self.set_feature_type("staff_line_block"))
+        # staff_line_menu.add_separator()
+        staff_line_menu.add_command(label="Generate staff lines, horizontal", command=self.generate_staff_lines)
+        staff_line_menu.add_command(label="Generate staff lines, diagonal", command=self.generate_staff_lines_diagonal)
+        staff_line_menu.add_separator()
+        staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
 
-        #Bass clef menu
-        bass_clef_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Bass Clef", menu=bass_clef_menu)
-        bass_clef_menu.add_command(label="Bass Clef", command=lambda :self.set_feature_type("bass_clef"))#TODO bass clef or b
+        # Note menu
+        note_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Notes", menu=note_menu)
+        # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
+        note_menu.add_command(label="Autosnap notes", command=self.autosnap_notes)
+        note_menu.add_command(label="Extend notes horizontally", command=lambda: self.extend_notes(0, 0, 1, 1))
+        note_menu.add_command(label="Extend notes vertically", command=lambda: self.extend_notes(1, 1, 0, 0))
+        note_menu.add_separator()
+        note_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
+        note_menu.add_command(label="Extend notes up", command=lambda: self.extend_notes(1, 0, 0, 0))
+        note_menu.add_separator()
+        note_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
+        note_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
+        note_menu.add_separator()
+        note_menu.add_command(label="Make all notes same size", command=self.make_all_notes_same_size)
 
-        #Treble clef menu
-        treble_clef_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Treble Clef", menu=treble_clef_menu)
-        treble_clef_menu.add_command(label="Treble Clef", command=lambda :self.set_feature_type("treble_clef"))
+
 
         #Barline menu
         barline_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Barline", menu=barline_menu)
-        barline_menu.add_command(label="Barline", command=lambda :self.set_feature_type("barline"))
+        barline_menu.add_command(label="Generate barlines", command=self.get_barlines)
+        #barline_menu.add_command(label="Barline", command=lambda :self.set_feature_type("barline"))
 
-        #Note menu
-        note_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Notes", menu=note_menu)
-        note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
-
-        #Accidental menu
-        accidental_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Accidentals", menu=accidental_menu)
-        accidental_menu.add_command(label="Double Flat", command=lambda :self.set_feature_type("double_flat"))
-        accidental_menu.add_command(label="Flat", command=lambda :self.set_feature_type("flat"))
-        accidental_menu.add_command(label="Natural", command=lambda :self.set_feature_type("natural"))
-        accidental_menu.add_command(label="Sharp", command=lambda :self.set_feature_type("sharp"))
-        accidental_menu.add_command(label="Double Sharp", command=lambda :self.set_feature_type("double_sharp"))
 
         #Key menu
         key_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Key", menu=key_menu)
-        key_menu.add_command(label="Key", command=lambda :self.set_feature_type("key"))
+        key_menu.add_command(label="Set key for current page", command=self.set_key_for_current_page)
+
+        #Region menu
+        region_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Region", menu=region_menu)
+        region_menu.add_command(label="Set key for current page", command=self.set_key_for_current_page)
+
+        #Reset menu
+        reset_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Reset", menu=reset_menu)
+        reset_menu.add_command(label="Staff lines", command=lambda: self.clear_feature("staff_line"))
+        reset_menu.add_command(label="Treble clefs", command=lambda: self.clear_feature("treble_clef"))
+        reset_menu.add_command(label="Bass Clefs", command=lambda: self.clear_feature("bass_clef"))
+        reset_menu.add_command(label="Barlines", command=lambda: self.clear_feature("barline"))
+        reset_menu.add_command(label="Notes", command=lambda: self.clear_feature("note"))
+        reset_menu.add_command(label="Accidentals", command=lambda :self.clear_feature("natural"))#Natural will map to accidentals
+        reset_menu.add_separator()
+        reset_menu.add_command(label="Double Sharp", command=lambda: self.clear_accidental_type("double_sharp"))
+        reset_menu.add_command(label="Sharp", command=lambda: self.clear_accidental_type("sharp"))
+        reset_menu.add_command(label="Natural", command=lambda: self.clear_accidental_type("natural"))
+        reset_menu.add_command(label="Flat", command=lambda: self.clear_accidental_type("flat"))
+        reset_menu.add_command(label="Double Flat", command=lambda: self.clear_accidental_type("double_flat"))
+        reset_menu.add_separator()
+        reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
+        reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
 
 
+    def make_all_notes_same_size(self):
+        for i in range(len(self.num_pages)):
+            self.image_processor.make_all_notes_same_size(i)
+    def reset_note_and_accidental_letters(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.notes[i] is not None:
+                for note in self.image_processor.notes[i]:
+                    note.letter = ""
+                    note.accidental = ""
+            if self.image_processor.accidentals[i] is not None:
+                for acc in self.image_processor.accidentals[i]:
+                    acc.letter = ""
+        self.draw_image_with_filters()
+
+    def set_key_for_current_page(self):
+        topleft = [0,0]
+        bottomright = [self.image_processor.image_widths[self.image_index] - 1, self.image_processor.image_heights[self.image_index] - 1]
+
+        key = self.key_combobox.get()
+        if key == "None":
+            print("key is none")
+            # todo get rid of all accidentals for none key
+            self.image_processor.reset_accidentals(self.image_index, topleft, bottomright)
+        elif "sharp" in key:
+            num_sharp = int(key[0])
+            letters = self.sharp_order[0: num_sharp]
+            print("Key: ", key, "letters: ", letters)
+            self.image_processor.set_key(self.image_index, topleft, bottomright, "sharp", letters)
+        elif "flat" in key:
+            num_flat = int(key[0])
+            letters = self.flat_order[0: num_flat]
+            print("Key: ", key, "letters: ", letters)
+            self.image_processor.set_key(self.image_index, topleft, bottomright, "flat", letters)
+        else:
+            print("someghing bad happened with key combobox values")
+
+        self.draw_image_with_filters()
+
+    def get_barlines(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.get_barlines(i)
+        self.draw_image_with_filters()
+
+    def find_page_with_missing_clefs(self):
+        loop = range(self.num_pages)
+        for i in loop:
+            if self.image_processor.is_page_missing_clef(i):
+                print("Page " + str(i) + " needs clef action")
+                self.image_index = i
+                self.draw_image_with_filters()
+                return
+            else:
+                pass
+        print("starting clefs good")
+
+    def find_page_with_wrong_staff_lines(self):
+        loop = range(self.num_pages)
+        for i in loop:
+            lines = self.image_processor.staff_lines[i]
+            #If staff lines is note multiple of 5
+            if lines is not None and len(lines) % 5 == 0:
+                pass
+            else:
+                print("Page " + str(i) + "needs staff line action")
+                self.image_index = i
+                self.draw_image_with_filters()
+                return
+        #if clef doesnt have 5 staff lines
+        for i in loop:
+            if self.image_processor.does_page_have_staff_line_error(i):
+                print("Page " + str(i) + "needs staff line action")
+                self.image_index = i
+                self.draw_image_with_filters()
+                break
+            else:
+                pass
+        print("staff lines good")
+
+    def extend_notes(self, up, down, left, right):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            self.image_processor.extend_notes(i, up, down, left, right)
+        self.draw_image_with_filters()
+    '''
     def extend_notes_vertical(self):
         loop_list = self.get_loop_array_based_on_feature_mode()
         if loop_list == "single":
@@ -374,6 +570,40 @@ class ImageEditor(tk.Tk):
         for i in loop_list:
             self.image_processor.extend_notes(i, vertical=0, horizontal=1)
         self.draw_image_with_filters()
+
+    def extend_notes_down(self):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            self.image_processor.extend_notes_down(i)
+        self.draw_image_with_filters()
+    
+    def extend_notes_up(self):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            self.image_processor.extend_notes_up(i)
+        self.draw_image_with_filters()
+        
+    def extend_notes_left(self):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            self.image_processor.extend_notes_left(i)
+        self.draw_image_with_filters()
+        
+    def extend_notes_right(self):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            self.image_processor.extend_notes_right(i)
+        self.draw_image_with_filters()
+        
+    '''
 
     def autosnap_notes(self):
         loop_array = self.get_loop_array_based_on_feature_mode()
@@ -391,20 +621,21 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def rotate_cw(self):
-        image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
-        image = image.rotate(45, expand=True)
-        image.save(self.dirname + '\\SheetsMusic/page' + str(self.image_index) + '.jpg')
+        image = Image.open(self.image_processor.images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
+        image = image.rotate(.359, fillcolor=(255, 255, 255), expand=True)
+        image.save(self.image_processor.images_filenames[self.image_index])#self.dirname + '\\SheetsMusic/page' + str(self.image_index) + '.jpg')
         #self.image_processor.staff_lines = []
         self.generate_staff_lines(page_index=self.image_index)
-        #self.display_image()
+        self.draw_image_with_filters()
 
     def rotate_ccw(self):
-        image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
-        image = image.rotate(1, expand=True)
-        image.save(self.dirname + '\\SheetsMusic/page' + str(self.image_index) + '.jpg')
+        #TOdo rotate based of of user input
+        image = Image.open(self.image_processor.images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
+        image = image.rotate(.1, fillcolor=(255, 255, 255), expand=True)
+        image.save(self.image_processor.images_filenames[self.image_index])#self.dirname + '\\SheetsMusic/page' + str(self.image_index) + '.jpg')
         #cv.imwrite(self.dirname + '\\SheetsMusic/page' + str(self.image_index) + '.jpg', image)
         self.generate_staff_lines(page_index=self.image_index)
-        #self.display_image()
+        self.draw_image_with_filters()
 
     def undo(self):
         #print("undo features: ", self.undo_features)
@@ -446,11 +677,9 @@ class ImageEditor(tk.Tk):
         print()
         self.draw_image_with_filters()
 
-    def set_mode(self):
-        print("current mode: ", self.editing_mode.get())
+    #def set_mode(self):
+    #    print("current mode: ", self.editing_mode.get())
 
-    def set_corner(self):
-        print("current corner: ", self.editing_mode_corner.get())
 
     def get_loop_array_based_on_feature_mode(self):
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[0]:#current page and next
@@ -462,18 +691,32 @@ class ImageEditor(tk.Tk):
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[3]:#single feature, no match_template
             return "single"
 
+    def generate_staff_lines_diagonal(self, page_index=None):
+        error_value = self.staff_line_error_scale.get()
+        blackness_threshold_value = self.staff_line_blackness_threshold_scale.get()
+        if page_index is None:
+            loop = self.get_loop_array_based_on_feature_mode()
+            if loop == "single":
+                loop = [self.image_index]
+            for i in loop:
+                self.image_processor.get_staff_lines_diagonal_recursive(i, error_value)
+        else:
+            self.image_processor.get_staff_lines_diagonal_recursive(self.image_index)
+        self.draw_image_with_filters()
+
     def generate_staff_lines(self, page_index=None):
 
         error_value = self.staff_line_error_scale.get()
         blackness_threshold_value = self.staff_line_blackness_threshold_scale.get()
         if page_index is None:
-            for i in self.get_loop_array_based_on_feature_mode():
-                self.image_processor.get_stafflines(page_index=i, error=error_value, blackness_threshold=blackness_threshold_value)
-                #self.image_processor.draw_stafflines(page_index=i)
-                self.draw_image_with_filters()
+            loop = self.get_loop_array_based_on_feature_mode()
+            if loop == "single":
+                loop = [self.image_index]
+            for i in loop:
+                self.image_processor.get_staff_lines(page_index=i, error=error_value, blackness_threshold=blackness_threshold_value)
         else:
-            self.image_processor.get_stafflines(page_index=self.image_index, error=error_value, blackness_threshold=blackness_threshold_value)
-            self.draw_image_with_filters()
+            self.image_processor.get_staff_lines(page_index=self.image_index, error=error_value, blackness_threshold=blackness_threshold_value)
+        self.draw_image_with_filters()
 
     def generate_regions(self):
         print("Generating Regions")
@@ -486,27 +729,21 @@ class ImageEditor(tk.Tk):
                 self.image_processor.all_clefs[i].clear()
             if self.image_processor.regions[i] is not None:
                 self.image_processor.regions[i].clear()
-            if self.image_processor.treble_clefs[i] is not None and len(self.image_processor.treble_clefs[i]) > 0:
-                error = abs(self.image_processor.treble_clefs[i][0].topleft[1] - self.image_processor.treble_clefs[i][0].bottomright[1]) / 2
-            else:
-                error = 100
-            self.image_processor.sort_clefs(i, error=error)
+            self.image_processor.sort_clefs(i)
             self.image_processor.get_clef_regions(i)
             #self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
             self.image_processor.sort_barlines(i, error=30)
             self.image_processor.split_regions_by_bar(i)
-            #todo set key
-            #self.image_processor.set_key_regions(i, self.key_combobox.get())
             self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
+                #print("num regions:", len(self.image_processor.regions[i]))
                 for region in self.image_processor.regions[i]:
-                    region.fill_implied_lines(self.image_processor.staff_lines[i])
+                    region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
                     region.autosnap_notes_and_accidentals()
                     region.find_accidental_for_note(override=0)
                     #print("region: ", region)
             #self.image_processor.draw_regions(i)
         self.draw_image_with_filters()
-        #self.display_image()
 
     def remove_adjacent_matches_all(self):
         print("Removing adjacent matches")
@@ -529,10 +766,38 @@ class ImageEditor(tk.Tk):
             "Change out of single mode to remove overlapping squares"
         self.draw_image_with_filters()
 
+    def clear_region(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.regions[i] = []
+        self.draw_image_with_filters()
+
+    def clear_accidental_type(self, type):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            for acc in self.image_processor.accidentals[i]:
+                if acc.type == type:
+                    self.image_processor.accidentals[i].remove(acc)
+        self.draw_image_with_filters()
+
+    def clear_feature(self, feature_type):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.array_types_dict[feature_type][i] = []
+        self.draw_image_with_filters()
+
     def set_feature_type(self, feature_name):
+        if "staff_line" in feature_name:
+            self.staff_line_block_coordinates = []
         self.current_feature_type = feature_name
         self.selected_label_text.set("Current Feature Selected: \n " + self.current_feature_type)
-        print("Feature: ", self.current_feature_type, "Mode: ", self.editing_mode.get())
+        print("Feature: ", self.current_feature_type)
 
     def set_key(self, topleft, bottomright):
         loop_array = self.get_loop_array_based_on_feature_mode()
@@ -567,71 +832,73 @@ class ImageEditor(tk.Tk):
             self.zoom_in()
         if c == 'o' or c == "O":
             self.zoom_out()
-        if self.editing_mode.get() == "edit":
-            if self.current_feature is not None:
-                if c == 'a' or c == "A":
-                    self.current_feature.set_letter('a')
-                    self.draw_image_with_filters()
-                if c == 'b' or c == "B":
-                    self.current_feature.set_letter('b')
-                    self.draw_image_with_filters()
-                if c == 'c' or c == "C":
-                    self.current_feature.set_letter('c')
-                    self.draw_image_with_filters()
-                if c == 'd' or c == "D":
-                    self.current_feature.set_letter('d')
-                    self.draw_image_with_filters()
-                if c == 'e' or c == "E":
-                    self.current_feature.set_letter('e')
-                    self.draw_image_with_filters()
-                if c == 'f' or c == "F":
-                    self.current_feature.set_letter('f')
-                    self.draw_image_with_filters()
-                if c == 'g' or c == "G":
-                    self.current_feature.set_letter('g')
-                    self.draw_image_with_filters()
-                if c == 'x' or c == "X":#DELETE
-                    self.image_processor.remove_feature(self.current_feature, self.image_index)
-                    print("deleted feature")
-                    self.current_feature = None
-                    self.draw_image_with_filters()
-                    self.display_image()
-                if c == 'm' or c == "M":#CHANGE mode BETWEEN position and size
-                    pass
-                if c == '1':
-                    self.current_feature.set_accidental("double_sharp")
-                    self.draw_image_with_filters()
-                if c == '2':
-                    self.current_feature.set_accidental("sharp")
-                    self.draw_image_with_filters()
-                if c == '3':
-                    self.current_feature.set_accidental("natural")
-                    self.draw_image_with_filters()
-                if c == '4':
-                    self.current_feature.set_accidental("flat")
-                    self.draw_image_with_filters()
-                if c == '5':
-                    self.current_feature.set_accidental("double_flat")
-                    self.draw_image_with_filters()
-                if c == '.':
-                    print('Change corner being editied')
-                    if self.editing_mode_corner.get() != self.editing_mode_corner_values[0]:
-                        #print("topleft", self.editing_mode_corner_values[0])
-                        self.editing_mode_corner.set(self.editing_mode_corner_values[0])
-                        #print(self.editing_mode_corner.get())
-                    else:
-                        #print("bottomright", self.editing_mode_corner_values[1])
-                        self.editing_mode_corner.set(self.editing_mode_corner_values[1])
-                        #print(self.editing_mode_corner.get())
-        if self.editing_mode.get() == "add":
+        if c == 's' or c == "S":
+            self.set_feature_type("staff_line")
+        if c == 'r' or c == "R":
+            self.set_feature_type("bass_clef")
+        if c == 't' or c == "T":
+            self.set_feature_type("treble_clef")
+        if c == 'n' or c == "N":
+            self.set_feature_type("note")
+        if c == 'y' or c == "Y":
+            self.set_feature_type("barline")
+        if c == 'k' or c == "K":
+            self.set_feature_type("key")
+        #if c == ',':
+        #    if self.editing_mode.get() == self.editing_modes[0]:#currently add
+        #        self.editing_mode.set(self.editing_modes[1])
+        #    else:#currently edit
+        #        self.editing_mode.set(self.editing_modes[0])
+        if c == "[":
+            self.previous_image()
+        if c == "]":
+            self.next_image()
+
+        if self.current_feature is not None:
+            if c == 'a' or c == "A":
+                self.current_feature.set_letter('a')
+                self.draw_image_with_filters()
             if c == 'b' or c == "B":
-                self.set_feature_type("bass_clef")
-            if c == 't' or c == "T":
-                self.set_feature_type("treble_clef")
-            if c == 'n' or c == "N":
-                self.set_feature_type("note")
-            if c == 'v' or c == "V":
-                self.set_feature_type("barline")
+                self.current_feature.set_letter('b')
+                self.draw_image_with_filters()
+            if c == 'c' or c == "C":
+                self.current_feature.set_letter('c')
+                self.draw_image_with_filters()
+            if c == 'd' or c == "D":
+                self.current_feature.set_letter('d')
+                self.draw_image_with_filters()
+            if c == 'e' or c == "E":
+                self.current_feature.set_letter('e')
+                self.draw_image_with_filters()
+            if c == 'f' or c == "F":
+                self.current_feature.set_letter('f')
+                self.draw_image_with_filters()
+            if c == 'g' or c == "G":
+                self.current_feature.set_letter('g')
+                self.draw_image_with_filters()
+            if c == '1':
+                self.current_feature.set_accidental("double_sharp")
+                self.draw_image_with_filters()
+            if c == '2':
+                self.current_feature.set_accidental("sharp")
+                self.draw_image_with_filters()
+            if c == '3':
+                self.current_feature.set_accidental("natural")
+                self.draw_image_with_filters()
+            if c == '4':
+                self.current_feature.set_accidental("flat")
+                self.draw_image_with_filters()
+            if c == '5':
+                self.current_feature.set_accidental("double_flat")
+                self.draw_image_with_filters()
+            if c == 'x' or c == "X":#DELETE
+                self.image_processor.remove_feature(self.current_feature, self.image_index)
+                print("deleted feature")
+                self.current_feature = None
+                self.draw_image_with_filters()
+
+
+        else:
             if c == '1':
                 self.set_feature_type("double_sharp")
             if c == '2':
@@ -642,12 +909,7 @@ class ImageEditor(tk.Tk):
                 self.set_feature_type("flat")
             if c == '5':
                 self.set_feature_type("double_flat")
-            if c == 'l' or c == "L":
-                #TODO staff line
-                pass
 
-
-        #TODO button to change mode
 
 
 
@@ -655,9 +917,11 @@ class ImageEditor(tk.Tk):
         print("event", event)
 
     def scroll_vertical(self, event):
+        self.current_feature = None
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def scroll_horizontal(self, event):
+        self.current_feature = None
         self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def open_pdf(self):
@@ -687,8 +951,7 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
                 self.image_processor.draw_features(self.image_processor.notes, i, draw_rectangle=False)
                 self.image_processor.draw_features(self.image_processor.accidentals, i, draw_rectangle=False)
-                cv.imwrite(self.image_processor.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(i) + ".png",
-                           self.image_processor.images[i])
+                cv.imwrite(self.image_processor.annotated_images_filenames[i], self.image_processor.images[i])
 
                 print("test", folder + "\\annotated" + str(i) + ".png")
                 images.append(Image.open(folder + "\\annotated" + str(i) + ".png"))
@@ -711,6 +974,8 @@ class ImageEditor(tk.Tk):
         else:
             path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
             with open(path, "wb") as file:
+                for i in range(self.num_pages):
+                    self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
                 pickle.dump(self.image_processor, file)
                 pickle.dump(self.file_name, file)
 
@@ -730,7 +995,7 @@ class ImageEditor(tk.Tk):
                 print("filename: ", self.file_name)
                 #write the images
                 for i in range(self.num_pages):
-                    cv.imwrite(self.dirname + '\\SheetsMusic/page' + str(i) + '.jpg', self.image_processor.images[i])
+                    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
                 self.draw_image_with_filters()
         else:
             file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
@@ -742,7 +1007,7 @@ class ImageEditor(tk.Tk):
                 self.dirname = self.image_processor.dirname
                 # write the images
                 for i in range(self.num_pages):
-                    cv.imwrite(self.dirname + '\\SheetsMusic/page' + str(i) + '.jpg', self.image_processor.images[i])
+                    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
                 self.draw_image_with_filters()
 
     def display_image(self):
@@ -751,15 +1016,20 @@ class ImageEditor(tk.Tk):
 
         if self.draw_jpg.get() == 0:
             print("drawing image on jpg")
-            self.image = Image.open(self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+            self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
             self.photo = ImageTk.PhotoImage(
                 self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
             self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
+            if self.current_feature is not None:
+                f = self.current_feature
+                topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
+                bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
+                self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
         else:
             print("Drawing image on canvas")
             #self.image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
-            self.image = Image.open(self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+            self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
 
             self.photo = ImageTk.PhotoImage(
                 self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
@@ -768,6 +1038,7 @@ class ImageEditor(tk.Tk):
             self.draw_features_on_canvas()
 
     def draw_features_on_canvas(self):
+
         if self.image_processor.notes[self.image_index] is not None:
             for feature in self.image_processor.notes[self.image_index]:
                 self.draw_cross_hairs(feature, "red")
@@ -776,11 +1047,20 @@ class ImageEditor(tk.Tk):
             for feature in self.image_processor.accidentals[self.image_index]:
                 self.draw_cross_hairs(feature, "purple")
 
-
         if self.image_processor.staff_lines[self.image_index] is not None:
             for line in self.image_processor.staff_lines[self.image_index]:
-                line = int(line * self.scale)
-                self.canvas.create_line(0, line, self.image_processor.image_widths[self.image_index], line, fill="green")
+                #line = int(line * self.scale)
+                x0 = int(line.topleft[0] * self.scale)
+                y0 = int(line.topleft[1] * self.scale)
+                x1 = int(line.bottomright[0] * self.scale)
+                y1 = int(line.bottomright[1] * self.scale)
+                self.canvas.create_line(x0, y0, x1, y1, fill="green")
+
+        if self.current_feature is not None:
+            f = self.current_feature
+            topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
+            bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
+            self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
 
     def draw_cross_hairs(self, feature, color):
 
@@ -791,110 +1071,174 @@ class ImageEditor(tk.Tk):
         x1 = int(feature.bottomright[0] * self.scale)
         y1 = int(feature.bottomright[1] * self.scale)
 
-        self.canvas.create_rectangle(x0, y0, x1,
-                                     y1, outline=color)
+        self.canvas.create_rectangle(x0, y0, x1, y1, outline=color)
         self.canvas.create_line(x0, y_mid, x1, y_mid, fill=color)
         self.canvas.create_line(x_mid, y0, x_mid, y1, fill=color)
 
     def left_key_press(self, event):
         print("left key pressed")
-        if self.editing_mode.get() == self.editing_modes[0]:#add
+        if self.current_feature is not None:
+            if self.current_feature.topleft[0] > 0:
+                self.current_feature.topleft[0] = self.current_feature.topleft[0] - 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+        else:
             self.previous_image()
-        elif self.editing_mode.get() == self.editing_modes[1]:#edit
-            if self.current_feature is not None:
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[0]: #topleft
-                    if self.current_feature.topleft[0] > 0:
-                        self.current_feature.topleft = (self.current_feature.topleft[0] - 1, self.current_feature.topleft[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[1]:  # bottomright
-                    if self.current_feature.bottomright[0] > 0 and self.current_feature.bottomright[0] > self.current_feature.topleft[0]:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0] - 1, self.current_feature.bottomright[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[2]:  # topright
-                    if self.current_feature.bottomright[0] > 0 and self.current_feature.bottomright[0] > self.current_feature.topleft[0]:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0] - 1, self.current_feature.bottomright[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[3]:  # bottomleft
-                    if self.current_feature.topleft[0] > 0:
-                        self.current_feature.topleft = (self.current_feature.topleft[0] - 1, self.current_feature.topleft[1])
-                print("Updated feature: ", self.current_feature)
-                self.draw_image_with_filters()
-                self.display_image()
+
 
 
 
 
     def right_key_press(self, event):
         print("right key pressed")
-        if self.editing_mode.get() == self.editing_modes[0]:  # add
+        if self.current_feature is not None:
+            image_width = self.image_processor.image_widths[self.image_index]
+            if self.current_feature.bottomright[0] < image_width - 1:
+                self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+        else:
             self.next_image()
-        elif self.editing_mode.get() == self.editing_modes[1]:  # edit
-            if self.current_feature is not None:
-                image_width = self.image_processor.image_widths[self.image_index]
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[0]:  # topleft
-                    if self.current_feature.topleft[0] < self.current_feature.bottomright[0] and self.current_feature.topleft[0] < image_width:
-                        self.current_feature.topleft = (self.current_feature.topleft[0] + 1, self.current_feature.topleft[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[1]:  # bottomright
-                    if self.current_feature.bottomright[0] < image_width:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0] + 1, self.current_feature.bottomright[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[2]:  # topright
-                    if self.current_feature.bottomright[0] < image_width:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0] + 1, self.current_feature.bottomright[1])
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[3]:  # bottomleft
-                    if self.current_feature.topleft[0] < self.current_feature.bottomright[0] and self.current_feature.topleft[0] < image_width:
-                        self.current_feature.topleft  = (self.current_feature.topleft[0] + 1, self.current_feature.topleft[1])
-                print("Updated feature: ", self.current_feature)
-                self.draw_image_with_filters()
-                #self.display_image()
 
     def up_key_press(self, event):
-        if self.editing_mode.get() == self.editing_modes[0]:  # add
-            pass
-        elif self.editing_mode.get() == self.editing_modes[1]:  # edit
-            if self.current_feature is not None:
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[0]:  # topleft
-                    if self.current_feature.topleft[1] > 0:
-                        self.current_feature.topleft = (self.current_feature.topleft[0], self.current_feature.topleft[1] - 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[1]:  # bottomright
-                    if self.current_feature.bottomright[1] > 0 and self.current_feature.bottomright[1] > self.current_feature.topleft[1]:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0], self.current_feature.bottomright[1] - 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[2]:  # topright
-                    if self.current_feature.bottomright[1] > 0 and self.current_feature.bottomright[1] > self.current_feature.topleft[1]:
-                        self.current_feature.topleft = (self.current_feature.topleft[0], self.current_feature.topleft[1] - 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[3]:  # bottomleft
-                    if self.current_feature.topleft[1] > 0:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0], self.current_feature.bottomright[1] - 1)
-                print("Updated feature: ", self.current_feature)
-                self.draw_image_with_filters()
-                #self.display_image()
+        if self.current_feature is not None:
+            if self.current_feature.topleft[1] > 0:
+                self.current_feature.topleft[1] = self.current_feature.topleft[1] - 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+        else:
+            print("no feature selected")
 
     def down_key_press(self, event):
-        if self.editing_mode.get() == self.editing_modes[0]:  # add
-            pass
-        elif self.editing_mode.get() == self.editing_modes[1]:  # edit
-            if self.current_feature is not None:
-                image_height = self.image_processor.image_heights[self.image_index]
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[0]:  # topleft
-                    if self.current_feature.topleft[1] < self.current_feature.bottomright[1] and self.current_feature.topleft[1] < image_height:
-                        self.current_feature.topleft = (self.current_feature.topleft[0], self.current_feature.topleft[1] + 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[1]:  # bottomright
-                    if self.current_feature.bottomright[1] < image_height:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0], self.current_feature.bottomright[1] + 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[2]:  # topright
-                    if self.current_feature.bottomright[1] < image_height:
-                        self.current_feature.topleft = (self.current_feature.topleft[0], self.current_feature.topleft[1] + 1)
-                if self.editing_mode_corner.get() == self.editing_mode_corner_values[3]:  # bottomleft
-                    if self.current_feature.topleft[1] < self.current_feature.bottomright[1] and self.current_feature.topleft[1] < image_height:
-                        self.current_feature.bottomright = (self.current_feature.bottomright[0], self.current_feature.bottomright[1] + 1)
-                print("Updated feature: ", self.current_feature)
-                self.draw_image_with_filters()
-                #self.display_image()
+        if self.current_feature is not None:
+            image_height = self.image_processor.image_heights[self.image_index]
+            if self.current_feature.bottomright[1] < image_height - 1:
+                self.current_feature.bottomright[1] = self.current_feature.bottomright[1] + 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+        else:
+            print("no feature selected")
+
+    def shift_left_key_press(self, event):
+        if self.current_feature is not None:
+            if self.current_feature.bottomright[0] > 0 and self.current_feature.bottomright[0] > self.current_feature.topleft[0] + 1:
+                self.current_feature.bottomright[0] = self.current_feature.bottomright[0] - 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def shift_right_key_press(self, event):
+        if self.current_feature is not None:
+            image_width = self.image_processor.image_widths[self.image_index]
+            if self.current_feature.topleft[0] < image_width - 1 and self.current_feature.bottomright[0] > self.current_feature.topleft[0] + 1:
+                self.current_feature.topleft[0] = self.current_feature.topleft[0] + 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def shift_up_key_press(self, event):
+        if self.current_feature is not None:
+            if self.current_feature.bottomright[1] > 0 and self.current_feature.bottomright[1] > self.current_feature.topleft[1] + 1:
+                self.current_feature.bottomright[1] = self.current_feature.bottomright[1] - 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def shift_down_key_press(self, event):
+        if self.current_feature is not None:
+            image_height = self.image_processor.image_heights[self.image_index]
+            if self.current_feature.topleft[1] < image_height - 1 and self.current_feature.bottomright[1] > self.current_feature.topleft[1] + 1:
+                self.current_feature.topleft[1] = self.current_feature.topleft[1] + 1
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def ctrl_left_key_press(self, event):
+        if self.current_feature is not None:
+            self.current_feature.set_center([self.current_feature.center[0] - 1, self.current_feature.center[1]])
+            self.draw_image_with_filters()
+
+    def ctrl_right_key_press(self, event):
+        if self.current_feature is not None:
+            self.current_feature.set_center([self.current_feature.center[0] + 1, self.current_feature.center[1]])
+            self.draw_image_with_filters()
+
+    def ctrl_up_key_press(self, event):
+        if self.current_feature is not None:
+            self.current_feature.set_center([self.current_feature.center[0], self.current_feature.center[1] - 1])
+            self.draw_image_with_filters()
+
+    def ctrl_down_key_press(self, event):
+        if self.current_feature is not None:
+            self.current_feature.set_center([self.current_feature.center[0], self.current_feature.center[1] + 1])
+            self.draw_image_with_filters()
+
+    def alt_left_key_press(self, event):
+        if self.current_feature is not None:
+            if self.current_feature.topleft[0] > 5:
+                self.current_feature.topleft[0] = self.current_feature.topleft[0] - 5
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def alt_right_key_press(self, event):
+        if self.current_feature is not None:
+            image_width = self.image_processor.image_widths[self.image_index]
+            if self.current_feature.bottomright[0] < image_width - 6:
+                self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 5
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def alt_up_key_press(self, event):
+        if self.current_feature is not None:
+            if self.current_feature.topleft[1] > 5:
+                self.current_feature.topleft[1] = self.current_feature.topleft[1] - 5
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+    def alt_down_key_press(self, event):
+        if self.current_feature is not None:
+            image_height = self.image_processor.image_heights[self.image_index]
+            if self.current_feature.bottomright[1] < image_height - 6:
+                self.current_feature.bottomright[1] = self.current_feature.bottomright[1] + 5
+            else:
+                print("out of bounds")
+            print("Updated feature: ", self.current_feature)
+            self.draw_image_with_filters()
+
+
 
     def next_image(self):
         #print("test")
+        self.current_feature = None
+        self.staff_line_diagonal_coordinates = []
+        self.staff_line_block_coordinates = []
         self.image_index = (self.image_index + 1) % self.num_pages
         self.draw_image_canvas_mode()
         self.draw_image_with_filters()
         #self.display_image()
 
     def previous_image(self):
+        self.current_feature = None
+        self.staff_line_diagonal_coordinates = []
+        self.staff_line_block_coordinates = []
         self.image_index = (self.image_index - 1) % self.num_pages
         self.draw_image_canvas_mode()
         self.draw_image_with_filters()
@@ -909,11 +1253,12 @@ class ImageEditor(tk.Tk):
         self.display_image()
 
     def draw_image_with_filters(self):
-        #if no changes:
-        #if self.undo_features == self.image_processor:
-        #    pass
-        #else:#if there were changes
-        #    pass
+        self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
+        #if self.current_feature is not None:
+        #    f = self.current_feature
+        #    topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
+        #    bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
+        #    self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
         if self.draw_jpg.get() == 0:
             self.image_processor.draw_image(self.filter_list, self.image_index)
             self.display_image()
@@ -933,62 +1278,99 @@ class ImageEditor(tk.Tk):
         else:
             self.draw_image_with_filters()
 
+    def on_right_click(self, event):
+        self.current_feature = None
+        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)
+        y_img = int(y / self.scale)
+        x_img = int(x / self.scale)
+        # Has to have image loaded onto the canvas
+        if self.image is not None:
+            self.rect_start = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+            if self.rect:
+                self.canvas.delete(self.rect)
+            self.rect = None
+
+
+        print("right click")
+
+    def on_right_click_drag(self, event):
+        curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+        if self.rect:
+            self.canvas.coords(self.rect, self.rect_start[0], self.rect_start[1], curX, curY)
+        else:
+            self.rect = self.canvas.create_rectangle(self.rect_start[0], self.rect_start[1], curX, curY, outline='red')
+
+    def on_right_click_release(self, event):
+        curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+        x0, y0 = self.rect_start
+        x1, y1 = curX, curY
+
+        # Convert canvas coordinates to image coordinates
+        x0_img = int(x0 / self.scale)
+        y0_img = int(y0 / self.scale)
+        x1_img = int(x1 / self.scale)
+        y1_img = int(y1 / self.scale)
+        #if dragged
+        if self.rect:
+            if "staff_line" in self.current_feature_type:
+                # find closest staff line and delete it
+                for i in range(len(self.image_processor.staff_lines[self.image_index]) - 1, -1, -1):
+                    line = self.image_processor.staff_lines[self.image_index][i]
+                    #if midpoint of line is in rect
+                    if y0_img < line.calculate_y(int(abs(x0_img - x1_img) / 2)) < y1_img:
+                        self.image_processor.staff_lines[self.image_index].remove(line)
+            else:
+                features = self.image_processor.array_types_dict[self.current_feature_type][self.image_index]
+                for i in range(len(features) - 1, -1, -1):
+                    f = features[i]
+                    topleft = f.topleft
+                    bottomright = f.bottomright
+                    if x0_img < topleft[0] < x1_img and x0_img < bottomright[0] < x1_img and y0_img < topleft[1] < y1_img and y0_img < bottomright[1] < y1_img:
+                        features.remove(f)
+        #if not dragged
+        else:
+            if "staff_line" in self.current_feature_type:
+                # find closest staff line and delete it
+                closest_line = self.image_processor.find_closest_staff_line(self.image_index, [x1_img, y1_img])
+                if closest_line is not None:
+                    self.image_processor.staff_lines[self.image_index].remove(closest_line)
+                    print("removed line at y: ", closest_line.calculate_y(x1_img))
+                else:
+                    print("No line found")
+            else:
+                feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x1_img,
+                                                                    y1_img)
+                if feature is not None:
+                    print("feature removed: ", feature)
+                    self.image_processor.remove_feature(feature, self.image_index)
+                else:
+                    print("No feature in click area")
+        self.draw_image_with_filters()
+
+    def on_control_button_press(self, event):
+        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)
+        y_img = int(y / self.scale)
+        x_img = int(x / self.scale)
+        if self.current_feature is not None:
+            self.current_feature.set_center([x_img, y_img])
+        print("control click")
+        self.draw_image_with_filters()
 
     def on_button_press(self, event):
         #Has to have image loaded onto the canvas
+        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)
+        y_img = int(y / self.scale)
+        x_img = int(x / self.scale)
         if self.image is not None:
-            if self.editing_mode.get() == "add" or self.current_feature_type == "key":
-                if self.current_feature_type == "staff_line":
-                    y = self.canvas.canvasy(event.y)
-                    y_img = int(y / self.scale)
-                    self.image_processor.staff_lines[self.image_index].append(y_img)
-                    self.image_processor.staff_lines[self.image_index].sort()
-                    self.draw_image_with_filters()
-                self.rect_start = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
-                if self.rect:
-                    self.canvas.delete(self.rect)
-                self.rect = None
-            elif self.editing_mode.get() == "edit":
-                if self.current_feature_type == "staff_line":
-                    y = self.canvas.canvasy(event.y)
-                    y_img = int(y / self.scale)
-                    #find closest staff line and delete it
-                    min_distance = 10000000
-                    closest_line = None
-                    for staff_line in self.image_processor.staff_lines[self.image_index]:
-                        if abs(staff_line - y_img) < min_distance:
-                            min_distance = abs(staff_line - y_img)
-                            closest_line = staff_line
-                    if closest_line is not None:
-                        self.image_processor.staff_lines[self.image_index].remove(closest_line)
-                        print("removed line at y: ", closest_line)
-                        self.draw_image_with_filters()
-                        return
-                    else:
-                        print("No line found")
-                        return
+            self.rect_start = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+            if self.rect:
+                self.canvas.delete(self.rect)
+            self.rect = None
 
-
-                x = self.canvas.canvasx(event.x)
-                y = self.canvas.canvasy(event.y)
-                x_img = int(x / self.scale)
-                y_img = int(y / self.scale)
-                feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img)
-                if feature is not None:
-                    print("feature found: ", feature)
-                    self.current_feature = feature
-                    #cv.rectangle(self.image, feature.topleft, feature.bottomright, (200, 0, 0), 1)
-                    #self.draw_image_with_filters()
-                    self.rect = self.canvas.create_rectangle(feature.topleft[0], feature.topleft[1], feature.bottomright[0], feature.bottomright[1], outline='black')
-
-                    #draw = ImageDraw.Draw(self.image)
-                    #draw.rectangle([feature.topleft[0], feature.topleft[1], feature.bottomright[0], feature.bottomright[1]], outline='red')#TODO color
-                    #self.rect = self.canvas.create_rectangle(feature.topleft[0], feature.topleft[1], feature.bottomright[0], feature.bottomright[1],
-                    #                                         outline='red')
-                    #self.display_image()
-
-                else:
-                    print("No feature in click area")
+            #self.draw_image_with_filters()
 
                 
 
@@ -1001,7 +1383,9 @@ class ImageEditor(tk.Tk):
 
     def on_button_release(self, event):
         print("released")
+
         if self.rect:
+            print("rect started")
             curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
             x0, y0 = self.rect_start
             x1, y1 = curX, curY
@@ -1012,108 +1396,152 @@ class ImageEditor(tk.Tk):
             x1_img = int(x1 / self.scale)
             y1_img = int(y1 / self.scale)
 
-            rectangle = Feature((x0_img, y0_img), (x1_img, y1_img), x1_img - x0_img, y1_img - y0_img, self.current_feature_type)
+
+            rectangle = Feature([x0_img, y0_img], [x1_img, y1_img], self.current_feature_type)
             if self.current_feature_type == "key":
                 print("key")
                 self.set_key(rectangle.topleft, rectangle.bottomright)
                 return
 
-            if self.editing_mode.get() == "add":
-                if self.current_feature_type == "staff_line":
-                    print("nothing to do on button release for staff_line")
-                    topline = rectangle.topleft[1]
-                    bottomline = rectangle.bottomright[1]
-                    line_spacing = abs(bottomline - topline) / 4
-                    for line in np.arange(topline + line_spacing, bottomline + line_spacing, line_spacing):
-                        self.image_processor.staff_lines[self.image_index].append(int(line))
-                    self.image_processor.staff_lines[self.image_index].sort()
-                    self.draw_image_with_filters()
-                    return
-                template = self.image_processor.images[self.image_index][rectangle.topleft[1]:rectangle.bottomright[1],
-                           rectangle.topleft[0]:rectangle.bottomright[0]]
-                if self.get_loop_array_based_on_feature_mode() != "single":#if the add mode is in single, dont need to match template
-                    match_template_params = (
-                        template,
-                        (0, 255, 0),
-                        rectangle.type,
-                        self.threshold_scale.get() / 100,
-                        10,  # error
-                        True  # draw
-                    )
-                    # Prepare the arguments for each task
-                    tasks = [
-                        (i, self.image_processor.images[i], self.image_processor.gray_images[i], match_template_params)
-                        for i in self.get_loop_array_based_on_feature_mode()
-                    ]
-                    # Create a pool of worker processes
-                    with multiprocessing.Pool() as pool:
-                        results = pool.map(ImageEditor.process_feature, tasks)
-                    loop_list = self.get_loop_array_based_on_feature_mode()
-                    index_adjustment = loop_list[0]
-                    self.undo_features = [None] * self.num_pages
-                    self.undo_feature_type = rectangle.type
-                    self.is_undo_mode = True
-                    #cutting features in half for double notes
-                    if rectangle.type == "note":
-                        if self.num_notes_combobox.get() != 1:
-                            for i in loop_list:
-                                if len(results[i - index_adjustment]) > 0:
-                                    results[i - index_adjustment] = self.convert_notes(results[i - index_adjustment])
+            if "staff_line" in self.current_feature_type:
+                staff_line_error = self.staff_line_error_scale.get()
+                self.image_processor.get_staff_lines_region(self.image_index, [x0_img, y0_img], [x1_img, y1_img], staff_line_error)
+                self.draw_image_with_filters()
+                return
+            if "staff_line" in self.current_feature_type:
+                return
 
-                    #remove overlapping squares:
-                    if self.allow_overlapping.get() == 0:
-                        print("removing overlapping squares")
+            template = self.image_processor.images[self.image_index][rectangle.topleft[1]:rectangle.bottomright[1],
+                       rectangle.topleft[0]:rectangle.bottomright[0]]
+            if self.get_loop_array_based_on_feature_mode() != "single":#if the add mode is in single, dont need to match template
+                match_template_params = (
+                    template,
+                    (0, 255, 0),
+                    rectangle.type,
+                    self.threshold_scale.get() / 100,
+                    10,  # error
+                    True  # draw
+                )
+                # Prepare the arguments for each task
+                tasks = [
+                    (i, self.image_processor.images[i], self.image_processor.gray_images[i], match_template_params)
+                    for i in self.get_loop_array_based_on_feature_mode()
+                ]
+                # Create a pool of worker processes
+                with multiprocessing.Pool() as pool:
+                    results = pool.map(ImageEditor.process_feature, tasks)
+                loop_list = self.get_loop_array_based_on_feature_mode()
+                index_adjustment = loop_list[0]
+                self.undo_features = [None] * self.num_pages
+                self.undo_feature_type = rectangle.type
+                self.is_undo_mode = True
+                #cutting features in half for double notes
+                if rectangle.type == "note":
+                    if self.num_notes_combobox.get() != 1:
                         for i in loop_list:
-                            existing_features = self.image_processor.array_types_dict[rectangle.type][i]
-                            if existing_features is None:
-                                break
-                            filtered_results = [
-                                new_feature for new_feature in results[i - index_adjustment]
-                                if not any(
-                                    ImageEditor.do_features_overlap(new_feature, existing_feature) for existing_feature
-                                    in existing_features)
-                            ]
-                            results[i - index_adjustment] = filtered_results
-                            #if existing_features is not None and len(existing_features) > 0 and len(results[i - index_adjustment]) > 0:
-                            #    for new_feature in results[i - index_adjustment][:]:
-                            #        for existing_feature in existing_features:
-                            #            if ImageEditor.do_features_overlap(new_feature, existing_feature) == True:
-                            #                results[i - index_adjustment].remove(new_feature)
+                            if len(results[i - index_adjustment]) > 0:
+                                results[i - index_adjustment] = self.convert_notes(results[i - index_adjustment])
 
+                #remove overlapping squares:
+                if self.allow_overlapping.get() == 0:
+                    print("removing overlapping squares")
                     for i in loop_list:
-                        self.undo_features[i] = results[i - index_adjustment]
-                        if self.image_processor.array_types_dict[rectangle.type][i] is None:
-                            self.image_processor.array_types_dict[rectangle.type][i] = results[i - index_adjustment]
-                        else:
-                            self.image_processor.array_types_dict[rectangle.type][i] = self.image_processor.array_types_dict[rectangle.type][i] + results[i - index_adjustment]
-                        self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][i])
+                        existing_features = self.image_processor.array_types_dict[rectangle.type][i]
+                        if existing_features is None:
+                            break
+                        filtered_results = [
+                            new_feature for new_feature in results[i - index_adjustment]
+                            if not any(
+                                ImageEditor.do_features_overlap(new_feature, existing_feature) for existing_feature
+                                in existing_features)
+                        ]
+                        results[i - index_adjustment] = filtered_results
+                        #if existing_features is not None and len(existing_features) > 0 and len(results[i - index_adjustment]) > 0:
+                        #    for new_feature in results[i - index_adjustment][:]:
+                        #        for existing_feature in existing_features:
+                        #            if ImageEditor.do_features_overlap(new_feature, existing_feature) == True:
+                        #                results[i - index_adjustment].remove(new_feature)
 
-                        #self.undo_features = self.undo_features + results[i - index_adjustment]
-
-                    self.draw_image_with_filters()
-
-
-                    #TODO if staffline
-
-                    # Draw the rectangle on the actual image
-                    draw = ImageDraw.Draw(self.image)
-                    draw.rectangle([x0_img, y0_img, x1_img, y1_img], outline='red')
-                    self.display_image()
-                else:#only add single feature
-                    print("single feature")
-                    if self.image_processor.array_types_dict[rectangle.type][self.image_index] is None:
-                        self.image_processor.array_types_dict[rectangle.type][self.image_index] = [rectangle]
+                for i in loop_list:
+                    self.undo_features[i] = results[i - index_adjustment]
+                    if self.image_processor.array_types_dict[rectangle.type][i] is None:
+                        self.image_processor.array_types_dict[rectangle.type][i] = results[i - index_adjustment]
                     else:
-                        self.image_processor.array_types_dict[rectangle.type][self.image_index] = self.image_processor.array_types_dict[rectangle.type][self.image_index] + [rectangle]
-                    self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][self.image_index])
-                    self.draw_image_with_filters()
-            elif self.editing_mode.get() == "edit":
-                print("nothing to do on_button_release when in editing mode")
+                        self.image_processor.array_types_dict[rectangle.type][i] = self.image_processor.array_types_dict[rectangle.type][i] + results[i - index_adjustment]
+                    self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][i])
+
+                    #self.undo_features = self.undo_features + results[i - index_adjustment]
 
 
+
+                #TODO if staffline
+
+                # Draw the rectangle on the actual image
+                draw = ImageDraw.Draw(self.image)
+                draw.rectangle([x0_img, y0_img, x1_img, y1_img], outline='red')
+                self.draw_image_with_filters()
+
+            else:#only add single feature
+                print("single feature")
+                if self.image_processor.array_types_dict[rectangle.type][self.image_index] is None:
+                    self.image_processor.array_types_dict[rectangle.type][self.image_index] = [rectangle]
+                else:
+                    self.image_processor.array_types_dict[rectangle.type][self.image_index] = self.image_processor.array_types_dict[rectangle.type][self.image_index] + [rectangle]
+                self.image_processor.sort_features(self.image_processor.array_types_dict[rectangle.type][self.image_index])
+                self.draw_image_with_filters()
 
         else:#if rect wasnt started
-            pass
+            print("rect wasnt started")
+            curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+            x, y = curX, curY
+
+            # Convert canvas coordinates to image coordinates
+            x_img = int(x / self.scale)
+            y_img = int(y / self.scale)
+
+            if self.current_feature_type == "staff_line_block":
+
+                self.staff_line_block_coordinates.append([x_img, y_img])
+                if len(self.staff_line_block_coordinates) >= 3:
+                    self.image_processor.generate_diagonal_staff_lines_block(self.image_index, self.staff_line_block_coordinates[0], self.staff_line_block_coordinates[1], self.staff_line_block_coordinates[2])
+                    self.staff_line_block_coordinates = []
+                    self.draw_image_with_filters()
+                else:
+                    print("staff line click #", len(self.staff_line_block_coordinates))
+            elif self.current_feature_type == "staff_line":
+                staff_line = StaffLine([0, y_img], [self.image_processor.image_heights[self.image_index], y_img], self.image_processor.image_widths[self.image_index], self.image_processor.image_heights[self.image_index])
+                self.image_processor.add_staff_line(self.image_index, staff_line)
+                self.draw_image_with_filters()
+            elif self.current_feature_type == "staff_line_diagonal":
+                self.staff_line_diagonal_coordinates.append([x_img, y_img])
+                if len(self.staff_line_diagonal_coordinates) >= 2:
+                    #if vertical line
+                    if self.staff_line_diagonal_coordinates[0][0] == self.staff_line_diagonal_coordinates[1][0]:
+                        pass
+                    else:
+                        #If right most point is in index 0, switch.
+                        if self.staff_line_diagonal_coordinates[0][0] > self.staff_line_diagonal_coordinates[1][0]:
+                            temp = self.staff_line_diagonal_coordinates[0]
+                            self.staff_line_diagonal_coordinates[0] = self.staff_line_diagonal_coordinates[1]
+                            self.staff_line_diagonal_coordinates[1] = temp
+                        staff_line = StaffLine(self.staff_line_diagonal_coordinates[0], self.staff_line_diagonal_coordinates[1], self.image_processor.image_widths[self.image_index], self.image_processor.image_heights[self.image_index])
+                        self.image_processor.add_staff_line(self.image_index, staff_line)
+                    self.staff_line_diagonal_coordinates = []
+                    self.draw_image_with_filters()
+                else:
+                    print("staff line diagonal click #", len(self.staff_line_diagonal_coordinates))
+
+            else:
+                feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img)
+                if feature is not None:
+                    print("feature found: ", feature)
+                    self.current_feature = feature
+                    topleft = [int(feature.topleft[0] * self.scale), int(feature.topleft[1] * self.scale)]
+                    bottomright = [int(feature.bottomright[0] * self.scale), int(feature.bottomright[1] * self.scale)]
+                    #self.rect = self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
+                    self.draw_image_with_filters()
+                else:
+                    print("No feature in click area")
 
     def convert_notes(self, notes):
         new_notes = []
@@ -1126,21 +1554,17 @@ class ImageEditor(tk.Tk):
                 y_mid_lower = note.topleft[1] + int(abs(note.topleft[1] - note.bottomright[1]) * 2 / 3)
                 y_mid_upper = note.topleft[1] + int(abs(note.topleft[1] - note.bottomright[1]) / 3)
                 if "--" in num_notes:
-                    tl = (tl[0], tl[1] + 2)
-                    br = (br[0], br[1] - 2)
+                    tl = [tl[0], tl[1] + 2]
+                    br = [br[0], br[1] - 2]
                 elif "-" in num_notes:
-                    tl = (tl[0], tl[1] + 1)
-                    br = (br[0], br[1] - 1)
+                    tl = [tl[0], tl[1] + 1]
+                    br = [br[0], br[1] - 1]
                 if "Pb" in num_notes:
-                    new_notes.append(
-                        Feature(tl, (x_mid, y_mid_lower), abs(x_mid - tl[0]), abs(tl[1] - y_mid_lower), note.type))
-                    new_notes.append(
-                        Feature((x_mid, y_mid_upper), br, abs(br[0] - x_mid), abs(br[1] - y_mid_upper), note.type))
+                    new_notes.append(Feature(tl, [x_mid, y_mid_lower], note.type))
+                    new_notes.append(Feature([x_mid, y_mid_upper], br, note.type))
                 else:#bP
-                    new_notes.append(
-                        Feature((tl[0], y_mid_upper), (x_mid, br[1]), abs(x_mid - tl[0]), abs(br[1] - y_mid_upper), note.type))
-                    new_notes.append(
-                        Feature((x_mid, tl[1]), (br[0], y_mid_lower), abs(br[0] - x_mid), abs(tl[1] - y_mid_upper), note.type))
+                    new_notes.append(Feature([tl[0], y_mid_upper], [x_mid, br[1]], note.type))
+                    new_notes.append(Feature([x_mid, tl[1]], [br[0], y_mid_lower], note.type))
         else:
             num_notes = int(num_notes)
             for note in notes:
@@ -1150,7 +1574,7 @@ class ImageEditor(tk.Tk):
                     br = note.bottomright
                     top = int(tl[1] + spacing * i)
                     bottom = int(tl[1] + spacing * (i + 1))
-                    new_notes.append(Feature((tl[0], top), [br[0], bottom], note.width, abs(bottom - top), note.type))
+                    new_notes.append(Feature([tl[0], top], [br[0], bottom], note.type))
         return new_notes
 
 
@@ -1186,9 +1610,12 @@ class ImageEditor(tk.Tk):
     @staticmethod
     def match_template_parallel(image, gray_image, template, color, type, threshold,
                                 error=10, draw=True):
+        #todo REMOVE draw and within error
         gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
         gray_template_width, gray_template_height = gray_template.shape[::-1]
         res = cv.matchTemplate(gray_image, gray_template, cv.TM_CCOEFF_NORMED)
+        #cv.imwrite("gray_image.jpg", gray_image)
+        #cv.imwrite("gray_template.jpg", gray_template)
         loc = np.where(res >= threshold)
         features = []
         # print("start")
@@ -1198,8 +1625,7 @@ class ImageEditor(tk.Tk):
             if first_iteration == True:
                 point = pt
                 first_iteration = False
-                f = Feature(pt, (pt[0] + gray_template_width, pt[1] + gray_template_height), gray_template_width,
-                            gray_template_height, type)
+                f = Feature([pt[0], pt[1]], [pt[0] + gray_template_width, pt[1] + gray_template_height], type)
                 features.append(f)
                 if draw == True:
                     cv.rectangle(image, pt,
@@ -1214,8 +1640,7 @@ class ImageEditor(tk.Tk):
                 point = pt
 
             # print("point", pt)
-            f = Feature(pt, (pt[0] + gray_template_width, pt[1] + gray_template_height), gray_template_width,
-                        gray_template_height, type)
+            f = Feature([pt[0], pt[1]], [pt[0] + gray_template_width, pt[1] + gray_template_height], type)
             features.append(f)
             if draw == True:
                 cv.rectangle(image, pt, (pt[0] + gray_template_width, pt[1] + gray_template_height),
