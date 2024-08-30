@@ -48,7 +48,12 @@ class Feature:
 
     def set_center(self, new_center):
         if self.topleft[0] < new_center[0] < self.bottomright[0] and self.topleft[1] < new_center[1] < self.bottomright[1]:
+
             self.center = new_center
+    def set_center(self):
+        #print("old center", self.center)
+        self.center = [int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * .5)]
+        #print("new center", self.center)
     def __eq__(self, other):
         return self.topleft == other.topleft and self.bottomright == other.bottomright and self.width == other.width and self.height == other.height and self.type == other.type and self.letter == other.letter and self.accidental == other.accidental
     def __str__(self):

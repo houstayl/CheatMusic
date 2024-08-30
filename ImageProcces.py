@@ -8,6 +8,7 @@ from PIL import Image, ImageTk
 from FeatureObject import Feature
 from Region import Region
 from StaffLine import StaffLine
+from Note import Note
 
 class ImageProcessing:
 
@@ -409,7 +410,7 @@ class ImageProcessing:
 
 
 
-    def get_staff_lines_region(self, page_index, topleft, bottomright, staff_line_error, offset):
+    def get_staff_lines_region(self, page_index, topleft, bottomright, staff_line_error):
         #Removing any lines in area:
         for i in range(len(self.staff_lines[page_index]) - 1, -1, -1):
             line = self.staff_lines[page_index][i]
@@ -803,10 +804,13 @@ class ImageProcessing:
                 return True
         return False
 
-    def extend_notes(self, page_index, up, down, left, right):
+    def extend_notes(self, page_index, up, down, left, right, is_half_note):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for i in range(len(self.notes[page_index])):
+
                 note = self.notes[page_index][i]
+                if note.is_half_note != is_half_note:
+                    continue
                 note.topleft =[note.topleft[0] - left, note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1] + down]
                 for j in range(len(self.notes[page_index])):
@@ -819,15 +823,14 @@ class ImageProcessing:
                             if self.is_feature_to_right(note, self.notes[page_index][j]) == True:
                                 note.bottomright[0] = note.bottomright[0] - right
                                 break
-                        else:#extending vertically
-                            if up != 0:
-                                if self.do_features_overlap(note, self.notes[page_index][j]) == True:
-                                    note.topleft = (note.topleft[0], note.topleft[1] + up)
-                                    break
-                            if down != 0:
-                                if self.do_features_overlap(note, self.notes[page_index][j]) == True:
-                                    note.bottomright = (note.bottomright[0], note.bottomright[1] - down)
-                                    break
+                        if up != 0:#Extending vertically
+                            if self.is_feature_above(note, self.notes[page_index][j]): #self.do_features_overlap(note, self.notes[page_index][j]) == True:
+                                note.topleft = [note.topleft[0], note.topleft[1] + up]
+                                break
+                        if down != 0:
+                            if self.is_feature_below(note, self.notes[page_index][j]): #self.do_features_overlap(note, self.notes[page_index][j]) == True:
+                                note.bottomright = [note.bottomright[0], note.bottomright[1] - down]
+                                break
 
                             #if self.do_features_overlap(note, self.notes[page_index][j]) == True:
                             #    print("overlapping")
@@ -842,6 +845,171 @@ class ImageProcessing:
         if self.regions[page_index] is not None and len(self.regions[page_index]) > 0:
             for region in self.regions[page_index]:
                 region.autosnap_notes_to_implied_line()
+
+    def auto_extend_half_note(self, note, img, mask, note_height):
+        print("extending half note")
+        #reursively expand until hitting blakcborder
+        #if center is black
+        #find black pixel along center y-line
+        start_point = (note.center[0], note.center[1])
+        is_center_black = False
+        #if current note height is smaller than expected note height
+        if abs(note.bottomright[1] - note.topleft[1]) < note_height:
+            for y in range(note.topleft[1], note.bottomright[1], 1):
+                if img[y][note.center[0]] == 1:
+                    is_center_black = True
+                    start_point[1] = y
+                    break
+        #if current note height is bigger than expected note height
+        else:
+            for y in range(int(note.center[1] - note_height / 4), int(note.center[1] + note_height / 4, 1)):
+                if img[y][note.center[0]] == 1:
+                    is_center_black = True
+                    start_point[1] = y
+                    break
+        #if center is black
+        if is_center_black:
+            top_start = [start_point[0], int(start_point[1] - note_height / 4)]
+            bottom_start = [start_point[0], int(start_point[1] + note_height / 4)]
+            _, _, _, top_rect = cv.floodFill(img, mask, top_start, 0)
+            _, _, _, bottom_rect = cv.floodFill(img, mask, bottom_start, 0)
+            print("center black", top_rect, bottom_rect)
+            top_x, top_y, top_width, top_height = top_rect
+            bottom_x, bottom_y, bottom_width, bottom_height = bottom_rect
+            note.topleft = [top_x - 2, top_y - 2]
+            note.bottomright = [bottom_x + bottom_width + 2, bottom_y + bottom_height + 2]
+            note.set_center()
+        #if center is white
+        else:
+            _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+            x, y, width, height = rect
+            print("center white", rect)
+            note.topleft = [x - 2, y - 2]
+            note.bottomright = [x + width + 2, y + height + 2]
+            note.set_center()
+
+    def get_area_of_feature(self, feature):
+        return int(abs(feature.bottomright[0] - feature.topleft[0]) * abs(feature.bottomright[1] - feature.topleft[1]))
+
+    def remove_overlapping_notes(self, page_index, note, note_height):
+        for i in range(len(self.notes[page_index]) - 1, -1, -1):
+            current_note = self.notes[page_index][i]
+            if self.do_features_overlap(note, current_note):
+                area = self.get_area_of_feature(note)
+                area2 = self.get_area_of_feature(current_note)
+                if area2 / area < .8:
+                    self.notes[page_index].remove(current_note)
+
+    def auto_extend_quarter_note(self, page_index, note, img, mask, note_height):
+        #recursively expand inside note border. Then reduce
+
+        start_point = (note.center[0], note.center[1])
+        # Flood fill starting from the start_point
+        # The function will replace the connected white region with a new value (e.g., 127)
+        _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+        if rect == (0, 0, 0, 0):
+            pass
+        else:
+            #TOdo if note overlaps other notes, get rid of other notes
+            print(rect)
+            x, y, width, height = rect
+            if width < note_height * 2:
+                if height < note_height * 1.5:
+                    note.topleft[0] = x - 1
+                    note.topleft[1] = y - 1
+                    note.bottomright[0] = x + width + 1
+                    note.bottomright[1] = y + height + 1
+
+                    note.set_center()
+
+                elif .9 < (height / note_height) / 2 < 1.1:
+                    #TOdo remove small notes in rect
+                    mid = y + int(height / 2)
+                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
+                    self.notes[page_index].append(Note([x, mid], [x + width, y + height], False))
+
+                elif .9 < (height / note_height) / 3 < 1.1:
+                    mid = y + int(height / 3)
+                    mid1 = y + int(height * 2 / 3)
+                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
+                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
+                    self.notes[page_index].append(Note([x, mid1], [x + width, y + height], False))
+
+                elif .9 < (height / note_height) / 4 < 1.1:
+                    mid = y + int(height / 4)
+                    mid1 = y + int(height * 2 / 4)
+                    mid2 = y + int(height * 3 / 4)
+                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
+                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
+                    self.notes[page_index].append(Note([x, mid1], [x + width, mid2], False))
+                    self.notes[page_index].append(Note([x, mid2], [x + width, y + height], False))
+                elif .9 < (height / note_height) / 5 < 1.1:
+                    mid = y + int(height / 5)
+                    mid1 = y + int(height * 2 / 5)
+                    mid2 = y + int(height * 3 / 5)
+                    mid3 = y + int(height * 4 / 5)
+                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
+                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
+                    self.notes[page_index].append(Note([x, mid1], [x + width, mid2], False))
+                    self.notes[page_index].append(Note([x, mid2], [x + width, mid3], False))
+                    self.notes[page_index].append(Note([x, mid3], [x + width, y + height], False))
+            elif .9 < width / (2 * note_height) < 1.1 and .9 < height / (1.5 * note_height) < 1.1:
+                mid_top = y + int(height / 3)
+                mid_bottom = y + int(height * 2 / 3)
+                x_mid = int(x + width / 2)
+                #if bottom right and topleft are black(no note there) then bP
+                if img[y + height - 2][x + width - 2] == 0 and img[y + 2][x + 2] == 0:
+                    self.notes[page_index].append(Note([x, mid_top], [x_mid, y + height], False))
+                    self.notes[page_index].append(Note([x_mid, y], [x + width, mid_bottom], False))
+                #if bottom left and top right are black then Pb
+                elif img[y + height - 2][x + 2] == 0 and img[y + 2][ x + width - 2] == 0:
+                    self.notes[page_index].append(Note([x, y], [x_mid, mid_bottom], False))
+                    self.notes[page_index].append(Note([x_mid, mid_top], [x + width, y + height], False))
+
+
+
+
+    def auto_extend_notes(self, page_index):
+        print("auto extendn")
+        note_size = 5
+        if len(self.staff_lines[page_index]) > 4:
+            mid = int(self.image_widths[page_index] / 2)
+            note_size = int(abs(self.staff_lines[page_index][4].calculate_y(mid) - self.staff_lines[page_index][0].calculate_y(mid)) / 4)
+            print(note_size)
+        else:
+            print("need more staff lines to auto resize notes")
+        gray = cv.bitwise_not(self.gray_images[page_index])
+        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        vertical = np.copy(bw)
+        horizontal = np.copy(bw)
+        horizontal_size = int(note_size / 2)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        verticalsize = int(note_size / 2)
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        intersection = cv.bitwise_and(horizontal, vertical)
+        h, w = intersection.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+
+        intersection_image = cv.bitwise_and(horizontal, vertical)
+        cv.imwrite("ahorizontal.jpg", horizontal)
+        cv.imwrite("avertical.jpg", vertical)
+        cv.imwrite("aintersection.jpg", intersection_image)
+        for note in self.notes[page_index]:
+            #if isinstance(note, Feature):
+            #    note = Note(note.topleft, note.bottomright, False)
+            if note.is_half_note == False:
+                self.auto_extend_quarter_note(page_index, note, intersection_image, mask, note_size)
+            else:
+                self.auto_extend_half_note(note, bw, mask, note_size)
 
     '''
     Takes set of bass_clef and treble_clef
@@ -1144,11 +1312,12 @@ class ImageProcessing:
     def fill_in_half_note(self, page_index, topleft, bottomright, color, map):
         for i in range(topleft[1], bottomright[1], 1):
             for j in range(topleft[0], bottomright[0], 1):
-                map_index_y = i - topleft[1]
-                map_index_x = j - topleft[0]
+                self.images[page_index][i][j] = color
+                #map_index_y = i - topleft[1]
+                #map_index_x = j - topleft[0]
                 #TODO how to do solid outline and fill in
-                if map[map_index_y][map_index_x]:
-                    self.images[page_index][i][j] = color
+                #if map[map_index_y][map_index_x]:
+                #    self.images[page_index][i][j] = color
 
     def fill_in_feature(self, page_index, topleft, bottomright, color):
         for i in range(topleft[1], bottomright[1], 1):
@@ -1190,6 +1359,9 @@ class ImageProcessing:
                         else:  # note with no accidental
                             self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
                                                  self.letter_colors[feature.letter])
+                        if isinstance(feature, Note) and feature.is_half_note == True:
+                            pass
+                            #self.fill_in_half_note(page_index, feature.topleft, feature.bottomright, self.letter_colors[feature.letter], [])
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
                     else:
                         if draw_rectangle == True:

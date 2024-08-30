@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import cv2 as cv
 from StaffLine import StaffLine
+from Note import Note
 
 class Region:
     def __init__(self, topleft, bottomright, clef, key):
@@ -122,7 +123,8 @@ class Region:
         #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
         print("accidental autosnaped", closest_line.calculate_y(feature.center[0]))
         #feature.center[1] = closest_line
-        feature.center[1] = closest_line.calculate_y(feature.center[0])
+        if not isinstance(feature, Note):
+            feature.center[1] = closest_line.calculate_y(feature.center[0])
         #feature.topleft = (feature.topleft[0], feature.topleft[1] + y_dif)
         #feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
         feature.letter = closest_line.letter
@@ -150,6 +152,7 @@ class Region:
             line_spacing = abs(lines_in_region[-1].calculate_y(image_width / 2) - lines_in_region[0].calculate_y(image_width / 2)) / 8
         else:
             print("missing staff line")
+            return
 
         for i in range(0, len(all_staff_lines) - 4, 5):
             #print("loop start")
