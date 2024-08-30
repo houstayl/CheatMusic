@@ -58,6 +58,7 @@ class Region:
                 if len(adjacent_implied_lines) > 0:
                     note.topleft[1] = adjacent_implied_lines[0].calculate_y(note.topleft[0])
                     note.bottomright[1] = adjacent_implied_lines[1].calculate_y(note.bottomright[0])
+                    note.auto_extended = True
                     #note.topleft = (note.topleft[0], adjacent_implied_lines.calculate_y(note.topleft[0]))
                     #note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
 
