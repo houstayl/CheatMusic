@@ -380,13 +380,17 @@ class ImageEditor(tk.Tk):
 
 
         # Note menu
+        self.include_auto_extended_notes = tk.BooleanVar()
+        self.include_auto_extended_notes.set(False)
         note_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Notes", menu=note_menu)
         # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
         note_menu.add_checkbutton(label="Half note", variable=self.is_half_note)
         note_menu.add_command(label="Auto extend and center notes", command=self.auto_extend_notes)
         note_menu.add_separator()
-        note_menu.add_command(label="Autosnap notes", command=self.autosnap_notes)
+        note_menu.add_command(label="Autosnap notes using implied lines", command=self.autosnap_notes)
+        note_menu.add_separator()
+        note_menu.add_checkbutton(label="Include auto extended notes", variable=self.include_auto_extended_notes)
         note_menu.add_command(label="Extend notes horizontally", command=lambda: self.extend_notes(0, 0, 1, 1))
         note_menu.add_command(label="Extend notes vertically", command=lambda: self.extend_notes(1, 1, 0, 0))
         note_menu.add_separator()
@@ -395,8 +399,8 @@ class ImageEditor(tk.Tk):
         note_menu.add_separator()
         note_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
         note_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
-        note_menu.add_separator()
-        note_menu.add_command(label="Make all notes same size", command=self.make_all_notes_same_size)
+        #note_menu.add_separator()
+        #note_menu.add_command(label="Make all notes same size", command=self.make_all_notes_same_size)
 
 
 
@@ -537,7 +541,7 @@ class ImageEditor(tk.Tk):
         if loop_list == "single":
             loop_list = [self.image_index]
         for i in loop_list:
-            self.image_processor.extend_notes(i, up, down, left, right, self.is_half_note.get())
+            self.image_processor.extend_notes(i, up, down, left, right, self.is_half_note.get(), self.include_auto_extended_notes.get())
         self.draw_image_with_filters()
 
 

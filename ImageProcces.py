@@ -804,12 +804,12 @@ class ImageProcessing:
                 return True
         return False
 
-    def extend_notes(self, page_index, up, down, left, right, is_half_note):
+    def extend_notes(self, page_index, up, down, left, right, is_half_note, include_auto_extended_notes):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for i in range(len(self.notes[page_index])):
 
                 note = self.notes[page_index][i]
-                if note.is_half_note != is_half_note:
+                if note.is_half_note != is_half_note or note.is_auto_extended() != include_auto_extended_notes:
                     continue
                 note.topleft =[note.topleft[0] - left, note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1] + down]
@@ -824,11 +824,11 @@ class ImageProcessing:
                                 note.bottomright[0] = note.bottomright[0] - right
                                 break
                         if up != 0:#Extending vertically
-                            if self.is_feature_above(note, self.notes[page_index][j]): #self.do_features_overlap(note, self.notes[page_index][j]) == True:
+                            if self.do_features_overlap(note, self.notes[page_index][j]) == True:
                                 note.topleft = [note.topleft[0], note.topleft[1] + up]
                                 break
                         if down != 0:
-                            if self.is_feature_below(note, self.notes[page_index][j]): #self.do_features_overlap(note, self.notes[page_index][j]) == True:
+                            if self.do_features_overlap(note, self.notes[page_index][j]) == True:
                                 note.bottomright = [note.bottomright[0], note.bottomright[1] - down]
                                 break
 
@@ -895,10 +895,11 @@ class ImageProcessing:
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             current_note = self.notes[page_index][i]
             if self.do_features_overlap(note, current_note):
-                area = self.get_area_of_feature(note)
-                area2 = self.get_area_of_feature(current_note)
-                if area2 / area < .8:
-                    self.notes[page_index].remove(current_note)
+                #area = self.get_area_of_feature(note)
+                #area2 = self.get_area_of_feature(current_note)
+                #if area2 / area < 0.8:
+                    self.notes[page_index].pop(i)
+
 
     def auto_extend_quarter_note(self, page_index, note, img, mask, note_height):
         #recursively expand inside note border. Then reduce
@@ -921,50 +922,90 @@ class ImageProcessing:
                     note.bottomright[1] = y + height + 1
 
                     note.set_center()
+                    note.auto_extended = True
 
                 elif .9 < (height / note_height) / 2 < 1.1:
                     #TOdo remove small notes in rect
                     mid = y + int(height / 2)
-                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
-                    self.notes[page_index].append(Note([x, mid], [x + width, y + height], False))
+                    note1 = Note([x, y], [x + width, mid], False, auto_extended=True)
+                    note2 = Note([x, mid], [x + width, y + height], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
 
                 elif .9 < (height / note_height) / 3 < 1.1:
                     mid = y + int(height / 3)
                     mid1 = y + int(height * 2 / 3)
-                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
-                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
-                    self.notes[page_index].append(Note([x, mid1], [x + width, y + height], False))
+                    note1 = Note([x, y], [x + width, mid], False, auto_extended=True)
+                    note2 =Note([x, mid], [x + width, mid1], False, auto_extended=True)
+                    note3 = Note([x, mid1], [x + width, y + height], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+                    self.remove_overlapping_notes(page_index, note3, note_height)
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
+                    self.notes[page_index].append(note3)
 
                 elif .9 < (height / note_height) / 4 < 1.1:
                     mid = y + int(height / 4)
                     mid1 = y + int(height * 2 / 4)
                     mid2 = y + int(height * 3 / 4)
-                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
-                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
-                    self.notes[page_index].append(Note([x, mid1], [x + width, mid2], False))
-                    self.notes[page_index].append(Note([x, mid2], [x + width, y + height], False))
+                    note1 = Note([x, y], [x + width, mid], False, auto_extended=True)
+                    note2 = Note([x, mid], [x + width, mid1], False, auto_extended=True)
+                    note3 = Note([x, mid1], [x + width, mid2], False, auto_extended=True)
+                    note4 = Note([x, mid2], [x + width, y + height], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+                    self.remove_overlapping_notes(page_index, note3, note_height)
+                    self.remove_overlapping_notes(page_index, note4, note_height)
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
+                    self.notes[page_index].append(note3)
+                    self.notes[page_index].append(note4)
+
                 elif .9 < (height / note_height) / 5 < 1.1:
                     mid = y + int(height / 5)
                     mid1 = y + int(height * 2 / 5)
                     mid2 = y + int(height * 3 / 5)
                     mid3 = y + int(height * 4 / 5)
-                    self.notes[page_index].append(Note([x, y], [x + width, mid], False))
-                    self.notes[page_index].append(Note([x, mid], [x + width, mid1], False))
-                    self.notes[page_index].append(Note([x, mid1], [x + width, mid2], False))
-                    self.notes[page_index].append(Note([x, mid2], [x + width, mid3], False))
-                    self.notes[page_index].append(Note([x, mid3], [x + width, y + height], False))
+                    note1 = Note([x, y], [x + width, mid], False, auto_extended=True)
+                    note2 = Note([x, mid], [x + width, mid1], False, auto_extended=True)
+                    note3 = Note([x, mid1], [x + width, mid2], False, auto_extended=True)
+                    note4 = Note([x, mid2], [x + width, mid3], False, auto_extended=True)
+                    note5 = Note([x, mid3], [x + width, y + height], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+                    self.remove_overlapping_notes(page_index, note3, note_height)
+                    self.remove_overlapping_notes(page_index, note4, note_height)
+                    self.remove_overlapping_notes(page_index, note5, note_height)
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
+                    self.notes[page_index].append(note3)
+                    self.notes[page_index].append(note4)
+                    self.notes[page_index].append(note5)
+
             elif .9 < width / (2 * note_height) < 1.1 and .9 < height / (1.5 * note_height) < 1.1:
                 mid_top = y + int(height / 3)
                 mid_bottom = y + int(height * 2 / 3)
                 x_mid = int(x + width / 2)
                 #if bottom right and topleft are black(no note there) then bP
                 if img[y + height - 2][x + width - 2] == 0 and img[y + 2][x + 2] == 0:
-                    self.notes[page_index].append(Note([x, mid_top], [x_mid, y + height], False))
-                    self.notes[page_index].append(Note([x_mid, y], [x + width, mid_bottom], False))
+                    note1 = Note([x, mid_top], [x_mid, y + height], False, auto_extended=True)
+                    note2 = Note([x_mid, y], [x + width, mid_bottom], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
                 #if bottom left and top right are black then Pb
                 elif img[y + height - 2][x + 2] == 0 and img[y + 2][ x + width - 2] == 0:
-                    self.notes[page_index].append(Note([x, y], [x_mid, mid_bottom], False))
-                    self.notes[page_index].append(Note([x_mid, mid_top], [x + width, y + height], False))
+                    note1 = Note([x, y], [x_mid, mid_bottom], False, auto_extended=True)
+                    note2 = Note([x_mid, mid_top], [x + width, y + height], False, auto_extended=True)
+                    self.remove_overlapping_notes(page_index, note1, note_height)
+                    self.remove_overlapping_notes(page_index, note2, note_height)
+                    self.notes[page_index].append(note1)
+                    self.notes[page_index].append(note2)
 
 
 
