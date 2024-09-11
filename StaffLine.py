@@ -1,7 +1,7 @@
 from FeatureObject import Feature
 class StaffLine(Feature):
 
-    def __init__(self, left, right, image_width, image_height):
+    def __init__(self, left, right, image_width, image_height, is_on_line=False):
         super().__init__(left, right, "staff_line")
         if self.topleft[0] == self.bottomright[0]:
             self.slope = 0
@@ -10,6 +10,8 @@ class StaffLine(Feature):
             self.slope = (self.bottomright[1] - self.topleft[1]) / (self.bottomright[0] - self.topleft[0])
         self.y_intercept = int(self.topleft[1] + self.slope * (self.topleft[0] - 0))
         self.extend_line(image_width, image_height)
+        #used for implied line
+        #self.is_on_line=is_on_line
 
     def calculate_y(self, x):
         return int(self.y_intercept + self.slope * x)

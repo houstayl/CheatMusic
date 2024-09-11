@@ -55,16 +55,17 @@ class Region:
             for note in self.notes:
                 center = self.find_closest_line(note.center)
                 adjacent_implied_lines = self.find_adjacent_lines(center)
-                if len(adjacent_implied_lines) > 0:
+                if len(adjacent_implied_lines) > 0 and note.is_auto_extended() == False:
                     note.topleft[1] = adjacent_implied_lines[0].calculate_y(note.topleft[0])
                     note.bottomright[1] = adjacent_implied_lines[1].calculate_y(note.bottomright[0])
                     note.auto_extended = True
                     #note.topleft = (note.topleft[0], adjacent_implied_lines.calculate_y(note.topleft[0]))
                     #note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
 
-    def find_accidental_for_note(self, override=0):
-        #todO KEY
+    def find_accidental_for_note(self, overwrite):
         for note in self.notes:
+            if note.accidental != "" and overwrite == False:
+                continue
             closest = 0
             for acc in self.accidentals:
                 print("accidental autosnapping", acc, "note: ", note.accidental)
@@ -74,30 +75,17 @@ class Region:
                 closest_line_note = self.find_closest_line(note.center)
                 closest_line_acc = self.find_closest_line(acc.center)
                 #if note and accidental are on the same line and the accidental is to the left of the note and the note doesnt have an accidental
-                if override == 0:
-                    if closest_line_note == closest_line_acc and acc.center[0] < note.center[0] and note.accidental == "":
-                        print("not overriding accidental")
-                        print("asdffd")
-                        #if first accidental encountered
-                        if type(closest) == int:
+
+                if closest_line_note == closest_line_acc and acc.center[0] < note.center[0]:
+                    print("asdffd")
+                    #if first accidental encountered
+                    if type(closest) == int:
+                        closest = acc
+                    #if there is another accidental on the same line
+                    else:
+                        #if current accidental is closer to note than the closest
+                        if acc.center[0] > closest.center[0]:
                             closest = acc
-                        #if there is another accidental on the same line
-                        else:
-                            #if current accidental is closer to note than the closest
-                            if acc.center[0] > closest.center[0]:
-                                closest = acc
-                else:
-                    print("overriding accidental")
-                    if closest_line_note == closest_line_acc and acc.center[0] < note.center[0]:
-                        print("asdffd")
-                        #if first accidental encountered
-                        if type(closest) == int:
-                            closest = acc
-                        #if there is another accidental on the same line
-                        else:
-                            #if current accidental is closer to note than the closest
-                            if acc.center[0] > closest.center[0]:
-                                closest = acc
             #If accidental was found
             if type(closest) != int:
                 note.accidental = closest.type#[letter, accidental]
@@ -109,16 +97,19 @@ class Region:
     Changing center coordinate of feature to be on an implied line
     '''
 
-    def autosnap_notes_and_accidentals(self):
+    def autosnap_notes_and_accidentals(self, overwrite):
         for i in range(len(self.notes)):
-            self.autosnap(self.notes[i])
+            self.autosnap(self.notes[i], overwrite)
             print("note", self.notes[i])
         for i in range(len(self.accidentals)):
-            self.autosnap(self.accidentals[i])
+            self.autosnap(self.accidentals[i], overwrite)
             print("accidental", self.accidentals[i])
 
 
-    def autosnap(self, feature):
+    def autosnap(self, feature, overwrite):
+        #TODO use note.is_on_line to find closest line that matches is_on_line
+        if feature.letter != "" and overwrite == False:
+            return
         closest_line = self.find_closest_line(feature.center)
         #y_dif = closest_line.y - feature.center[1]
         #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
@@ -155,13 +146,16 @@ class Region:
             print("missing staff line")
             return
 
+        is_on_line = True
         for i in range(0, len(all_staff_lines) - 4, 5):
             #print("loop start")
             #if line is in region
             if self.topleft[1] < all_staff_lines[i].calculate_y(image_width / 2) < self.bottomright[1]:
                 #print("staffy", self.topleft, all_staff_lines[i].calculate_y(image_width / 2), self.bottomright)
                 #line_spacing = (all_staff_lines[i + 4] - all_staff_lines[i]) / 8
-                start_line = all_staff_lines[i].y_intercept
+                #region_mid = self.topleft[0] + int(abs(self.bottomright[0] - self.topleft[1]) / 2)
+                #start_line = int(all_staff_lines[i].calculate_y(region_mid))
+                start_line = round(all_staff_lines[i].y_intercept)
                 slope = all_staff_lines[i].slope
                 top_line = 0
                 #finding top implid line in the region
@@ -169,18 +163,20 @@ class Region:
                     #self.implied_lines.append(ImpliedLine(int(k), letters[letter_index]))
                     letter_index = (letter_index + 1) % len(letters)
                     top_line = k
+                    is_on_line = not is_on_line
                 #finding implied lines starting from top of region going down to bottom
                 for k in np.arange(top_line, self.bottomright[1], line_spacing):
                     #print("k index", int(k))
                     #all_staff_lines[i].letter = letters[letter_index]
-                    left = [0, int(k)]
-                    right =[image_width - 1, int(k + image_width * slope)]
-                    implied_line = StaffLine(left, right, image_width, image_height)
+                    left = [0, round(k)]
+                    right =[image_width - 1, round(k + image_width * slope)]
+                    implied_line = StaffLine(left, right, image_width, image_height)#, is_on_line)
                     implied_line.letter = letters[letter_index]
                     self.implied_lines.append(implied_line)
                     #print("implied lines length", len(self.implied_lines))
                     #print("added line", implied_line.topleft)
                     letter_index = (letter_index - 1) % len(letters)
+                    is_on_line = not is_on_line
                 break
         #print("Implied lines: ", self.implied_lines)
 

@@ -50,7 +50,7 @@ class Feature:
         if self.topleft[0] < new_center[0] < self.bottomright[0] and self.topleft[1] < new_center[1] < self.bottomright[1]:
 
             self.center = new_center
-    def set_center(self):
+    def reset_center(self):
         #print("old center", self.center)
         self.center = [int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * .5)]
         #print("new center", self.center)
