@@ -41,6 +41,8 @@ correct
 """
 TODO
 Big TODO
+    for accidental, check 3 closest lines
+    is vertical line in square, is horizontal line in square
     jump to page
     regenerate bw and gray images after changes in paint
     extract notes and compare with mxml
@@ -482,11 +484,11 @@ class ImageEditor(tk.Tk):
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
 
     def regenerate_images(self):
-        #loop = self.get_loop_array_based_on_feature_mode()
-        #if loop == "single":
-        #    loop = [self.image_index]
-        #for i in loop:
-        self.image_processor.regenerate_images(self.image_index)
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.regenerate_images(i)
         self.draw_image_with_filters()
 
     @staticmethod
