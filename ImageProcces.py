@@ -23,6 +23,7 @@ class ImageProcessing:
         self.images = []
         self.gray_images = []
         self.bw_images = []
+        #self.lines_removed_images = []
 
         #BGR
         self.letter_colors = {
@@ -74,6 +75,7 @@ class ImageProcessing:
             self.image_widths.append(self.images[i].shape[1])
             self.gray_images.append(cv.cvtColor(self.images[i], cv.COLOR_BGR2GRAY))
             self.bw_images.append(cv.threshold(self.gray_images[i], 200, 255, cv.THRESH_BINARY)[1])
+            #self.lines_removed_images.append(cv.adaptiveThreshold(self.graw_images[i], 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2))
             #self.get_staff_lines(page_index=i)
             #self.draw_staff_lines(page_index=i)
             cv.imwrite(self.annotated_images_filenames[i], self.images[i])
@@ -102,6 +104,10 @@ class ImageProcessing:
                     return
 
 
+    def remove_lines_from_image(self):
+        pass
+        #for img in self.lines_removed_images:
+        #    img =
 
     '''
     Takes a sub image and finds all occurances of that sub image in the image.
@@ -432,14 +438,14 @@ class ImageProcessing:
                 y = start.calculate_y(x) + 10
                 #print(x, y)
                 if vertical[y][x] > 0:
-                    print("white point")
+                    #print("white point")
                     #max_y, best_x = self.recursive_vertical(edges, x, y, width, height)
                     #print(max_y, best_x)
                     _, _, _, rect = cv.floodFill(vertical, mask, (x, y), 0)
                     if (0, 0, 0, 0) == rect:
                         continue
                     x, y, width, height = rect
-                    print(rect)
+                    #print(rect)
 
                     if abs(end.calculate_y(x + width) - (y + height)) < error and width < 10:
                         topleft = [x, y]
@@ -752,8 +758,8 @@ class ImageProcessing:
             adjustment = 20
             if clef.type == "treble_clef":
                 adjustment = 0
-            top = [clef.bottomright[0], clef.topleft[1] - adjustment]
-            bottom = [clef.bottomright[0], clef.bottomright[1] + adjustment]
+            top = [clef.topleft[0], clef.topleft[1] - adjustment]
+            bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
             staff_line_areas.append([top, bottom])
         current_staff_lines = []
         for area in staff_line_areas:
@@ -999,40 +1005,40 @@ class ImageProcessing:
     Extends half notes using flood fill. Cases for when staff line runs through the note or not
     '''
     def auto_extend_half_note(self, page_index, note, img, mask, note_height, note_width):
-        #print("extending half note")
-        #reursively expand until hitting blakcborder
-        #if center is black
-        #find black pixel along center y-line
         rects = []
         adjustment = 2
         #cv.imwrite("ahalfnote.jpg", img)
         #TODO adjustment based off diference between height and note height
-        for y in range(note.topleft[1], note.bottomright[1], 1):
-            #if pixel is white, flood fill
-            if img[y][note.center[0]] == 0:
-                start_point = (note.center[0], y)
-                _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
-                #print(rect)
-                x, y, width, height = rect
-                if height > note_height * 1.2 or width > note_height * 2:
-                    print("Half note is open")
-                else:
-                    if rect != (0,0,0,0):
-                        rects.append(rect)
-                    if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
-                        #adjustment = int((note_height - height) / 2)
-                        note.topleft = [x - adjustment, y - adjustment]
-                        note.bottomright = [x + width + adjustment, y + height + adjustment]
-                        note.reset_center()
-                        note.auto_extended = True
-                        return
+        for y_traverse in range(note.topleft[1], note.bottomright[1], 1):
+            for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
+                #if pixel is white, flood fill
+                if img[y_traverse][x_traverse] == 0:
+                    start_point = (x_traverse, y_traverse)
+                    _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+                    #print(rect)
+                    x, y, width, height = rect
+                    if height > note_height * 1.5 or width > note_height * 2:
+                        print("Half note is open")
+                    else:
+                        if rect != (0,0,0,0):
+                            if height / note_height < 1.3 and width / note_width < 1.3:
+                                rects.append(rect)
+                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
+                            #adjustment = int((note_height - height) / 2)
+                            note.topleft = [x - adjustment, y - adjustment]
+                            note.bottomright = [x + width + adjustment, y + height + adjustment]
+                            note.reset_center()
+                            note.auto_extended = True
+                            return
 
         #for rect in rects:
         #    x, y, width, height = rect
         #    topleft = [x, y]
         #    bottomright = [x + width, y + height]
         #    self.notes[page_index].append(Note(topleft, bottomright, True, True))
+        #print(len(rects))
         if len(rects) == 2:
+            #print("2 rects")
             top_rect = rects[0]
             bottom_rect = rects[1]
             #if second rect is above first rect
@@ -1048,7 +1054,7 @@ class ImageProcessing:
                 x_bottomright = x_top
             #adjustment = int((note_height - height) / 2)
             note.topleft = [x_topleft - adjustment, y_top - adjustment]
-            note.bottomright = [x_bottomright + width + adjustment, y_bottom + height + adjustment]
+            note.bottomright = [x_bottomright + width_bottom + adjustment, y_bottom + height_bottom + adjustment]
             note.reset_center()
             note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
             note.auto_extended = True
@@ -1057,16 +1063,12 @@ class ImageProcessing:
 
         elif len(rects) == 1:
             x, y, width, height = rects[0]
-            if .8 < height / note_height < 1.2:
-                #adjustment = int((note_height - height) / 2)
-                note.topleft = [x - adjustment, y - adjustment]
-                note.bottomright = [x + width + adjustment, y + height + adjustment]
-                note.reset_center()
-                note.auto_extended = True
-            else:
-                print("couldnt autosnap half note")
+            note.topleft = [x - adjustment, y - adjustment]
+            note.bottomright = [x + width + adjustment, y + height + adjustment]
+            note.reset_center()
+            note.auto_extended = True
         else:
-            print("couldnt autosnap half note")
+            print("couldnt autosnap half note ", len(rects), "rects")
 
 
 
@@ -1128,12 +1130,12 @@ class ImageProcessing:
 
     def using_rect_dimensions_get_combination_note_type(self, page_index, rect, note, note_height, note_width):
         x, y, width, height = rect
-        if .7 < width / note_width < 1.3:
-            height_ratio = round(height / note_height)
-            if .5 < height_ratio < 1.5:
-                self.extend_quarter_note_single(note, x, y, width, height)
-            elif 1.5 < height_ratio < 5.5:
-                self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
+        #if .7 < width / note_width < 1.3:
+        height_ratio = round(height / note_height)
+        if .5 < height_ratio < 1.5:
+            self.extend_quarter_note_single(note, x, y, width, height)
+        elif 1.5 < height_ratio < 5.5:
+            self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
     '''
     Using flood fill on center of note, if rect dimensions make match an expected note's dimensions, then extend.
     Also senses clusters of notes like pb, bp and 2,3,4,5, notes vertically aligned
@@ -1171,14 +1173,16 @@ class ImageProcessing:
                         self.extend_quarter_note_Pb(page_index, x, y, width, height, note_height)
                     '''
                 elif .7 < width / note_width / 2 < 1.3:# and .7 < height > note_height  * 2:
+                    #TODO we are editing the notes list while iterating through it. need to same img
                     #Reseting the mask to 0
                     h, w = mask.shape[:2]
                     mask = np.zeros((h, w), np.uint8)
                     #Making a border on the center line
                     for y_traverse in range(y, y + height + 1, 1):
                         img[y_traverse][x + int(width / 2)] = 0
-                    cv.imwrite("avertremoved.jpg", img)
+                    #cv.imwrite("avertremoved.jpg", img)
                     #traversing left side vertically
+                    #TODO find closest note to center of rect
                     for y_traverse in range(y, y + height + 1, 1):
                         start_point = (x + int(width / 4), y_traverse)
                         if img[start_point[1]][start_point[0]] == 255:
@@ -1186,14 +1190,30 @@ class ImageProcessing:
                             if rect == (0, 0, 0, 0):
                                 pass
                             else:
-                                self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                x2, y2, width2, height2 = rect
+                                note = self.find_closest_feature("note", page_index, x2 + int(width2 / 2), y2 + int(height2 / 2), error=-1)
+                                if note is not None:
+                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                else:
+                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note=False)
+                                    self.append_features(page_index, "note", [note])
+                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+
                         start_point = (x + int(width * 3 / 4), y_traverse)
                         if img[start_point[1]][start_point[0]] == 255:
                             _, _, _, rect = cv.floodFill(img, mask, start_point, 255)
                             if rect == (0, 0, 0, 0):
                                 pass
                             else:
-                                self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                x2, y2, width2, height2 = rect
+                                note = self.find_closest_feature("note", page_index, x2 + int(width2 / 2),
+                                                                 y2 + int(height2 / 2), error=-1)
+                                if note is not None:
+                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                else:
+                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note=False)
+                                    self.append_features(page_index, "note", [note])
+                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
                 else:
                     pass
                     #note = Note([x, y], [x + width, y + height], False, auto_extended=True)
@@ -1209,10 +1229,10 @@ class ImageProcessing:
     usign an image that removes staff lines, extends notes
     '''
     def auto_extend_notes(self, page_index, note_height_width_ratio):
-        print("auto extendn")
+        print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
-        print(note_height, note_width)
+        #print(note_height, note_width)
         gray = cv.bitwise_not(self.gray_images[page_index])
         bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
         vertical = np.copy(bw)
@@ -1238,7 +1258,7 @@ class ImageProcessing:
         intersection_image = cv.bitwise_and(horizontal, vertical)
         #cv.imwrite("ahorizontal.jpg", horizontal)
         #cv.imwrite("avertical.jpg", vertical)
-        cv.imwrite("aintersection.jpg", intersection_image)
+        #cv.imwrite("aintersection.jpg", intersection_image)
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             note = self.notes[page_index][i]
             if note.is_auto_extended() == True:
@@ -1251,6 +1271,197 @@ class ImageProcessing:
                 self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
 
         #TODO reload image and do it again
+
+    def split_up_notes_image(self, page_index, note_height, note_width):
+        # print(note_height, note_width)
+        gray = cv.bitwise_not(self.gray_images[page_index])
+        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        vertical = np.copy(bw)
+        horizontal = np.copy(bw)
+        horizontal_size = int(note_height / 2)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        verticalsize = int(note_height / 2)
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        intersection = cv.bitwise_and(horizontal, vertical)
+        intersection_lines_removed = np.copy(intersection)
+        intersection_height, intersection_width = intersection.shape[:2]
+        mask = np.zeros((intersection_height + 2, intersection_width + 2), np.uint8)
+        #print(intersection_height, intersection_width)
+        candidates = []
+        #TODO find rects bigger than note and split symetrically. add candidates array
+        for y_traverse in range(0, intersection_height, 1):
+            for x_traverse in range(0, intersection_width, 1):
+                #print(intersection[y_traverse][x_traverse])
+                if intersection[y_traverse][x_traverse] > 0 and mask[y_traverse + 1][x_traverse + 1] == 0:
+                    _, _, _, rect = cv.floodFill(intersection, mask, (x_traverse, y_traverse), 0)
+                    if rect == (0, 0, 0, 0):
+                        pass
+                    else:
+                        #print(rect)
+                        x, y, width, height = rect
+                        if .7 < width / note_width < 1.3:
+                            height_ratio = round(height / note_height)
+
+                            if 1.5 < height_ratio < 5.5:
+                                spacing = height / height_ratio
+                                for i in range(height_ratio - 1):
+                                    bottom = y + round((i + 1) * spacing)
+                                    for x_traverse_2 in range(x, x + width + 1, 1):
+                                        intersection_lines_removed[bottom][x_traverse_2] = 0
+
+                        elif .7 < width / note_width / 2 < 1.3:
+                            # Making a border on the center line
+                            for y_traverse_2 in range(y, y + height + 1, 1):
+                                intersection_lines_removed[y_traverse_2][x + int(width / 2)] = 0
+
+                        else:
+                            #Rect found that isnt a note
+                            pass
+        #cv.imwrite("aperfect.jpg", intersection_lines_removed)
+        return intersection_lines_removed
+
+    def auto_detect_quarter_notes(self, page_index, note_height_width_ratio):
+        print("auto detect quarter note")
+        note_height = self.get_note_height(page_index)
+        note_width = int(note_height * note_height_width_ratio / 100)
+        intersection = self.split_up_notes_image(page_index, note_height, note_width)
+        h, w = intersection.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+        #TODO get candidate rects to loop through
+        for y_traverse in range(0, h, 1):
+            for x_traverse in range(0, w, 1):
+                if intersection[y_traverse][x_traverse] == 255 and mask[y_traverse + 1][x_traverse + 1] == 0:
+                    _, _, _, rect = cv.floodFill(intersection, mask, (x_traverse, y_traverse), 255)
+                    if rect == (0, 0, 0, 0):
+                        pass
+                    else:
+                        # print(rect)
+
+                        x, y, width, height = rect
+                        if .7 < width / note_width < 1.3:
+                            height_ratio = round(height / note_height)
+                            if .5 < height_ratio < 1.5:
+                                topleft = [x - 1, y - 1]
+                                bottomright = [x + width + 1, y + height + 1]
+                                note = Note(topleft, bottomright, is_half_note=False, auto_extended=True)
+                                self.append_features(page_index, "note", [note])
+
+    def fill_in_white_spots(self, page_index, image, gray_image, filename):
+        '''
+        img = cv.adaptiveThreshold(self.gray_images[page_index], 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        h, w = img.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+        cv.imwrite("before.jpg", self.images[page_index])
+
+        for y in range(h):
+            for x in range(w):
+                if img[y][x] > 0:# and mask[y - 1][x - 1] == 0:#if white
+                    _, _, _, rect = cv.floodFill(img, mask, (x, y), 0)
+                    if rect == (0, 0, 0, 0):
+                        pass
+                    else:
+                        x, y, width, height = rect
+                        if width <= 3 and height <= 3:
+                            for y_traverse in range(y, y + height + 1, 1):
+                                for x_traverse in range(x, x + width + 1, 1):
+                                    if mask[y_traverse + 1][x_traverse + 1] != 0:#if floodFill accessed this pixel
+                                        #print("changing pixel to black")
+                                        self.images[page_index][y_traverse][x_traverse] = [0, 0, 0]
+                                        #print(self.images[page_index][y_traverse][x_traverse])
+        cv.imwrite("aimg.jpg", img)
+        cv.imwrite("aafter.jpg", self.images[page_index])
+        cv.imwrite(self.images_filenames[page_index] + ".jpg", self.images[page_index])
+        #TODO resave bw and gray images
+        #self.bw_images[page_index] = cv.COLOR_BGR2GRAY()
+        '''
+        print("Fill in white spots on page ", page_index)
+        min_size = 10
+        # Step 1: Load the image in grayscale mode
+        img = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        # Step 2: Apply binary thresholding to get a binary image
+        _, binary_img = cv.threshold(img, 190, 255, cv.THRESH_BINARY)
+
+        # Step 3: Find connected components (to detect individual white regions)
+        # 'connectivity=4' ensures only direct neighbors are considered connected
+        num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(binary_img, connectivity=4)
+
+        # Step 4: Loop through the detected components and fill small white regions
+        for i in range(1, num_labels):  # Ignore label 0 (background)
+            area = stats[i, cv.CC_STAT_AREA]
+
+            # If the area of the component is less than the minimum size, fill it
+            if area < min_size:
+                # Fill the region with black
+                #binary_img[labels == i] = 0  # Set pixels of this label to black
+                image[page_index][labels == i] = [0, 0, 0]
+
+        #cv.imwrite("aimg.jpg", img)
+        #cv.imwrite("aafter.jpg", self.images[page_index])
+        #TODO reload bw and gray images
+        #cv.imwrite(filename, image)
+        #self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
+        #self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], 200, 255, cv.THRESH_BINARY)[1]
+        return image
+
+    def regenerate_images(self, page_index):
+        #self.images[page_index] = cv.imread(self.images_filenames[page_index])
+        self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
+        self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], 200, 255, cv.THRESH_BINARY)[1]
+
+    def rotate_based_off_staff_lines(self, page_index):
+        angle = 0
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            length = len(self.staff_lines[page_index])
+            for line in self.staff_lines[page_index]:
+                x_dif = line.bottomright[0] - line.topleft[0]
+                y_dif = line.bottomright[1] - line.topleft[1]
+                #if y_dif is negative
+                angle = angle + math.atan(y_dif / x_dif) / length
+                print("angle in loop", angle)
+        angle = angle * 180 / math.pi
+        print("angle",angle)
+        image = self.images[page_index]
+        height, width = image.shape[:2]
+        center = (width // 2, height // 2)
+        #angle = 1
+        scale = 1
+        M = cv.getRotationMatrix2D(center, angle, scale)
+        # Calculate the cosine and sine of the rotation angle
+        cos = np.abs(M[0, 0])
+        sin = np.abs(M[0, 1])
+
+        # Compute the new bounding dimensions of the image
+        new_w = int((height * sin) + (width * cos))
+        new_h = int((height * cos) + (width * sin))
+
+        # Adjust the rotation matrix to take into account the translation
+        M[0, 2] += (new_w / 2) - center[0]
+        M[1, 2] += (new_h / 2) - center[1]
+        mask = np.zeros((height + 2, width + 2), np.uint8)
+
+        # Perform the actual rotation and return the image
+        rotated_image = cv.warpAffine(image, M, (new_w, new_h))
+        #start_points = [[0, height / 2], [width / 2, 0], [width - 1, height / 2], [width / 2, height - 1]]
+        #for start_point in start_points:
+        #    _, _, mask, rect = cv.floodFill(rotated_image, mask, start_point, (255, 255, 255))
+        # Perform the actual rotation and return the rotated image
+        # rotated_image = cv.warpAffine(image, M, (width, height))
+        self.images[page_index] = rotated_image
+        cv.imwrite(self.images_filenames[page_index], rotated_image)
+        self.regenerate_images(page_index)
+        self.treble_clefs[page_index] = []
+        self.bass_clefs[page_index] = []
+        self.staff_lines[page_index] = []
+
 
     '''
     Takes set of bass_clef and treble_clef
@@ -1293,8 +1504,8 @@ class ImageProcessing:
 
         if self.all_clefs[page_index] is None:
             self.all_clefs[page_index] = []
-        if self.treble_clefs[page_index] is not None and self.bass_clefs[page_index] is not None and len(self.treble_clefs[page_index]) > 0 and len(self.bass_clefs[page_index]) > 0:
-            length = len(self.bass_clefs[page_index]) + len(self.treble_clefs[page_index])
+        if self.is_list_iterable(self.bass_clefs[page_index]) or self.is_list_iterable(self.treble_clefs):
+            pass
         else:
             print("no clefs on page")
             return
@@ -1302,7 +1513,12 @@ class ImageProcessing:
 
         multiple_in_row = False
         # Combine treble and bass clefs
-        self.all_clefs[page_index] = self.treble_clefs[page_index] + self.bass_clefs[page_index]
+        if self.is_list_iterable(self.bass_clefs[page_index]) and self.is_list_iterable(self.treble_clefs):
+            self.all_clefs[page_index] = self.treble_clefs[page_index] + self.bass_clefs[page_index]
+        elif self.is_list_iterable(self.bass_clefs[page_index]):
+            self.all_clefs[page_index] =self.bass_clefs[page_index]
+        elif self.is_list_iterable(self.treble_clefs):
+            self.all_clefs[page_index] = self.treble_clefs[page_index]
         self.sort_features(self.all_clefs[page_index])
 
         temp = []
@@ -1446,7 +1662,8 @@ class ImageProcessing:
                 i = i + 1
 
     def are_notes_on_line(self, page_index):
-        #todo detect if note is on line or on space
+        #todo detect if note is on line or on space. if there are notes adjacent, only check one side
+        #todo use intersection image to flood fill notes. if width is greater, only take one side
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
         if img is None:
@@ -1461,6 +1678,7 @@ class ImageProcessing:
 
         # Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
         gray = cv.bitwise_not(gray)
+        '''
         horizontal = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
         #horizontal = np.copy(bw)
         note_height = self.get_note_height(page_index)
@@ -1472,31 +1690,14 @@ class ImageProcessing:
         horizontal = cv.erode(horizontal, horizontalStructure)
         horizontal = cv.dilate(horizontal, horizontalStructure)
         cv.imwrite("ahorizontalonline.jpg", horizontal)
-        return
-        h, w = horizontal.shape[:2]
-        mask = np.zeros((h + 2, w + 2), np.uint8)
+        '''
         for note in self.notes[page_index]:
-            if note.is_half_line == True:
-                rects = []
-                for y in range(note.topleft[1], note.bottomright[1], 1):
-                    # if pixel is white, flood fill
-                    if img[y][note.center[0]] == 0:
-                        start_point = (note.center[0], y)
-                        _, _, _, rect = cv.floodFill(img, mask, start_point, 1)
-                        print(rect)
-                        x, y, width, height = rect
-                        if height > note_height * 1.2 or width > note_height * 2:
-                            print("Half note is open")
-                        else:
-                            if rect != (0, 0, 0, 0):
-                                rects.append(rect)
-                            if .7 < height / note_height < 1.3 and .7 < width / note_height < 1.5:
-                                note.is_on_line = False
-                                break
-                for rect in rects:
+            histogram = []
+            for y in range(note.topleft[1], note.bottomright[1], 1):
+                if gray[y][note.center[0]] == 255:
                     pass
-            else:
-                pass
+                    #width = get_width()
+                    #TODO get horizontal histograms and see if one line is bigger than others. Make sure no notes beside current note
 
 
     def find_notes_and_accidentals_in_region(self, page_index):
@@ -1522,7 +1723,8 @@ class ImageProcessing:
 
                     region.accidentals = (accidentals_in_region)
                 else:
-                    print("Accidentals empty on page", page_index)
+                    pass
+                    #print("Accidentals empty on page", page_index)
         else:
             print("regions empty on page", page_index)
 
@@ -1615,19 +1817,30 @@ class ImageProcessing:
                     _, _, mask, rect = cv.floodFill(bw, mask, start_point, 1, floodflags)
                     print(rect)
                     x, y, width, height = rect
+            vertical_line = False
+            horizontal_line = False
             if accidental == "flat":
                 topleft[1] = center[1]
+                horizontal_line = True
             elif accidental == "sharp":
                 bottomright[1] = center[1]
+                horizontal_line = True
             elif accidental == "double_flat":
                 bottomright[0] = center[0]
+                vertical_line = True
             elif accidental == "double_sharp":
                 topleft[0] = center[0]
+                vertical_line = True
             for y in range(topleft[1], bottomright[1], 1):
                 for x in range(topleft[0], bottomright[0], 1):
                     if mask[y][x] == 1:
                         self.images[page_index][y - 1][x - 1] = color
-
+            if vertical_line:
+                for y in range(topleft[1], bottomright[1], 2):
+                    self.images[page_index][y][center[0]] = [0, 0, 0]
+            if horizontal_line:
+                for x in range(topleft[0], bottomright[0], 2):
+                    self.images[page_index][center[1]][x] = [0, 0, 0]
 
 
 
@@ -1673,7 +1886,7 @@ class ImageProcessing:
                             self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
                                                  self.letter_colors[feature.letter])
                         if isinstance(feature, Note) and feature.is_half_note == True:
-                            self.fill_in_feature(page_index, feature.topleft, feature.bottomright, self.letter_colors[feature.letter])
+                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, self.letter_colors[feature.letter])
                             self.fill_in_half_note(page_index, feature, self.letter_colors[feature.letter])
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
                     else:

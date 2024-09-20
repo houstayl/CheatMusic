@@ -11,7 +11,7 @@ class StaffLine(Feature):
         self.y_intercept = int(self.topleft[1] + self.slope * (self.topleft[0] - 0))
         self.extend_line(image_width, image_height)
         #used for implied line
-        #self.is_on_line=is_on_line
+        self.is_on_line=is_on_line
 
     def calculate_y(self, x):
         return int(self.y_intercept + self.slope * x)

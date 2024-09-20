@@ -13,6 +13,7 @@ import pickle
 import copy
 from StaffLine import StaffLine
 from Note import Note
+import concurrent.futures
 
 '''
 Steps: Find clefs
@@ -25,13 +26,27 @@ expand notes horizontally
 autosnap
 expand notes vertically
 correct notes in wrong region
+
+steps: find clefs and staff lines
+find barlines
+find notes
+generate regions
+auto extend notes
+corrections
+find accidentals
+correct 
+
 '
 '''
 """
 TODO
 Big TODO
-    single click on center of note to add
-    make sharps and flats more visible: draw line down center
+    jump to page
+    regenerate bw and gray images after changes in paint
+    extract notes and compare with mxml
+    half line detection
+    dotted white line down center for quarter note accidetnal, black line for half note accidental
+    auto extend note only applies to half/whole notes
     detect if note is on line or space for letter detection
     if note goes past region border: flood fill to find which clef. find vertical line closest to note. flood fill.
     add way to draw black to close half/whole notes
@@ -306,6 +321,9 @@ class ImageEditor(tk.Tk):
         #file_menu.add_separator()
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
+        file_menu.add_separator()
+        # file_menu.add_separator()
+        file_menu.add_command(label="Regenerate images", command=self.regenerate_images)
 
 
         file_menu.add_separator()
@@ -320,19 +338,25 @@ class ImageEditor(tk.Tk):
         view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
         view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
         view_menu.add_separator()
+        view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
+        view_menu.add_separator()
         view_menu.add_command(label="Fast editing mode", command=self.switch_fast_editing_mode)
+        view_menu.add_separator()
+        view_menu.add_command(label="Fill in white spots", command=self.fill_in_white_spots)
+        view_menu.add_separator()
+        view_menu.add_checkbutton(label="Staff Lines", onvalue=1, offvalue=0, variable=self.filter_list[0], command=self.set_filter)
+        view_menu.add_checkbutton(label="Implied Lines", onvalue=1, offvalue=0, variable=self.filter_list[1], command=self.set_filter)
+        view_menu.add_checkbutton(label="Treble Clefs", onvalue=1, offvalue=0, variable=self.filter_list[2], command=self.set_filter)
+        view_menu.add_checkbutton(label="Bass Clefs", onvalue=1, offvalue=0, variable=self.filter_list[3], command=self.set_filter)
+        view_menu.add_checkbutton(label="Barlines", onvalue=1, offvalue=0, variable=self.filter_list[4], command=self.set_filter)
+        view_menu.add_checkbutton(label="Notes", onvalue=1, offvalue=0, variable=self.filter_list[5], command=self.set_filter)
+        view_menu.add_checkbutton(label="Accidentals", onvalue=1, offvalue=0, variable=self.filter_list[6], command=self.set_filter)
+        view_menu.add_checkbutton(label="Region Borders", onvalue=1, offvalue=0, variable=self.filter_list[7], command=self.set_filter)
 
 
-        filter_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Filter", menu=filter_menu)
-        filter_menu.add_checkbutton(label="Staff Lines", onvalue=1, offvalue=0, variable=self.filter_list[0], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Implied Lines", onvalue=1, offvalue=0, variable=self.filter_list[1], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Treble Clefs", onvalue=1, offvalue=0, variable=self.filter_list[2], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Bass Clefs", onvalue=1, offvalue=0, variable=self.filter_list[3], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Barlines", onvalue=1, offvalue=0, variable=self.filter_list[4], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Notes", onvalue=1, offvalue=0, variable=self.filter_list[5], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Accidentals", onvalue=1, offvalue=0, variable=self.filter_list[6], command=self.set_filter)
-        filter_menu.add_checkbutton(label="Region Borders", onvalue=1, offvalue=0, variable=self.filter_list[7], command=self.set_filter)
+        #filter_menu = tk.Menu(self.menu, tearoff=0)
+        #self.menu.add_cascade(label="Filter", menu=filter_menu)
+
 
 
 
@@ -370,16 +394,16 @@ class ImageEditor(tk.Tk):
         # Staff line menu
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
-        staff_line_menu.add_command(label="Generate staff lines, horizontal", command=self.generate_staff_lines)
-        staff_line_menu.add_command(label="Generate staff lines, diagonal", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
-        staff_line_menu.add_command(label="Generate staff lines, diagonal alternative method", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
+        staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
+        staff_line_menu.add_command(label="Generate staff lines diagonal, Primary method (Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
+        staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
         staff_line_menu.add_separator()
         staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
 
         # Barline menu
         barline_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Barline", menu=barline_menu)
-        barline_menu.add_command(label="Generate barlines", command=self.get_barlines)
+        barline_menu.add_command(label="Generate barlines  (Prerequisite: Staff lines)", command=self.get_barlines)
         # barline_menu.add_command(label="Barline", command=lambda :self.set_feature_type("barline"))
 
 
@@ -390,9 +414,11 @@ class ImageEditor(tk.Tk):
         self.menu.add_cascade(label="Notes", menu=note_menu)
         # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
         note_menu.add_checkbutton(label="(Checkbox)Half note", variable=self.is_half_note)
-        note_menu.add_command(label="Auto extend and center notes", command=self.auto_extend_notes)
+        note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines)", command=self.auto_extend_notes)
         note_menu.add_separator()
-        note_menu.add_command(label="Autosnap notes using implied lines", command=self.autosnap_notes)
+        note_menu.add_command(label="Auto detect quarter notes (Prerequisite: Staff lines)",command=self.auto_detect_quarter_notes)
+        note_menu.add_separator()
+        note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
         note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
         note_menu.add_command(label="Extend notes horizontally", command=lambda: self.extend_notes(0, 0, 1, 1))
@@ -449,11 +475,76 @@ class ImageEditor(tk.Tk):
         reset_menu.add_command(label="Flat", command=lambda: self.clear_accidental_type("flat"))
         reset_menu.add_command(label="Double Flat", command=lambda: self.clear_accidental_type("double_flat"))
         reset_menu.add_separator()
+        reset_menu.add_command(label="Quarter Note", command=lambda: self.clear_note_type("quarter"))
+        reset_menu.add_command(label="Half/Whole Note", command=lambda: self.clear_note_type("half"))
+        reset_menu.add_separator()
         reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
 
+    def regenerate_images(self):
+        #loop = self.get_loop_array_based_on_feature_mode()
+        #if loop == "single":
+        #    loop = [self.image_index]
+        #for i in loop:
+        self.image_processor.regenerate_images(self.image_index)
+        self.draw_image_with_filters()
 
+    @staticmethod
+    def fill_in_white_spots_parallel(task):
+        page_index, image, gray_image, filename = task
+        print("Fill in white spots on page ", page_index)
+        min_size = 10
+        # Step 1: Load the image in grayscale mode
+        img = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        # Step 2: Apply binary thresholding to get a binary image
+        _, binary_img = cv.threshold(img, 190, 255, cv.THRESH_BINARY)
 
+        # Step 3: Find connected components (to detect individual white regions)
+        # 'connectivity=4' ensures only direct neighbors are considered connected
+        num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(binary_img, connectivity=4)
+
+        # Step 4: Loop through the detected components and fill small white regions
+        for i in range(1, num_labels):  # Ignore label 0 (background)
+            area = stats[i, cv.CC_STAT_AREA]
+
+            # If the area of the component is less than the minimum size, fill it
+            if area < min_size:
+                # Fill the region with black
+                #binary_img[labels == i] = 0  # Set pixels of this label to black
+                image[labels == i] = [0, 0, 0]
+
+        cv.imwrite(filename, image)
+
+    def fill_in_white_spots(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+
+        # Prepare the arguments for each task
+        tasks = [
+            (i, self.image_processor.images[i], self.image_processor.gray_images[i], self.image_processor.images_filenames[i])
+            for i in loop
+        ]
+
+        # Create a pool of worker processes
+        with multiprocessing.Pool() as pool:
+            results = pool.map(ImageEditor.fill_in_white_spots_parallel, tasks)
+        for i in loop:
+            self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
+            self.image_processor.gray_images[i] = cv.cvtColor(self.image_processor.images[i], cv.COLOR_BGR2GRAY)
+            self.image_processor.bw_images[i] = cv.threshold(self.image_processor.gray_images[i], 200, 255, cv.THRESH_BINARY)[1]
+        #for i in loop:
+            #self.image_processor.fill_in_white_spots(i)
+        #self.image_processor.fill_in_white_spots(self.image_index)
+        self.draw_image_with_filters()
+
+    def auto_detect_quarter_notes(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.auto_detect_quarter_notes(i, self.note_width_ratio_scale.get())
+        self.draw_image_with_filters()
 
     def are_notes_on_line(self):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -492,7 +583,7 @@ class ImageEditor(tk.Tk):
     def clear_combobox(self, event):
         self.selected_label.focus()
 
-    def set_note_tynpe(self):
+    def set_note_type(self):
         self.is_half_note = not self.is_half_note
 
     def make_all_notes_same_size(self):
@@ -674,6 +765,14 @@ class ImageEditor(tk.Tk):
         cv.imwrite(self.image_processor.images_filenames[self.image_index], rotated_image)
         self.draw_image_with_filters()
 
+    def rotate_based_off_staff_lines(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.rotate_based_off_staff_lines(i)
+        self.draw_image_with_filters()
+
     def undo(self):
         #print("undo features: ", self.undo_features)
         if self.undo_features is not None and self.is_undo_mode == True:
@@ -814,14 +913,31 @@ class ImageEditor(tk.Tk):
             self.image_processor.regions[i] = []
         self.draw_image_with_filters()
 
+    def clear_note_type(self, type):
+        is_half = False
+        if type == "half":
+            is_half = True
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.is_list_iterable(self.image_processor.notes[i]):
+                for j in range(len(self.image_processor.notes[i]) - 1, - 1, -1):
+                    note = self.image_processor.notes[i][j]
+                    if note.is_half_note == is_half:
+                        self.image_processor.notes[i].remove(note)
+        self.draw_image_with_filters()
+
     def clear_accidental_type(self, type):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            for acc in self.image_processor.accidentals[i]:
-                if acc.type == type:
-                    self.image_processor.accidentals[i].remove(acc)
+            if self.image_processor.is_list_iterable(self.image_processor.accidentals[i]):
+                for j in range(len(self.image_processor.accidentals[i]) - 1, - 1, -1):
+                    acc = self.image_processor.accidentals[i][j]
+                    if acc.type == type:
+                        self.image_processor.accidentals[i].remove(acc)
         self.draw_image_with_filters()
 
     def clear_feature(self, feature_type):
@@ -903,9 +1019,33 @@ class ImageEditor(tk.Tk):
         #    else:#currently edit
         #        self.editing_mode.set(self.editing_modes[0])
         if c == "[":
-            self.previous_image()
+            self.current_feature = None
+            self.staff_line_diagonal_coordinates = []
+            self.staff_line_block_coordinates = []
+            self.image_index = (self.image_index - 5) % self.num_pages
+            self.draw_image_canvas_mode()
+            self.draw_image_with_filters()
         if c == "]":
-            self.next_image()
+            self.current_feature = None
+            self.staff_line_diagonal_coordinates = []
+            self.staff_line_block_coordinates = []
+            self.image_index = (self.image_index + 5) % self.num_pages
+            self.draw_image_canvas_mode()
+            self.draw_image_with_filters()
+        if c == "{":
+            self.current_feature = None
+            self.staff_line_diagonal_coordinates = []
+            self.staff_line_block_coordinates = []
+            self.image_index = (self.image_index - 10) % self.num_pages
+            self.draw_image_canvas_mode()
+            self.draw_image_with_filters()
+        if c == "}":
+            self.current_feature = None
+            self.staff_line_diagonal_coordinates = []
+            self.staff_line_block_coordinates = []
+            self.image_index = (self.image_index + 10) % self.num_pages
+            self.draw_image_canvas_mode()
+            self.draw_image_with_filters()
 
         if self.current_feature is not None:
             if c == 'a' or c == "A":
@@ -933,6 +1073,22 @@ class ImageEditor(tk.Tk):
                 if isinstance(self.current_feature, Note):
                     self.current_feature.is_half_note = not self.current_feature.is_half_note
                     self.draw_image_with_filters()
+            if c == '\\':
+                if self.current_feature.topleft[0] > 0:
+                    self.current_feature.topleft[0] = self.current_feature.topleft[0] - 1
+                    if isinstance(self.current_feature, Note):
+                        self.current_feature.auto_extended = True
+                else:
+                    print("out of bounds")
+                image_width = self.image_processor.image_widths[self.image_index]
+                if self.current_feature.bottomright[0] < image_width - 1:
+                    self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 1
+                    if isinstance(self.current_feature, Note):
+                        self.current_feature.auto_extended = True
+                else:
+                    print("out of bounds")
+                self.draw_image_with_filters()
+
             if c == '1':
                 self.current_feature.set_accidental("double_sharp")
                 self.draw_image_with_filters()
@@ -950,6 +1106,7 @@ class ImageEditor(tk.Tk):
                 self.draw_image_with_filters()
             if c == '6':
                 self.current_feature.set_accidental("")
+                self.draw_image_with_filters()
             if c == 'x' or c == "X":#DELETE
                 self.image_processor.remove_feature(self.current_feature, self.image_index)
                 print("deleted feature")
@@ -1154,6 +1311,8 @@ class ImageEditor(tk.Tk):
         if self.current_feature is not None:
             if self.current_feature.topleft[0] > 0:
                 self.current_feature.topleft[0] = self.current_feature.topleft[0] - 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1171,6 +1330,8 @@ class ImageEditor(tk.Tk):
             image_width = self.image_processor.image_widths[self.image_index]
             if self.current_feature.bottomright[0] < image_width - 1:
                 self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1182,6 +1343,8 @@ class ImageEditor(tk.Tk):
         if self.current_feature is not None:
             if self.current_feature.topleft[1] > 0:
                 self.current_feature.topleft[1] = self.current_feature.topleft[1] - 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1194,6 +1357,8 @@ class ImageEditor(tk.Tk):
             image_height = self.image_processor.image_heights[self.image_index]
             if self.current_feature.bottomright[1] < image_height - 1:
                 self.current_feature.bottomright[1] = self.current_feature.bottomright[1] + 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1205,6 +1370,8 @@ class ImageEditor(tk.Tk):
         if self.current_feature is not None:
             if self.current_feature.bottomright[0] > 0 and self.current_feature.bottomright[0] > self.current_feature.topleft[0] + 1:
                 self.current_feature.bottomright[0] = self.current_feature.bottomright[0] - 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1215,6 +1382,8 @@ class ImageEditor(tk.Tk):
             image_width = self.image_processor.image_widths[self.image_index]
             if self.current_feature.topleft[0] < image_width - 1 and self.current_feature.bottomright[0] > self.current_feature.topleft[0] + 1:
                 self.current_feature.topleft[0] = self.current_feature.topleft[0] + 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1224,6 +1393,8 @@ class ImageEditor(tk.Tk):
         if self.current_feature is not None:
             if self.current_feature.bottomright[1] > 0 and self.current_feature.bottomright[1] > self.current_feature.topleft[1] + 1:
                 self.current_feature.bottomright[1] = self.current_feature.bottomright[1] - 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1234,6 +1405,8 @@ class ImageEditor(tk.Tk):
             image_height = self.image_processor.image_heights[self.image_index]
             if self.current_feature.topleft[1] < image_height - 1 and self.current_feature.bottomright[1] > self.current_feature.topleft[1] + 1:
                 self.current_feature.topleft[1] = self.current_feature.topleft[1] + 1
+                if isinstance(self.current_feature, Note):
+                    self.current_feature.auto_extended = True
             else:
                 print("out of bounds")
             print("Updated feature: ", self.current_feature)
@@ -1328,7 +1501,7 @@ class ImageEditor(tk.Tk):
 
     def draw_image_with_filters(self):
         self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
-        self.current_image_file_name.set(self.image_processor.images_filenames[self.image_index])
+        #self.current_image_file_name.set(self.image_processor.images_filenames[self.image_index])
         #if self.current_feature is not None:
         #    f = self.current_feature
         #    topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
@@ -1672,11 +1845,11 @@ class ImageEditor(tk.Tk):
                     tl = [tl[0], tl[1] + 1]
                     br = [br[0], br[1] - 1]
                 if "Pb" in num_notes:
-                    new_notes.append(Note(tl, [x_mid, y_mid_lower], self.is_half_note.get()))
-                    new_notes.append(Note([x_mid, y_mid_upper], br, self.is_half_note.get()))
+                    new_notes.append(Note(tl, [x_mid, y_mid_lower], self.is_half_note.get(), auto_extended=True))
+                    new_notes.append(Note([x_mid, y_mid_upper], br, self.is_half_note.get(), auto_extended=True))
                 else:#bP
-                    new_notes.append(Note([tl[0], y_mid_upper], [x_mid, br[1]], self.is_half_note.get()))
-                    new_notes.append(Note([x_mid, tl[1]], [br[0], y_mid_lower], self.is_half_note.get()))
+                    new_notes.append(Note([tl[0], y_mid_upper], [x_mid, br[1]], self.is_half_note.get(), auto_extended=True))
+                    new_notes.append(Note([x_mid, tl[1]], [br[0], y_mid_lower], self.is_half_note.get(), auto_extended=True))
         else:
             num_notes = int(num_notes)
             for note in notes:
@@ -1686,7 +1859,10 @@ class ImageEditor(tk.Tk):
                     br = note.bottomright
                     top = int(tl[1] + spacing * i)
                     bottom = int(tl[1] + spacing * (i + 1))
-                    new_notes.append(Note([tl[0], top], [br[0], bottom], self.is_half_note.get()))
+                    auto_extended = True
+                    if num_notes == 1:
+                        auto_extended = False
+                    new_notes.append(Note([tl[0], top], [br[0], bottom], self.is_half_note.get(), auto_extended=auto_extended))
         return new_notes
 
 

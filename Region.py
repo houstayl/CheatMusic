@@ -68,7 +68,7 @@ class Region:
                 continue
             closest = 0
             for acc in self.accidentals:
-                print("accidental autosnapping", acc, "note: ", note.accidental)
+                #print("accidental autosnapping", acc, "note: ", note.accidental)
                 # if note and accidental are on same line, and accidental is to left of note
                 #if acc.type == "flat":
                     #print("flat:", acc, "center: ", acc.get_center())
@@ -77,7 +77,7 @@ class Region:
                 #if note and accidental are on the same line and the accidental is to the left of the note and the note doesnt have an accidental
 
                 if closest_line_note == closest_line_acc and acc.center[0] < note.center[0]:
-                    print("asdffd")
+                    #print("asdffd")
                     #if first accidental encountered
                     if type(closest) == int:
                         closest = acc
@@ -88,8 +88,9 @@ class Region:
                             closest = acc
             #If accidental was found
             if type(closest) != int:
-                note.accidental = closest.type#[letter, accidental]
-                print("closest accidental: ", closest)
+                if closest.letter == note.letter:#TODO
+                    note.accidental = closest.type#[letter, accidental]
+                #print("closest accidental: ", closest)
 
 
 
@@ -100,10 +101,10 @@ class Region:
     def autosnap_notes_and_accidentals(self, overwrite):
         for i in range(len(self.notes)):
             self.autosnap(self.notes[i], overwrite)
-            print("note", self.notes[i])
+            #print("note", self.notes[i])
         for i in range(len(self.accidentals)):
             self.autosnap(self.accidentals[i], overwrite)
-            print("accidental", self.accidentals[i])
+            #print("accidental", self.accidentals[i])
 
 
     def autosnap(self, feature, overwrite):
@@ -113,7 +114,7 @@ class Region:
         closest_line = self.find_closest_line(feature.center)
         #y_dif = closest_line.y - feature.center[1]
         #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
-        print("accidental autosnaped", closest_line.calculate_y(feature.center[0]))
+        #print("accidental autosnaped", closest_line.calculate_y(feature.center[0]))
         #feature.center[1] = closest_line
         if not isinstance(feature, Note):
             feature.center[1] = closest_line.calculate_y(feature.center[0])
@@ -170,7 +171,7 @@ class Region:
                     #all_staff_lines[i].letter = letters[letter_index]
                     left = [0, round(k)]
                     right =[image_width - 1, round(k + image_width * slope)]
-                    implied_line = StaffLine(left, right, image_width, image_height)#, is_on_line)
+                    implied_line = StaffLine(left, right, image_width, image_height, is_on_line)
                     implied_line.letter = letters[letter_index]
                     self.implied_lines.append(implied_line)
                     #print("implied lines length", len(self.implied_lines))
@@ -192,7 +193,7 @@ class Region:
             #print(note)
             #If note has accidental
             if(note.accidental != ""):
-                print("note: ", note)
+                #print("note: ", note)
                 accidental = note.accidental
                 if accidental == "flat":
                     self.fill_in_feature(img, gray_img, (note.topleft[0], note.center[1]),note.bottomright, letter_colors[note.letter])
