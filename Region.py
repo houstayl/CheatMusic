@@ -63,6 +63,7 @@ class Region:
                     #note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
 
     def find_accidental_for_note(self, overwrite):
+        #TODO find other closest lines. get rid of closest lines, just within note height pixels and same letter
         for note in self.notes:
             if note.accidental != "" and overwrite == False:
                 continue

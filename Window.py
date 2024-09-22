@@ -41,6 +41,9 @@ correct
 """
 TODO
 Big TODO
+    show self.dirname in info tab
+    calculate note not using staff lines. draw line from top to bottom of region
+    mxl parser: get all notes in measure, and there alteration, compare with
     for accidental, check 3 closest lines
     is vertical line in square, is horizontal line in square
     jump to page
@@ -458,8 +461,11 @@ class ImageEditor(tk.Tk):
         self.menu.add_cascade(label="Region", menu=region_menu)
         region_menu.add_checkbutton(label="(Checkbox)Overwrite manual note and accidental changes", variable=self.overwrite_regions)
         region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
-        #region_menu.add_separator()
-        #region_menu.add_command(label="Generate regions but don't overwrite", command=lambda: self.generate_regions(overwrite=False))
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.generate_regions(overwrite=False))
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.generate_regions(overwrite=False))
+
 
         #Reset menu
         reset_menu = tk.Menu(self.menu, tearoff=0)
@@ -886,6 +892,45 @@ class ImageEditor(tk.Tk):
             #self.image_processor.draw_regions(i)
         self.draw_image_with_filters()
 
+    def calculate_notes_and_accidentals_for_regions_using_staff_lines(self, overwrite):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.regions[i] is not None:
+                for region in self.image_processor.regions[i]:
+                    region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
+                    region.autosnap_notes_and_accidentals(overwrite)
+    def calculate_notes_and_accidentals_for_regions(self, overwrite):
+
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.regions[i] is not None:
+                img = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
+                if img is None:
+                    print('Error opening image: ')
+                    return -1
+                if len(img.shape) != 2:
+                    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+                else:
+                    gray = img
+                gray = cv.bitwise_not(gray)
+                bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+                for region in self.image_processor.regions[i]:
+                    self.image_processor.calculate_notes_and_accidentals(i, region, bw)
+
+    def calculate_note_accidentals_for_regions(self, overwrite):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.regions[i] is not None:
+                for region in self.image_processor.regions[i]:
+                    region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
+                    region.find_accidental_for_note(overwrite)
+
     def remove_adjacent_matches_all(self):
         print("Removing adjacent matches")
         loop = self.get_loop_array_based_on_feature_mode()
@@ -1207,9 +1252,14 @@ class ImageEditor(tk.Tk):
             self.file_name = pickle.load(file)
             self.num_pages = self.image_processor.num_pages
             self.image_index = 0
-            self.dirname = self.image_processor.dirname
+            self.dirname = os.path.dirname(__file__)
+            self.image_processor.dirname = self.dirname
+            self.image_processor.images_filenames = []
+            self.image_processor.annotated_images_filenames = []
             # write the images
             for i in range(self.num_pages):
+                self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
+                self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
                 cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
             self.draw_image_with_filters()
 

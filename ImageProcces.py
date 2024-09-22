@@ -796,6 +796,46 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
 
+    def calculate_notes_and_accidentals(self, page_index, region, img, all_staff_lines):
+        #TODO
+        notes = region.notes
+        accidentals = region.accidentals
+        height, width = img.shape[:2]
+        lines_in_region = []
+        for line in all_staff_lines:
+            if self.topleft[1] < line.calculate_y(width / 2) < self.bottomright[1]:  # if line is in region
+                lines_in_region.append(line)
+        if len(lines_in_region) == 5:
+            line_spacing = abs(lines_in_region[-1].calculate_y(width / 2) - lines_in_region[0].calculate_y(width / 2)) / 8
+        else:
+            print("missing staff line")
+            return
+
+        topleft = lines_in_region[0].calculate_y(region.topleft[0])
+        topright = lines_in_region[0].calculate_y[region.bottomright[0]]
+        bottomleft = lines_in_region[4].calculate_y[region.topleft[0]]
+        bottomright = lines_in_region[4].calculate_y[region.bottomright[0]]
+        top_y = min(topleft, topright) - 5
+        bottom_y = max(bottomleft, bottomright) + 5
+
+        for note in notes:
+            current_staff_lines = []
+            current_group = []
+            left_x = 0
+            left_group = []
+            right_x = 0
+            right_group = []
+            count = 0
+            for x in range(note.center[0], width, 1):
+                group = self.detect_staff_line_group(img, x, topleft[1], bottomright[1])
+                if group:
+                    left_x = x
+                    left_group = group
+                    count += 1
+                    break
+
+
+
     def generate_diagonal_staff_lines_block(self, page_index, topleft, topright, bottomright):
         line_spacing = int(abs(topright[1] - bottomright[1]) / 4)
         for i in range(5):
@@ -948,6 +988,44 @@ class ImageProcessing:
         #check if top side of rect2 intersects with rect1
         return False
 
+    def does_vertical_line_intersect_feature(self, line_top, line_bottom, feature):
+        # Unpack coordinates for readability
+        line_x, line_y_top = line_top
+        _, line_y_bottom = line_bottom
+
+        rect_x_left, rect_y_top = feature.topleft
+        rect_x_right, rect_y_bottom = feature.bottomright
+
+        # Condition 1: The vertical line's x-coordinate must be strictly inside the rectangle's horizontal boundaries
+        if line_x <= rect_x_left or line_x >= rect_x_right:
+            return False
+
+        # Condition 2: The line must overlap the rectangle vertically, excluding cases where it only touches the edges
+        if line_y_bottom <= rect_y_top or line_y_top >= rect_y_bottom:
+            return False
+
+        # If both conditions are satisfied, the line intersects the rectangle
+        return True
+
+    def does_horizontal_line_intersect_feature(self, line_left, line_right, feature):
+        # Unpack coordinates for readability
+        line_x_left, line_y = line_left
+        line_x_right, _ = line_right
+
+        rect_x_left, rect_y_top = feature.topleft
+        rect_x_right, rect_y_bottom = feature.bottomright
+
+        # Condition 1: The horizontal line's y-coordinate must be strictly inside the rectangle's vertical boundaries
+        if line_y <= rect_y_top or line_y >= rect_y_bottom:
+            return False
+
+        # Condition 2: The line must overlap the rectangle horizontally, excluding cases where it only touches the edges
+        if line_x_right <= rect_x_left or line_x_left >= rect_x_right:
+            return False
+
+        # If both conditions are satisfied, the line intersects the rectangle
+        return True
+
     '''
     Manually extending notes in a direction. If notes overlap, wont extend
     '''
@@ -958,33 +1036,27 @@ class ImageProcessing:
                 note = self.notes[page_index][i]
                 if note.is_half_note != is_half_note or note.is_auto_extended() != include_auto_extended_notes:
                     continue
-                note.topleft =[note.topleft[0] - left, note.topleft[1] - up]
+                note.topleft = [note.topleft[0] - left, note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1] + down]
                 for j in range(len(self.notes[page_index])):
                     if i != j:
                         if left != 0:#extending horizontally
-                            if self.is_feature_to_left(note, self.notes[page_index][j]) == True:#if overlapping
-                                note.topleft[0] = note.topleft[0] + left
+                            if self.does_vertical_line_intersect_feature(note.topleft, note.get_bottomleft(), self.notes[page_index][j]) == True:
+                                note.topleft[0] += left
                                 break
                         if right != 0:
-                            if self.is_feature_to_right(note, self.notes[page_index][j]) == True:
-                                note.bottomright[0] = note.bottomright[0] - right
+                            if self.does_vertical_line_intersect_feature(note.get_topright(), note.bottomright, self.notes[page_index][j]) == True:
+                                note.bottomright[0] -= right
                                 break
                         if up != 0:#Extending vertically
-                            if self.do_features_overlap(note, self.notes[page_index][j]) == True:
-                                note.topleft = [note.topleft[0], note.topleft[1] + up]
+                            if self.does_horizontal_line_intersect_feature(note.topleft, note.get_topright(), self.notes[page_index][j]) == True:
+                                note.topleft[1] += up
                                 break
                         if down != 0:
-                            if self.do_features_overlap(note, self.notes[page_index][j]) == True:
-                                note.bottomright = [note.bottomright[0], note.bottomright[1] - down]
+                            if self.does_horizontal_line_intersect_feature(note.get_bottomleft(), note.bottomright, self.notes[page_index][j]) == True:
+                                note.bottomright[1] -= down
                                 break
 
-                            #if self.do_features_overlap(note, self.notes[page_index][j]) == True:
-                            #    print("overlapping")
-                            #    note.topleft = [note.topleft[0] + horizontal, note.topleft[1] + vertical]
-                            #    note.bottomright = [note.bottomright[0] - horizontal, note.bottomright[1] - vertical]
-                            #    break
-                            #'''
 
     def add_note_by_center_coordinate(self, page_index, x, y, is_half_note, note_height_width_ratio):
         note_height = self.get_note_height(page_index)

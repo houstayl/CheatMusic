@@ -8,18 +8,18 @@ class StaffLine(Feature):
             self.bottomright[1] = self.topleft[1]
         else:
             self.slope = (self.bottomright[1] - self.topleft[1]) / (self.bottomright[0] - self.topleft[0])
-        self.y_intercept = int(self.topleft[1] + self.slope * (self.topleft[0] - 0))
+        self.y_intercept = round(self.topleft[1] + self.slope * (self.topleft[0] - 0))
         self.extend_line(image_width, image_height)
         #used for implied line
         self.is_on_line=is_on_line
 
     def calculate_y(self, x):
-        return int(self.y_intercept + self.slope * x)
+        return round(self.y_intercept + self.slope * x)
 
     def extend_line(self, width, height):
         #TODO find which edge in intersects
         new_topleft = [0, self.y_intercept]
-        new_y = int((width - self.bottomright[0]) * self.slope +self.bottomright[1])
+        new_y = round((width - self.bottomright[0]) * self.slope +self.bottomright[1])
         new_bottomright = [width - 1, new_y]
         if 0 <= new_topleft[0] < width and 0 <= new_topleft[1] < height:
             self.topleft = new_topleft
