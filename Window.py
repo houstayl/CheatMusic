@@ -460,11 +460,11 @@ class ImageEditor(tk.Tk):
         region_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Region", menu=region_menu)
         region_menu.add_checkbutton(label="(Checkbox)Overwrite manual note and accidental changes", variable=self.overwrite_regions)
-        region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
+        #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.generate_regions(overwrite=False))
+        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=False))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.generate_regions(overwrite=False))
+        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=False))
 
 
         #Reset menu
@@ -897,16 +897,40 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            if self.image_processor.all_clefs[i] is not None:
+                self.image_processor.all_clefs[i].clear()
+            if self.image_processor.regions[i] is not None:
+                self.image_processor.regions[i].clear()
+            self.image_processor.sort_clefs(i)
+            self.image_processor.get_clef_regions(i)
+            # self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
+            self.image_processor.sort_barlines(i, error=30)
+            self.image_processor.split_regions_by_bar(i)
+            # self.image_processor.are_notes_on_line(i)
+            self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
                 for region in self.image_processor.regions[i]:
                     region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
                     region.autosnap_notes_and_accidentals(overwrite)
+        self.draw_image_with_filters()
+
     def calculate_notes_and_accidentals_for_regions(self, overwrite):
 
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            if self.image_processor.all_clefs[i] is not None:
+                self.image_processor.all_clefs[i].clear()
+            if self.image_processor.regions[i] is not None:
+                self.image_processor.regions[i].clear()
+            self.image_processor.sort_clefs(i)
+            self.image_processor.get_clef_regions(i)
+            # self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
+            self.image_processor.sort_barlines(i, error=30)
+            self.image_processor.split_regions_by_bar(i)
+            # self.image_processor.are_notes_on_line(i)
+            self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
                 img = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
                 if img is None:
@@ -920,16 +944,31 @@ class ImageEditor(tk.Tk):
                 bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
                 for region in self.image_processor.regions[i]:
                     self.image_processor.calculate_notes_and_accidentals(i, region, bw)
+        self.draw_image_with_filters()
+
 
     def calculate_note_accidentals_for_regions(self, overwrite):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            if self.image_processor.all_clefs[i] is not None:
+                self.image_processor.all_clefs[i].clear()
+            if self.image_processor.regions[i] is not None:
+                self.image_processor.regions[i].clear()
+            self.image_processor.sort_clefs(i)
+            self.image_processor.get_clef_regions(i)
+            # self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
+            self.image_processor.sort_barlines(i, error=30)
+            self.image_processor.split_regions_by_bar(i)
+            # self.image_processor.are_notes_on_line(i)
+            self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
                 for region in self.image_processor.regions[i]:
                     region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
                     region.find_accidental_for_note(overwrite)
+        self.draw_image_with_filters()
+
 
     def remove_adjacent_matches_all(self):
         print("Removing adjacent matches")

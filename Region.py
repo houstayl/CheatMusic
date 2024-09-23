@@ -72,7 +72,17 @@ class Region:
                 #print("accidental autosnapping", acc, "note: ", note.accidental)
                 # if note and accidental are on same line, and accidental is to left of note
                 #if acc.type == "flat":
-                    #print("flat:", acc, "center: ", acc.get_center())
+                    #print("flat:", acc, "center: ", acc.get_center()
+                if acc.letter == note.letter and acc.center[0] < note.center[0] and abs(acc.center[1] - note.center[1]) < 20:
+                    if type(closest) == int:
+                        closest = acc
+                        # if there is another accidental on the same line
+                    else:
+                        # if current accidental is closer to note than the closest
+                        if acc.center[0] > closest.center[0]:
+                            closest = acc
+
+                '''
                 closest_line_note = self.find_closest_line(note.center)
                 closest_line_acc = self.find_closest_line(acc.center)
                 #if note and accidental are on the same line and the accidental is to the left of the note and the note doesnt have an accidental
@@ -87,10 +97,11 @@ class Region:
                         #if current accidental is closer to note than the closest
                         if acc.center[0] > closest.center[0]:
                             closest = acc
+                '''
             #If accidental was found
             if type(closest) != int:
-                if closest.letter == note.letter:#TODO
-                    note.accidental = closest.type#[letter, accidental]
+                #if closest.letter == note.letter:#TODO
+                note.accidental = closest.type#[letter, accidental]
                 #print("closest accidental: ", closest)
 
 
