@@ -796,14 +796,28 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
 
-    def calculate_notes_and_accidentals(self, page_index, region, img, all_staff_lines):
+    def calculate_note_or_accidental(self, note, group, clef):
+        spacing = abs(group[4][1] - group[0][1]) / 8
+        distance = note.center[1] - group[0][1]
+        letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+        letter_index = 0
+        if clef == "treble":
+            letter_index = 5
+        note_shift = round(distance / spacing)
+        letter_index = (letter_index - note_shift) % len(letters)
+        note.letter = letters[letter_index]
+
+
+    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img):
         #TODO
         notes = region.notes
         accidentals = region.accidentals
         height, width = img.shape[:2]
         lines_in_region = []
-        for line in all_staff_lines:
-            if self.topleft[1] < line.calculate_y(width / 2) < self.bottomright[1]:  # if line is in region
+        if self.is_list_iterable(self.staff_lines[page_index]) == False:
+            return
+        for line in self.staff_lines[page_index]:
+            if region.topleft[1] < line.calculate_y(width / 2) < region.bottomright[1]:  # if line is in region
                 lines_in_region.append(line)
         if len(lines_in_region) == 5:
             line_spacing = abs(lines_in_region[-1].calculate_y(width / 2) - lines_in_region[0].calculate_y(width / 2)) / 8
@@ -812,18 +826,41 @@ class ImageProcessing:
             return
 
         topleft = lines_in_region[0].calculate_y(region.topleft[0])
-        topright = lines_in_region[0].calculate_y[region.bottomright[0]]
-        bottomleft = lines_in_region[4].calculate_y[region.topleft[0]]
-        bottomright = lines_in_region[4].calculate_y[region.bottomright[0]]
+        topright = lines_in_region[0].calculate_y(region.bottomright[0])
+        bottomleft = lines_in_region[4].calculate_y(region.topleft[0])
+        bottomright = lines_in_region[4].calculate_y(region.bottomright[0])
         top_y = min(topleft, topright) - 5
         bottom_y = max(bottomleft, bottomright) + 5
-        current_group = []
+        #current_group = []
         for x in range(region.topleft[0], region.bottomright[0], 1):
-            group = self.detect_staff_line_group(img, x, topleft[1], bottomright[1])
+            group = self.detect_staff_line_group(img, x, top_y, bottom_y)
             if group:
-                current_group.append(group)
-                x += 10
-        region.fill_implied_lines_for_distorted_staff_lines(current_group)
+                coordinates_2d = [[x, y] for y in group]
+                region.staff_line_groups.append(coordinates_2d)
+                #current_group.append([x, group])
+                for y in group:
+                    self.notes[page_index].append(Note([x-1, group[0]],[x+1, group[4]], False, False, False))
+                x += 20
+        for note in notes:
+            closest_group = None
+            min_distance = 100000
+            for group in region.staff_line_groups:
+                if abs(group[0][0] - note.center[0]) < min_distance:
+                    closest_group = group
+                    min_distance = abs(x - note.center[0])
+            if group is not None:
+                self.calculate_note_or_accidental(note, group, region.clef)
+        for acc in notes:
+            closest_group = None
+            min_distance = 100000
+            for group in region.staff_line_groups:
+                if abs(group[0][0] - acc.center[0]) < min_distance:
+                    closest_group = group
+                    min_distance = abs(x - acc.center[0])
+            if group is not None:
+                self.calculate_note_or_accidental(acc, group, region.clef)
+
+
 
 
 
@@ -1677,7 +1714,7 @@ class ImageProcessing:
                                     bottom_right = (self.all_clefs[page_index][i][j + 1].topleft[0], region_lines[k])
                                     print("Multiple clefs on same line: bottom right: ", bottom_right)
 
-                            r = Region(top_left, bottom_right, self.all_clefs[page_index][i][j].type, 0)
+                            r = Region(top_left, bottom_right, self.all_clefs[page_index][i][j].type)
                             if self.regions[page_index] is None:
                                 self.regions[page_index] = [r]
                             else:

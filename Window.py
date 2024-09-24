@@ -462,9 +462,11 @@ class ImageEditor(tk.Tk):
         region_menu.add_checkbutton(label="(Checkbox)Overwrite manual note and accidental changes", variable=self.overwrite_regions)
         #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=False))
+        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note and accidental letters for distorted image", command=lambda: self.calculate_notes_and_accidentals_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
+
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=False))
+        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
 
 
         #Reset menu
@@ -925,7 +927,7 @@ class ImageEditor(tk.Tk):
                     region.autosnap_notes_and_accidentals(overwrite)
         self.draw_image_with_filters()
 
-    def calculate_notes_and_accidentals_for_regions(self, overwrite):
+    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, overwrite):
 
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
@@ -954,7 +956,7 @@ class ImageEditor(tk.Tk):
                 gray = cv.bitwise_not(gray)
                 bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_and_accidentals(i, region, bw)
+                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw)
         self.draw_image_with_filters()
 
 

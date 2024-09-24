@@ -5,14 +5,14 @@ from StaffLine import StaffLine
 from Note import Note
 
 class Region:
-    def __init__(self, topleft, bottomright, clef, key):
+    def __init__(self, topleft, bottomright, clef):
         self.topleft = topleft
         self.bottomright = bottomright
         self.clef = clef
         self.implied_lines = []
         self.notes = []
         self.accidentals = []
-        self.key = key
+        self.staff_line_groups = []
 
     def is_point_in_region(self, point):
         if self.topleft[0] < point[0] < self.bottomright[0] and self.topleft[1] < point[1] < self.bottomright[1]:
