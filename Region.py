@@ -193,6 +193,13 @@ class Region:
                 break
         #print("Implied lines: ", self.implied_lines)
 
+    def fill_implied_lines_for_distorted_staff_lines(self, staff_line_groups):
+        self.implied_lines = []
+        for i in range(0, len(staff_line_groups) - 1, 1):
+            left = staff_line_groups[i]
+            right = staff_line_groups[i + 1]
+            self.implied_lines
+
 
     def fill_in_feature(self, img, gray_img, topleft, bottomright, color):
         for i in range(topleft[1], bottomright[1], 1):

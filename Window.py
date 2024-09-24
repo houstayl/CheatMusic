@@ -329,8 +329,8 @@ class ImageEditor(tk.Tk):
         file_menu.add_separator()
         # file_menu.add_separator()
         file_menu.add_command(label="Regenerate images", command=self.regenerate_images)
-
-
+        file_menu.add_separator()
+        file_menu.add_command(label="Reduce pixels by half", command=self.reduce_image_size)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
@@ -488,6 +488,17 @@ class ImageEditor(tk.Tk):
         reset_menu.add_separator()
         reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
+
+        #info_menu = tk.Menu(self.menu, tearoff=0)
+        ##self.info_string = tk.StringVar()
+        #self.menu.add_cascade(label="Info", menu=info_menu)
+        #TODO, display image dimensions, number of notes, number of autosnapped notes, number of half notes
+        #info_menu.
+
+    def reduce_image_size(self):
+        for i in range(self.num_pages):
+            self.image_processor.reduce_image_size(i)
+        self.draw_image_with_filters()
 
     def regenerate_images(self):
         loop = self.get_loop_array_based_on_feature_mode()

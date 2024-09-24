@@ -747,7 +747,7 @@ class ImageProcessing:
         height, width = bw.shape[:2]
         img = bw
         #cv.imwrite("aimg.jpg", img)
-
+        #TODO calculate all groups, then find closest group for note
         staff_line_areas = []
         # findind first clef in line
         if not self.is_list_iterable(self.all_clefs[page_index]):
@@ -817,22 +817,15 @@ class ImageProcessing:
         bottomright = lines_in_region[4].calculate_y[region.bottomright[0]]
         top_y = min(topleft, topright) - 5
         bottom_y = max(bottomleft, bottomright) + 5
+        current_group = []
+        for x in range(region.topleft[0], region.bottomright[0], 1):
+            group = self.detect_staff_line_group(img, x, topleft[1], bottomright[1])
+            if group:
+                current_group.append(group)
+                x += 10
+        region.fill_implied_lines_for_distorted_staff_lines(current_group)
 
-        for note in notes:
-            current_staff_lines = []
-            current_group = []
-            left_x = 0
-            left_group = []
-            right_x = 0
-            right_group = []
-            count = 0
-            for x in range(note.center[0], width, 1):
-                group = self.detect_staff_line_group(img, x, topleft[1], bottomright[1])
-                if group:
-                    left_x = x
-                    left_group = group
-                    count += 1
-                    break
+
 
 
 
@@ -1483,6 +1476,32 @@ class ImageProcessing:
         #self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
         #self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], 200, 255, cv.THRESH_BINARY)[1]
         return image
+
+    def reduce_image_size(self, page_index):
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            self.staff_lines[page_index] = []
+        if self.is_list_iterable(self.treble_clefs[page_index]):
+            self.treble_clefs[page_index] = []
+        if self.is_list_iterable(self.bass_clefs[page_index]):
+            self.bass_clefs[page_index] = []
+        if self.is_list_iterable(self.barlines[page_index]):
+            self.barlines[page_index] = []
+        if self.is_list_iterable(self.barlines_2d[page_index]):
+            self.barlines_2d[page_index] = []
+        if self.is_list_iterable(self.accidentals[page_index]):
+            self.accidentals[page_index] = []
+        if self.is_list_iterable(self.notes[page_index]):
+            self.notes[page_index] = []
+        if self.is_list_iterable(self.all_clefs[page_index]):
+            self.all_clefs[page_index] = []
+        if self.is_list_iterable(self.regions[page_index]):
+            self.regions[page_index] = []
+
+        self.image_widths[page_index] = self.image_widths[page_index] // 2
+        self.image_heights[page_index] = self.image_heights[page_index] // 2
+        self.images[page_index] = cv.resize(self.images[page_index], (self.image_widths[page_index], self.image_heights[page_index]), interpolation=cv.INTER_AREA)
+        cv.imwrite(self.images_filenames[page_index], self.images[page_index])
+        self.regenerate_images(page_index)
 
     def regenerate_images(self, page_index):
         #self.images[page_index] = cv.imread(self.images_filenames[page_index])
