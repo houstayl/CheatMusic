@@ -1543,7 +1543,7 @@ class ImageProcessing:
         self.regenerate_images(page_index)
 
     def regenerate_images(self, page_index):
-        #self.images[page_index] = cv.imread(self.images_filenames[page_index])
+        self.images[page_index] = cv.imread(self.images_filenames[page_index])
         self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
         self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], 200, 255, cv.THRESH_BINARY)[1]
 
