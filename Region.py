@@ -170,6 +170,9 @@ class Region:
                 #start_line = int(all_staff_lines[i].calculate_y(region_mid))
                 start_line = round(all_staff_lines[i].y_intercept)
                 slope = all_staff_lines[i].slope
+                #slope = 0
+                #for j in range(i, i + 5, 1):
+                #    slope += all_staff_lines[j].slope / 5
                 top_line = 0
                 #finding top implid line in the region
                 for k in np.arange(start_line - line_spacing, self.topleft[1], -1 * line_spacing):

@@ -838,8 +838,8 @@ class ImageProcessing:
                 coordinates_2d = [[x, y] for y in group]
                 region.staff_line_groups.append(coordinates_2d)
                 #current_group.append([x, group])
-                for y in group:
-                    self.notes[page_index].append(Note([x-1, group[0]],[x+1, group[4]], False, False, False))
+                #for y in group:
+                #self.notes[page_index].append(Note([x-1, group[0]],[x+1, group[4]], False, False, False))
                 x += 20
         for note in notes:
             closest_group = None
@@ -850,7 +850,7 @@ class ImageProcessing:
                     min_distance = abs(x - note.center[0])
             if group is not None:
                 self.calculate_note_or_accidental(note, group, region.clef)
-        for acc in notes:
+        for acc in accidentals:
             closest_group = None
             min_distance = 100000
             for group in region.staff_line_groups:
@@ -946,7 +946,9 @@ class ImageProcessing:
         note_height = self.get_note_height(page_index)
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             note = self.notes[page_index][i]
-            if note.get_height() / note_height < .8:
+            if note.get_height() / note_height < .8 and note.auto_extended == False:
+                self.notes[page_index].pop(i)
+            if note.get_width() / note_height > 2:
                 self.notes[page_index].pop(i)
 
 

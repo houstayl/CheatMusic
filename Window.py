@@ -41,6 +41,8 @@ correct
 """
 TODO
 Big TODO
+    chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
+    
     show self.dirname in info tab
     calculate note not using staff lines. draw line from top to bottom of region
     mxl parser: get all notes in measure, and there alteration, compare with
