@@ -801,7 +801,7 @@ class ImageProcessing:
         distance = note.center[1] - group[0][1]
         letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
         letter_index = 0
-        if clef == "treble":
+        if clef == "treble_clef":
             letter_index = 5
         note_shift = round(distance / spacing)
         letter_index = (letter_index - note_shift) % len(letters)
