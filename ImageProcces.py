@@ -119,7 +119,8 @@ class ImageProcessing:
         gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
         gray_template_width, gray_template_height = gray_template.shape[::-1]
         gray_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        res = cv.matchTemplate(gray_image, gray_template, cv.TM_CCOEFF_NORMED)
+        #res = cv.matchTemplate(gray_image, gray_template, cv.TM_CCOEFF_NORMED)
+        res = cv.matchTemplate(gray_image, gray_template, cv.TM_SQDIFF)
         threshold = 0.8
         loc = np.where(res >= threshold)
         features = []
@@ -1117,7 +1118,8 @@ class ImageProcessing:
         #cv.imwrite("ahalfnote.jpg", img)
         #TODO adjustment based off diference between height and note height
         for y_traverse in range(note.topleft[1], note.bottomright[1], 1):
-            for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
+            #for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
+            for x_traverse in range(note.topleft[0], note.bottomright[0], 1):
                 #if pixel is white, flood fill
                 if img[y_traverse][x_traverse] == 0:
                     start_point = (x_traverse, y_traverse)
@@ -1335,13 +1337,14 @@ class ImageProcessing:
     '''
     usign an image that removes staff lines, extends notes
     '''
-    def auto_extend_notes(self, page_index, note_height_width_ratio):
+    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging):
         print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
         #print(note_height, note_width)
         gray = cv.bitwise_not(self.gray_images[page_index])
-        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        _, bw = cv.threshold(gray, 127, 255, cv.THRESH_BINARY)
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
         horizontal_size = int(note_height / 2)
@@ -1363,9 +1366,12 @@ class ImageProcessing:
         half_note_mask = np.zeros((h + 2, w + 2), np.uint8)
 
         intersection_image = cv.bitwise_and(horizontal, vertical)
-        #cv.imwrite("ahorizontal.jpg", horizontal)
-        #cv.imwrite("avertical.jpg", vertical)
-        #cv.imwrite("aintersection.jpg", intersection_image)
+        if debugging:
+            cv.imwrite("agray.jpg", gray)
+            cv.imwrite("abw.jpg", bw)
+            cv.imwrite("ahorizontal.jpg", horizontal)
+            cv.imwrite("avertical.jpg", vertical)
+            cv.imwrite("aintersection.jpg", intersection_image)
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             note = self.notes[page_index][i]
             if note.is_auto_extended() == True:

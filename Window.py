@@ -41,6 +41,9 @@ correct
 """
 TODO
 Big TODO
+    remove small notes, by area
+    for quarter note, match template with bw image
+    blackness bar
     debug mode
     write shorcut keys 
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
@@ -508,11 +511,14 @@ class ImageEditor(tk.Tk):
         reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
 
-        #info_menu = tk.Menu(self.menu, tearoff=0)
+        info_menu = tk.Menu(self.menu, tearoff=0)
         ##self.info_string = tk.StringVar()
-        #self.menu.add_cascade(label="Info", menu=info_menu)
+        self.menu.add_cascade(label="Info", menu=info_menu)
         #TODO, display image dimensions, number of notes, number of autosnapped notes, number of half notes
         #info_menu.
+        self.debugging = tk.BooleanVar()
+        self.debugging.set(False)
+        info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable = self.debugging)
 
     def auto_detect_note_letter_irregularities(self):
         #TODO look for adjacent notes and compare letters
@@ -619,7 +625,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get())
+            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get())
         self.draw_image_with_filters()
 
     def clear_combobox(self, event):
@@ -2044,7 +2050,11 @@ class ImageEditor(tk.Tk):
         #todo REMOVE draw and within error
         gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
         gray_template_width, gray_template_height = gray_template.shape[::-1]
-        res = cv.matchTemplate(gray_image, gray_template, cv.TM_CCOEFF_NORMED)
+        method = cv.TM_CCOEFF_NORMED
+        #if is_half_note == False:
+        #    method = cv.TM_CCORR
+        #TM_CCOEFF_NORMED, TM_SQDIFF, TM_SQDIFF_NORMED, TM_CCOEFF, TM_CCORR_NORMED
+        res = cv.matchTemplate(gray_image, gray_template, method)
         #cv.imwrite("gray_image.jpg", gray_image)
         #cv.imwrite("gray_template.jpg", gray_template)
         loc = np.where(res >= threshold)
