@@ -1835,6 +1835,7 @@ class ImageEditor(tk.Tk):
                     (0, 255, 0),
                     rectangle.type,
                     self.is_half_note.get(),
+                    not self.allow_note_to_be_auto_extended.get(),
                     self.threshold_scale.get() / 100,
                     10,  # error
                     True  # draw
@@ -2038,7 +2039,7 @@ class ImageEditor(tk.Tk):
             i += 1
 
     @staticmethod
-    def match_template_parallel(image, gray_image, template, color, type, is_half_note, threshold,
+    def match_template_parallel(image, gray_image, template, color, type, is_half_note, auto_extended, threshold,
                                 error=10, draw=True):
         #todo REMOVE draw and within error
         gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
@@ -2057,7 +2058,7 @@ class ImageEditor(tk.Tk):
                 first_iteration = False
                 f = Feature([pt[0], pt[1]], [pt[0] + gray_template_width, pt[1] + gray_template_height], type)
                 if type == "note":
-                    f = Note([pt[0], pt[1]], [pt[0] + gray_template_width, pt[1] + gray_template_height], is_half_note)
+                    f = Note([pt[0], pt[1]], [pt[0] + gray_template_width, pt[1] + gray_template_height], is_half_note=is_half_note, auto_extended=auto_extended)
                 features.append(f)
                 #if draw == True:
                 ##    cv.rectangle(image, pt,
@@ -2088,8 +2089,8 @@ class ImageEditor(tk.Tk):
         i, image, gray_image, match_template_params = args
         print("Process ", i, "started")
         # Unpack the match_template parameters
-        template, color, rect_type, is_half_note, threshold, error, draw = match_template_params
-        features = ImageEditor.match_template_parallel(image, gray_image, template, color, rect_type, is_half_note, threshold, error=error,
+        template, color, rect_type, is_half_note, auto_extended, threshold, error, draw = match_template_params
+        features = ImageEditor.match_template_parallel(image, gray_image, template, color, rect_type, is_half_note, auto_extended, threshold, error=error,
                                                   draw=draw)
         if features is not None:
             #TODO remove adjacent matches based on feature size
