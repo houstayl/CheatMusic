@@ -186,6 +186,9 @@ class ImageProcessing:
         #print("feature_lsit before flatten:", feature_list)
 
         #print("feature_lsit:",feature_list)
+        if self.is_list_iterable(feature_list) == False:
+            print("no features of type", feature_type)
+            return
         for feature in feature_list:
             if self.is_point_within_feature((x, y), feature):
                 return feature

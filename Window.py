@@ -42,7 +42,10 @@ correct
 TODO
 Big TODO
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
-    
+    parallelize note calculating
+    in extend quarter note, draw a blank line horizontally as well
+    dont auto extend notes option
+    use both note detection and compare to find differences
     show self.dirname in info tab
     calculate note not using staff lines. draw line from top to bottom of region
     mxl parser: get all notes in measure, and there alteration, compare with
@@ -127,6 +130,11 @@ class ImageEditor(tk.Tk):
         self.draw_jpg.set(0)
         self.draw_image_on_jpg_check_button = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.draw_jpg, command=self.draw_image_canvas_mode)
         self.draw_image_on_jpg_check_button.pack()
+
+        self.allow_note_to_be_auto_extended = tk.BooleanVar()
+        self.allow_note_to_be_auto_extended.set(True)
+        self.allow_note_to_be_auto_extended_check_button = tk.Checkbutton(self.left_frame, text="Allow note to be auto extended", onvalue=True, offvalue=False, variable=self.allow_note_to_be_auto_extended, command=self.draw_image_canvas_mode)
+        self.allow_note_to_be_auto_extended_check_button.pack()
 
         # Allow overlapping featues checkbox
         self.allow_overlapping = tk.IntVar()
@@ -295,7 +303,15 @@ class ImageEditor(tk.Tk):
 
 
         self.bind("<Key>", self.keypress)
-        #self.bind("<Key>", self.keypress)
+        self.bind("<F1>", self.on_f1_press)#generate staff lines
+        self.bind("<F2>", self.on_f2_press)#auto extend notes
+        self.bind("<F3>", self.on_f3_press)#calculate notes
+        self.bind("<F4>", self.on_f4_press)#calculate accidentals
+        self.bind("<F9>", self.on_f9_press)  # calculate notes
+        self.bind("<F10>", self.on_f10_press)  # calculate notes
+        self.bind("<F11>", self.on_f11_press)  # calculate notes
+        self.bind("<F12>", self.on_f12_press)  # calculate notes
+
 
 
         self.image_processor = None
@@ -421,15 +437,14 @@ class ImageEditor(tk.Tk):
         self.menu.add_cascade(label="Notes", menu=note_menu)
         # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
         note_menu.add_checkbutton(label="(Checkbox)Half note", variable=self.is_half_note)
+        note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines)", command=self.auto_extend_notes)
         note_menu.add_separator()
-        note_menu.add_command(label="Auto detect quarter notes (Prerequisite: Staff lines)",command=self.auto_detect_quarter_notes)
-        note_menu.add_separator()
+        #note_menu.add_command(label="Auto detect quarter notes (Prerequisite: Staff lines)",command=self.auto_detect_quarter_notes)
+        #note_menu.add_separator()
         note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
         note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
-        note_menu.add_command(label="Extend notes horizontally", command=lambda: self.extend_notes(0, 0, 1, 1))
-        note_menu.add_command(label="Extend notes vertically", command=lambda: self.extend_notes(1, 1, 0, 0))
         note_menu.add_separator()
         note_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
         note_menu.add_command(label="Extend notes up", command=lambda: self.extend_notes(1, 0, 0, 0))
@@ -440,6 +455,8 @@ class ImageEditor(tk.Tk):
         note_menu.add_command(label="Auto remove small erroneous notes", command=self.remove_small_notes)
         note_menu.add_separator()
         note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
+        note_menu.add_separator()
+        note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
         #note_menu.add_separator()
         #note_menu.add_command(label="Are notes on line", command=self.are_notes_on_line)
 
@@ -498,6 +515,10 @@ class ImageEditor(tk.Tk):
         #self.menu.add_cascade(label="Info", menu=info_menu)
         #TODO, display image dimensions, number of notes, number of autosnapped notes, number of half notes
         #info_menu.
+
+    def auto_detect_note_letter_irregularities(self):
+        #TODO look for adjacent notes and compare letters
+        pass
 
     def reduce_image_size(self):
         for i in range(self.num_pages):
@@ -1227,7 +1248,22 @@ class ImageEditor(tk.Tk):
             if c == '5':
                 self.set_feature_type("double_flat")
 
-
+    def on_f1_press(self, event):
+        self.generate_staff_lines_diagonal_by_traversing_vertical_line()
+    def on_f2_press(self, event):
+        self.auto_extend_notes()
+    def on_f3_press(self, event):
+        self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
+    def on_f4_press(self, event):
+        self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
+    def on_f9_press(self, event):
+        self.add_mode_combobox.set(self.add_mode_combobox_values[0])
+    def on_f10_press(self, event):
+        self.add_mode_combobox.set(self.add_mode_combobox_values[1])
+    def on_f11_press(self, event):
+        self.add_mode_combobox.set(self.add_mode_combobox_values[2])
+    def on_f12_press(self, event):
+        self.add_mode_combobox.set(self.add_mode_combobox_values[3])
 
 
     def todofunc(self, event):
@@ -1870,7 +1906,9 @@ class ImageEditor(tk.Tk):
             else:#only add single feature
                 print("single feature")
                 if rectangle.type == "note":
-                    rectangle = Note(rectangle.topleft, rectangle.bottomright, self.is_half_note)
+                    auto_extended = not self.allow_note_to_be_auto_extended.get()
+                    print(auto_extended, "auto_extended")
+                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=self.is_half_note, auto_extended=auto_extended)
                     if self.num_notes_combobox.get() != 1:
                         rectangle = self.convert_notes([rectangle])
                 if isinstance(rectangle, list):
@@ -1967,7 +2005,7 @@ class ImageEditor(tk.Tk):
                     bottom = int(tl[1] + spacing * (i + 1))
                     auto_extended = True
                     if num_notes == 1:
-                        auto_extended = False
+                        auto_extended = not self.allow_note_to_be_auto_extended.get()
                     new_notes.append(Note([tl[0], top], [br[0], bottom], self.is_half_note.get(), auto_extended=auto_extended))
         return new_notes
 
