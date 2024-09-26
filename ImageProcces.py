@@ -1129,10 +1129,12 @@ class ImageProcessing:
                     if height > note_height * 1.5 or width > note_height * 2:
                         print("Half note is open")
                     else:
+
                         if rect != (0,0,0,0):
                             if height / note_height < 1.3 and width / note_width < 1.3:
                                 rects.append(rect)
-                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
+                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3 and x < note.center[0] < x + width and y < note.cetner[1] < y + height:
+
                             #adjustment = int((note_height - height) / 2)
                             note.topleft = [x - adjustment, y - adjustment]
                             note.bottomright = [x + width + adjustment, y + height + adjustment]

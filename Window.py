@@ -41,6 +41,8 @@ correct
 """
 TODO
 Big TODO
+    xmltodict: go measure by measure
+    for extending half note, try cetner first. if center is not in rect, then dont extend
     remove small notes, by area
     for quarter note, match template with bw image
     blackness bar
