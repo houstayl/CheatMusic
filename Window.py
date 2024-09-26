@@ -41,6 +41,8 @@ correct
 """
 TODO
 Big TODO
+    debug mode
+    write shorcut keys 
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
     parallelize note calculating
     in extend quarter note, draw a blank line horizontally as well
