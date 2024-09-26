@@ -44,15 +44,11 @@ Big TODO
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
     parallelize note calculating
     in extend quarter note, draw a blank line horizontally as well
-    dont auto extend notes option
     use both note detection and compare to find differences
     show self.dirname in info tab
     calculate note not using staff lines. draw line from top to bottom of region
     mxl parser: get all notes in measure, and there alteration, compare with
-    for accidental, check 3 closest lines
-    is vertical line in square, is horizontal line in square
     jump to page
-    regenerate bw and gray images after changes in paint
     extract notes and compare with mxml
     half line detection
     dotted white line down center for quarter note accidetnal, black line for half note accidental
