@@ -1118,8 +1118,8 @@ class ImageProcessing:
         #cv.imwrite("ahalfnote.jpg", img)
         #TODO adjustment based off diference between height and note height
         for y_traverse in range(note.topleft[1], note.bottomright[1], 1):
-            #for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
-            for x_traverse in range(note.topleft[0], note.bottomright[0], 1):
+            for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
+            #for x_traverse in range(note.topleft[0], note.bottomright[0], 1):
                 #if pixel is white, flood fill
                 if img[y_traverse][x_traverse] == 0:
                     start_point = (x_traverse, y_traverse)
@@ -1133,7 +1133,7 @@ class ImageProcessing:
                         if rect != (0,0,0,0):
                             if height / note_height < 1.3 and width / note_width < 1.3:
                                 rects.append(rect)
-                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3 and x < note.center[0] < x + width and y < note.cetner[1] < y + height:
+                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
 
                             #adjustment = int((note_height - height) / 2)
                             note.topleft = [x - adjustment, y - adjustment]

@@ -41,6 +41,8 @@ correct
 """
 TODO
 Big TODO
+    cv.threshold value
+    own sliding rectangle for quarter note detection
     xmltodict: go measure by measure
     for extending half note, try cetner first. if center is not in rect, then dont extend
     remove small notes, by area
@@ -1141,11 +1143,8 @@ class ImageEditor(tk.Tk):
             else:
                 self.draw_jpg.set(0)
             self.draw_image_with_filters()
-        #if c == ',':
-        #    if self.editing_mode.get() == self.editing_modes[0]:#currently add
-        #        self.editing_mode.set(self.editing_modes[1])
-        #    else:#currently edit
-        #        self.editing_mode.set(self.editing_modes[0])
+        if c == ',':
+            self.allow_note_to_be_auto_extended.set(not self.allow_note_to_be_auto_extended.get())
         if c == "[":
             self.current_feature = None
             self.staff_line_diagonal_coordinates = []
