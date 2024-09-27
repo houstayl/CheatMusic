@@ -942,9 +942,9 @@ class ImageProcessing:
     def auto_detect_half_or_quarter_note(self, page_index):
         for note in self.notes[page_index]:
             if self.detect_note_type(page_index, note) == "half":
-                note.is_half_note = True
+                note.is_half_note = "half"
             else:
-                note.is_half_note = False
+                note.is_half_note = "quarter"
 
     def remove_small_notes(self, page_index):
         note_height = self.get_note_height(page_index)
@@ -1065,12 +1065,12 @@ class ImageProcessing:
     '''
     Manually extending notes in a direction. If notes overlap, wont extend
     '''
-    def extend_notes(self, page_index, up, down, left, right, is_half_note, include_auto_extended_notes):
+    def extend_notes(self, page_index, up, down, left, right, note_type, include_auto_extended_notes):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for i in range(len(self.notes[page_index])):
 
                 note = self.notes[page_index][i]
-                if note.is_half_note != is_half_note or note.is_auto_extended() != include_auto_extended_notes:
+                if note.is_half_note != note_type or note.is_auto_extended() != include_auto_extended_notes:
                     continue
                 note.topleft = [note.topleft[0] - left, note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1] + down]
@@ -1094,12 +1094,12 @@ class ImageProcessing:
                                 break
 
 
-    def add_note_by_center_coordinate(self, page_index, x, y, is_half_note, note_height_width_ratio):
+    def add_note_by_center_coordinate(self, page_index, x, y, note_type, note_height_width_ratio):
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
         topleft = [int(x - note_width / 2), int(y - note_height / 2)]
         bottomright = [int(x + note_width / 2), int(y + note_height / 2)]
-        note = Note(topleft, bottomright, is_half_note=is_half_note, auto_extended=False)
+        note = Note(topleft, bottomright, is_half_note=note_type, auto_extended=False)
         #TODO
     '''
     Tries to autosnap notes by assuming that implied lines will pass through center of note, and adjacent implied lines travel through top and bottom of note
@@ -1114,7 +1114,11 @@ class ImageProcessing:
     '''
     def auto_extend_half_note(self, page_index, note, img, mask, note_height, note_width):
         rects = []
-        adjustment = 2
+        #adjustment = 2
+        vertical_adjustment = 2
+        horizontal_adjustment = 2
+        if note.is_half_note == "whole":
+            horizontal_adjustment = 7
         #cv.imwrite("ahalfnote.jpg", img)
         #TODO adjustment based off diference between height and note height
         for y_traverse in range(note.topleft[1], note.bottomright[1], 1):
@@ -1136,8 +1140,8 @@ class ImageProcessing:
                         if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
 
                             #adjustment = int((note_height - height) / 2)
-                            note.topleft = [x - adjustment, y - adjustment]
-                            note.bottomright = [x + width + adjustment, y + height + adjustment]
+                            note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+                            note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
                             note.reset_center()
                             note.auto_extended = True
                             return
@@ -1164,8 +1168,8 @@ class ImageProcessing:
                 x_topleft = x_bottom
                 x_bottomright = x_top
             #adjustment = int((note_height - height) / 2)
-            note.topleft = [x_topleft - adjustment, y_top - adjustment]
-            note.bottomright = [x_bottomright + width_bottom + adjustment, y_bottom + height_bottom + adjustment]
+            note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
+            note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment, y_bottom + height_bottom + vertical_adjustment]
             note.reset_center()
             note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
             note.auto_extended = True
@@ -1174,8 +1178,8 @@ class ImageProcessing:
 
         elif len(rects) == 1:
             x, y, width, height = rects[0]
-            note.topleft = [x - adjustment, y - adjustment]
-            note.bottomright = [x + width + adjustment, y + height + adjustment]
+            note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+            note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
             note.reset_center()
             note.auto_extended = True
         else:
@@ -1212,11 +1216,11 @@ class ImageProcessing:
         for i in range(note_count):
             top = y + round(i * spacing)
             bottom = y + round((i + 1) * spacing)
-            note = Note([x, top], [x + width, bottom], False, auto_extended=True)
+            note = Note([x, top], [x + width, bottom], is_half_note="quarter", auto_extended=True)
             self.remove_overlapping_notes(page_index, note, note_height)
             self.notes[page_index].append(note)
 
-
+    '''
     def extend_quarter_note_Pb(self, page_index, x, y, width, height, note_height):
         mid_top = y + int(height / 3)
         mid_bottom = y + int(height * 2 / 3)
@@ -1238,6 +1242,7 @@ class ImageProcessing:
         self.remove_overlapping_notes(page_index, note2, note_height)
         self.notes[page_index].append(note1)
         self.notes[page_index].append(note2)
+    '''
 
     def using_rect_dimensions_get_combination_note_type(self, page_index, rect, note, note_height, note_width):
         x, y, width, height = rect
@@ -1306,7 +1311,7 @@ class ImageProcessing:
                                 if note is not None:
                                     self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
                                 else:
-                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note=False)
+                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note="quarter")
                                     self.append_features(page_index, "note", [note])
                                     self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
 
@@ -1322,7 +1327,7 @@ class ImageProcessing:
                                 if note is not None:
                                     self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
                                 else:
-                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note=False)
+                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note="quarter")
                                     self.append_features(page_index, "note", [note])
                                     self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
                 else:
@@ -1374,16 +1379,17 @@ class ImageProcessing:
             cv.imwrite("ahorizontal.jpg", horizontal)
             cv.imwrite("avertical.jpg", vertical)
             cv.imwrite("aintersection.jpg", intersection_image)
-        for i in range(len(self.notes[page_index]) - 1, -1, -1):
-            note = self.notes[page_index][i]
-            if note.is_auto_extended() == True:
-                continue
-            if note.is_half_note == False:
-                remove = self.auto_extend_quarter_note(page_index, note, intersection_image, mask, note_height, note_width)
-                if remove == "remove":
-                    self.notes[page_index].pop(i)
-            else:
-                self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
+        if self.is_list_iterable(self.notes[page_index]):
+            for i in range(len(self.notes[page_index]) - 1, -1, -1):
+                note = self.notes[page_index][i]
+                if note.is_auto_extended() == True:
+                    continue
+                if note.is_half_note == "quarter":
+                    remove = self.auto_extend_quarter_note(page_index, note, intersection_image, mask, note_height, note_width)
+                    if remove == "remove":
+                        self.notes[page_index].pop(i)
+                else:
+                    self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
 
         #TODO reload image and do it again
 
@@ -1467,7 +1473,7 @@ class ImageProcessing:
                             if .5 < height_ratio < 1.5:
                                 topleft = [x - 1, y - 1]
                                 bottomright = [x + width + 1, y + height + 1]
-                                note = Note(topleft, bottomright, is_half_note=False, auto_extended=True)
+                                note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
                                 self.append_features(page_index, "note", [note])
 
     def fill_in_white_spots(self, page_index, image, gray_image, filename):
@@ -2026,7 +2032,7 @@ class ImageProcessing:
                         else:  # note with no accidental
                             self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
                                                  self.letter_colors[feature.letter])
-                        if isinstance(feature, Note) and feature.is_half_note == True:
+                        if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
                             #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, self.letter_colors[feature.letter])
                             self.fill_in_half_note(page_index, feature, self.letter_colors[feature.letter])
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])

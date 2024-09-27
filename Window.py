@@ -19,29 +19,26 @@ import subprocess
 '''
 Steps: Find clefs
 find staff lines
+find clefs in lines
+generate barlines
+go through jpgs and fill in missing lines in paint
 find notes
-find accidentals
-find barlines
-generate regions
-expand notes horizontally
-autosnap
-expand notes vertically
-correct notes in wrong region
+expand
+remove small notes
+go through and fill in manually
+for small notes, turn of threshold and dont allow auto extending
 
-steps: find clefs and staff lines
-find barlines
-find notes
-generate regions
-auto extend notes
-corrections
-find accidentals
-correct 
 
 '
 '''
 """
 TODO
 Big TODO
+    convert chopin pkls
+    if no accidental found: set accidental to ""
+    add type for whole note: all it does is extend auto snap by 5 pixels: radiobutton: quarter, half, whole
+    have region start at end of clef, not beginning
+    in extend quarter note, if resultant note is mostly white, then dont add
     cv.threshold value
     own sliding rectangle for quarter note detection
     xmltodict: go measure by measure
@@ -148,11 +145,22 @@ class ImageEditor(tk.Tk):
         self.allow_overlapping_check_button = tk.Checkbutton(self.left_frame, text="Allow overlapping squares on add", onvalue=1, offvalue=0, variable=self.allow_overlapping)
         self.allow_overlapping_check_button.pack()
 
+        '''
         self.is_half_note = tk.BooleanVar()
         self.is_half_note.set(False)
         self.allow_overlapping_check_button = tk.Checkbutton(self.left_frame, text="Half note", onvalue=True, offvalue=False, variable=self.is_half_note)
         self.allow_overlapping_check_button.pack()
+        '''
 
+        self.note_type = tk.StringVar()
+        self.note_types = ["quarter", "half", "whole"]
+        self.note_type.set(self.note_types[0])
+        self.note_type_radio_button_quarter = tk.Radiobutton(self.left_frame, text="Quarter Note", variable=self.note_type, value=self.note_types[0])
+        self.note_type_radio_button_half = tk.Radiobutton(self.left_frame, text="Half Note", variable=self.note_type, value=self.note_types[1])
+        self.note_type_radio_button_whole = tk.Radiobutton(self.left_frame, text="Whole Note", variable=self.note_type, value=self.note_types[2])
+        self.note_type_radio_button_quarter.pack()
+        self.note_type_radio_button_half.pack()
+        self.note_type_radio_button_whole.pack()
         #REmove adjacent features button
         #self.remove_adjacents_button = tk.Button(self.left_frame, text="Remove Overlaping Squares", command=self.remove_adjacent_matches_all)
         #self.remove_adjacents_button.pack(pady=5)
@@ -444,7 +452,11 @@ class ImageEditor(tk.Tk):
         note_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Notes", menu=note_menu)
         # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
-        note_menu.add_checkbutton(label="(Checkbox)Half note", variable=self.is_half_note)
+        #note_menu.add_checkbutton(label="(Checkbox)Half note", variable=self.is_half_note)
+        note_menu.add_radiobutton(label="Quarter Note", variable=self.note_type, value=self.note_types[0])
+        note_menu.add_radiobutton(label="Half Note", variable=self.note_type, value=self.note_types[1])
+        note_menu.add_radiobutton(label="Whole Note", variable=self.note_type, value=self.note_types[2])
+        note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines)", command=self.auto_extend_notes)
         note_menu.add_separator()
@@ -465,7 +477,9 @@ class ImageEditor(tk.Tk):
         note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
         note_menu.add_separator()
         note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
-        #note_menu.add_separator()
+        note_menu.add_separator()
+        note_menu.add_command(label="Convert notes", command=self.convert_is_half_note)
+
         #note_menu.add_command(label="Are notes on line", command=self.are_notes_on_line)
 
         #note_menu.add_separator()
@@ -537,6 +551,16 @@ class ImageEditor(tk.Tk):
             #subprocess.run(['mspaint.exe'])
 
 
+    def convert_is_half_note(self):
+        for i in range(self.num_pages):
+            notes = self.image_processor.notes[i]
+            if notes is not None and len(notes) > 0:
+                for note in notes:
+                    if note.is_half_note == True:
+                        note.is_half_note = "half"
+                    else:
+                        note.is_half_note = "quarter"
+        print("converted notes")
     def auto_detect_note_letter_irregularities(self):
         #TODO look for adjacent notes and compare letters
         pass
@@ -647,9 +671,10 @@ class ImageEditor(tk.Tk):
 
     def clear_combobox(self, event):
         self.selected_label.focus()
-
+    '''
     def set_note_type(self):
         self.is_half_note = not self.is_half_note
+    '''
 
     def make_all_notes_same_size(self):
         for i in range(len(self.num_pages)):
@@ -740,7 +765,7 @@ class ImageEditor(tk.Tk):
         if loop_list == "single":
             loop_list = [self.image_index]
         for i in loop_list:
-            self.image_processor.extend_notes(i, up, down, left, right, self.is_half_note.get(), self.include_auto_extended_notes.get())
+            self.image_processor.extend_notes(i, up, down, left, right, self.note_type.get(), self.include_auto_extended_notes.get())
         self.draw_image_with_filters()
 
 
@@ -1093,15 +1118,15 @@ class ImageEditor(tk.Tk):
 
 
 
-    def set_feature_type(self, feature_name, is_half_note=False):
+    def set_feature_type(self, feature_name):
         if "staff_line" in feature_name:
             self.staff_line_block_coordinates = []
             self.staff_line_diagonal_coordinates = []
         self.current_feature_type = feature_name
-        self.is_half_note.set(is_half_note)
-
         self.selected_label_text.set("Current Feature Selected: \n" + self.current_feature_type)
-        print("Current feature type: ", self.current_feature_type, "Is half note: ", str(self.is_half_note.get()))
+    def set_note_type(self, note_type):
+        self.note_type.set(note_type)
+        print("note type: ", self.note_type.get())
 
     def set_key(self, topleft, bottomright):
         loop_array = self.get_loop_array_based_on_feature_mode()
@@ -1144,8 +1169,13 @@ class ImageEditor(tk.Tk):
             self.set_feature_type("treble_clef")
         if c == 'n' or c == "N":
             self.set_feature_type("note")
+            self.set_feature_type("quarter")
         if c == 'h' or c == 'H':
-            self.set_feature_type("note", is_half_note=True)
+            self.set_feature_type("note")
+            self.set_note_type("half")
+        if c == 'w' or c == "W":
+            self.set_feature_type("note")
+            self.set_note_type("whole")
         if c == 'y' or c == "Y":
             self.set_feature_type("barline")
         if c == 'k' or c == "K":
@@ -1223,6 +1253,21 @@ class ImageEditor(tk.Tk):
                 image_width = self.image_processor.image_widths[self.image_index]
                 if self.current_feature.bottomright[0] < image_width - 1:
                     self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 1
+                    if isinstance(self.current_feature, Note):
+                        self.current_feature.auto_extended = True
+                else:
+                    print("out of bounds")
+                self.draw_image_with_filters()
+            if c == '|':
+                if self.current_feature.topleft[0] > 5:
+                    self.current_feature.topleft[0] = self.current_feature.topleft[0] - 5
+                    if isinstance(self.current_feature, Note):
+                        self.current_feature.auto_extended = True
+                else:
+                    print("out of bounds")
+                image_width = self.image_processor.image_widths[self.image_index]
+                if self.current_feature.bottomright[0] < image_width - 6:
+                    self.current_feature.bottomright[0] = self.current_feature.bottomright[0] + 5
                     if isinstance(self.current_feature, Note):
                         self.current_feature.auto_extended = True
                 else:
@@ -1858,7 +1903,7 @@ class ImageEditor(tk.Tk):
                     template,
                     (0, 255, 0),
                     rectangle.type,
-                    self.is_half_note.get(),
+                    self.note_type.get(),
                     not self.allow_note_to_be_auto_extended.get(),
                     self.threshold_scale.get() / 100,
                     10,  # error
@@ -1931,7 +1976,7 @@ class ImageEditor(tk.Tk):
                 if rectangle.type == "note":
                     auto_extended = not self.allow_note_to_be_auto_extended.get()
                     print(auto_extended, "auto_extended")
-                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=self.is_half_note, auto_extended=auto_extended)
+                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=self.note_type.get(), auto_extended=auto_extended)
                     if self.num_notes_combobox.get() != 1:
                         rectangle = self.convert_notes([rectangle])
                 if isinstance(rectangle, list):
@@ -2012,11 +2057,11 @@ class ImageEditor(tk.Tk):
                     tl = [tl[0], tl[1] + 1]
                     br = [br[0], br[1] - 1]
                 if "Pb" in num_notes:
-                    new_notes.append(Note(tl, [x_mid, y_mid_lower], self.is_half_note.get(), auto_extended=True))
-                    new_notes.append(Note([x_mid, y_mid_upper], br, self.is_half_note.get(), auto_extended=True))
+                    new_notes.append(Note(tl, [x_mid, y_mid_lower], self.note_type.get(), auto_extended=True))
+                    new_notes.append(Note([x_mid, y_mid_upper], br, self.note_type.get(), auto_extended=True))
                 else:#bP
-                    new_notes.append(Note([tl[0], y_mid_upper], [x_mid, br[1]], self.is_half_note.get(), auto_extended=True))
-                    new_notes.append(Note([x_mid, tl[1]], [br[0], y_mid_lower], self.is_half_note.get(), auto_extended=True))
+                    new_notes.append(Note([tl[0], y_mid_upper], [x_mid, br[1]], self.note_type.get(), auto_extended=True))
+                    new_notes.append(Note([x_mid, tl[1]], [br[0], y_mid_lower], self.note_type.get(), auto_extended=True))
         else:
             num_notes = int(num_notes)
             for note in notes:
@@ -2029,7 +2074,7 @@ class ImageEditor(tk.Tk):
                     auto_extended = True
                     if num_notes == 1:
                         auto_extended = not self.allow_note_to_be_auto_extended.get()
-                    new_notes.append(Note([tl[0], top], [br[0], bottom], self.is_half_note.get(), auto_extended=auto_extended))
+                    new_notes.append(Note([tl[0], top], [br[0], bottom], self.note_type.get(), auto_extended=auto_extended))
         return new_notes
 
 
