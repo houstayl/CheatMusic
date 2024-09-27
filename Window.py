@@ -1976,7 +1976,9 @@ class ImageEditor(tk.Tk):
                 if rectangle.type == "note":
                     auto_extended = not self.allow_note_to_be_auto_extended.get()
                     print(auto_extended, "auto_extended")
-                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=self.note_type.get(), auto_extended=auto_extended)
+                    note_type = self.note_type.get()
+                    print("note_type", note_type)
+                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=note_type, auto_extended=auto_extended)
                     if self.num_notes_combobox.get() != 1:
                         rectangle = self.convert_notes([rectangle])
                 if isinstance(rectangle, list):
