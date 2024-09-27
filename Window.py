@@ -14,6 +14,7 @@ import copy
 from StaffLine import StaffLine
 from Note import Note
 import concurrent.futures
+import subprocess
 
 '''
 Steps: Find clefs
@@ -312,6 +313,8 @@ class ImageEditor(tk.Tk):
         self.bind("<F2>", self.on_f2_press)#auto extend notes
         self.bind("<F3>", self.on_f3_press)#calculate notes
         self.bind("<F4>", self.on_f4_press)#calculate accidentals
+        self.bind("<F5>", self.on_f5_press)#regenerate images
+        self.bind("<F6>", self.on_f6_press)#open paint
         self.bind("<F9>", self.on_f9_press)  # calculate notes
         self.bind("<F10>", self.on_f10_press)  # calculate notes
         self.bind("<F11>", self.on_f11_press)  # calculate notes
@@ -523,6 +526,16 @@ class ImageEditor(tk.Tk):
         self.debugging = tk.BooleanVar()
         self.debugging.set(False)
         info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable = self.debugging)
+
+    def open_paint(self):
+        path = self.image_processor.images_filenames[self.image_index]
+        print(path)
+        paint_path = r'C:\Windows\System32\mspaint.exe'
+        if os.path.exists(path):
+            #subprocess.run([paint_path, path])
+            os.startfile(path)
+            #subprocess.run(['mspaint.exe'])
+
 
     def auto_detect_note_letter_irregularities(self):
         #TODO look for adjacent notes and compare letters
@@ -1261,6 +1274,10 @@ class ImageEditor(tk.Tk):
         self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
     def on_f4_press(self, event):
         self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
+    def on_f5_press(self, event):
+        self.regenerate_images()
+    def on_f6_press(self, event):
+        self.open_paint()
     def on_f9_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[0])
     def on_f10_press(self, event):
