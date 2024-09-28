@@ -809,7 +809,7 @@ class ImageProcessing:
             letter_index = 5
         note_shift = round(distance / spacing)
         letter_index = (letter_index - note_shift) % len(letters)
-        if note.letter.is_lower():
+        if note.letter.islower():
             note.letter = letters[letter_index]
 
 
