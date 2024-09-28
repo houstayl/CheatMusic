@@ -1120,31 +1120,46 @@ class ImageProcessing:
         if note.is_half_note == "whole":
             horizontal_adjustment = 7
         #cv.imwrite("ahalfnote.jpg", img)
-        #TODO adjustment based off diference between height and note height
-        for y_traverse in range(note.topleft[1], note.bottomright[1], 1):
-            for x_traverse in range(note.center[0] - 2, note.center[0] + 2, 1):
-            #for x_traverse in range(note.topleft[0], note.bottomright[0], 1):
-                #if pixel is white, flood fill
-                if img[y_traverse][x_traverse] == 0:
-                    start_point = (x_traverse, y_traverse)
-                    _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
-                    #print(rect)
-                    x, y, width, height = rect
-                    if height > note_height * 1.5 or width > note_height * 2:
-                        print("Half note is open")
-                    else:
 
-                        if rect != (0,0,0,0):
-                            if height / note_height < 1.3 and width / note_width < 1.3:
-                                rects.append(rect)
-                        if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
+        #traversing around the center and outward
+        center_x, center_y = note.center
 
-                            #adjustment = int((note_height - height) / 2)
-                            note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
-                            note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
-                            note.reset_center()
-                            note.auto_extended = True
-                            return
+        # Calculate the maximum radius from the center to the rectangle's edges
+        x_radius = note.get_width() // 2
+        y_radius = note.get_height() // 2
+        max_radius = max(x_radius, y_radius)
+        # Traverse outward from the center
+        for radius in range(max_radius + 1):
+            for y_offset in range(-radius, radius + 1):
+                for x_offset in range(-radius, radius + 1):
+                    # Calculate the current position
+                    x_traverse = center_x + x_offset
+                    y_traverse = center_y + y_offset
+
+                    # Ensure the position is within the bounds of the rectangle
+                    if (note.topleft[0] <= x_traverse <= note.bottomright[0] and note.topleft[1] <= y_traverse <= note.bottomright[1]):
+                        # Do your processing here with x_traverse and y_traverse
+                        #if pixel is white, flood fill
+                        if img[y_traverse][x_traverse] == 0:
+                            start_point = (x_traverse, y_traverse)
+                            _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+                            #print(rect)
+                            x, y, width, height = rect
+                            if height > note_height * 1.5 or width > note_height * 2:
+                                print("Half note is open")
+                            else:
+
+                                if rect != (0,0,0,0):
+                                    if height / note_height < 1.3 and width / note_width < 1.3:
+                                        rects.append(rect)
+                                if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
+
+                                    #adjustment = int((note_height - height) / 2)
+                                    note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+                                    note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+                                    note.reset_center()
+                                    note.auto_extended = True
+                                    return
 
         #for rect in rects:
         #    x, y, width, height = rect
