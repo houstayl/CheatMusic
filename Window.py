@@ -1276,19 +1276,19 @@ class ImageEditor(tk.Tk):
                 self.draw_image_with_filters()
 
             if c == '1':
-                self.current_feature.set_accidental("double_sharp")
+                self.current_feature.set_accidental("DOUBLE_SHARP")
                 self.draw_image_with_filters()
             if c == '2':
-                self.current_feature.set_accidental("sharp")
+                self.current_feature.set_accidental("SHARP")
                 self.draw_image_with_filters()
             if c == '3':
-                self.current_feature.set_accidental("natural")
+                self.current_feature.set_accidental("NATURAL")
                 self.draw_image_with_filters()
             if c == '4':
-                self.current_feature.set_accidental("flat")
+                self.current_feature.set_accidental("FLAT")
                 self.draw_image_with_filters()
             if c == '5':
-                self.current_feature.set_accidental("double_flat")
+                self.current_feature.set_accidental("DOUBLE_FLAT")
                 self.draw_image_with_filters()
             if c == '6':
                 self.current_feature.set_accidental("")

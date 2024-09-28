@@ -101,7 +101,11 @@ class Region:
             #If accidental was found
             if type(closest) != int:
                 #if closest.letter == note.letter:#TODO
-                note.accidental = closest.type#[letter, accidental]
+                #print("outer", closest.letter)
+                if closest.letter == note.letter and (note.accidental.islower() or note.accidental == ""):
+                    note.accidental = closest.type#[letter, accidental]
+                    #print("innter", note.accidental)
+
                 #print("closest accidental: ", closest)
 
 

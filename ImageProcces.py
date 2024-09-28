@@ -2057,7 +2057,7 @@ class ImageProcessing:
                         #print("note: ", feature)
                         if feature.accidental != "":
                             #print("note: ", feature)
-                            accidental = feature.accidental
+                            accidental = feature.accidental.lower()
                             if accidental == "flat":
                                 self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
                             if accidental == "sharp":
