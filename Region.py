@@ -132,7 +132,8 @@ class Region:
             feature.center[1] = closest_line.calculate_y(feature.center[0])
         #feature.topleft = (feature.topleft[0], feature.topleft[1] + y_dif)
         #feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
-        feature.letter = closest_line.letter
+        if feature.letter.is_lower():
+            feature.letter = closest_line.letter
 
 
 

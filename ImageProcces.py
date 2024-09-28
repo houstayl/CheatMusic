@@ -809,7 +809,8 @@ class ImageProcessing:
             letter_index = 5
         note_shift = round(distance / spacing)
         letter_index = (letter_index - note_shift) % len(letters)
-        note.letter = letters[letter_index]
+        if note.letter.is_lower():
+            note.letter = letters[letter_index]
 
 
     def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img):
@@ -915,7 +916,7 @@ class ImageProcessing:
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
                 if self.is_feature_in_rectange(note, topleft, bottomright) == True and note.accidental == "":
-                    if note.letter in key:
+                    if note.letter.lower() in key:
                         note.accidental = accidental_type
 
     def get_note_height(self, page_index):
@@ -1152,12 +1153,40 @@ class ImageProcessing:
                                 if rect != (0,0,0,0):
                                     if height / note_height < 1.3 and width / note_width < 1.3:
                                         rects.append(rect)
-                                if .7 < height / note_height < 1.3 and .7 < width / note_width < 1.3:
+                                        #self.notes[page_index].append(Note([rect[0], rect[1]], [rect[0] + rect[2], rect[1] + rect[3]], "quarter", True))
 
+                                if .5 < height / note_height < 1.3 and .5 < width / note_width < 1.3:
                                     #adjustment = int((note_height - height) / 2)
                                     note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
                                     note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
                                     note.reset_center()
+                                    note.auto_extended = True
+                                    return
+
+                                if len(rects) == 2:
+                                    top_rect = rects[0]
+                                    bottom_rect = rects[1]
+                                    # if second rect is above first rect
+                                    if rects[1][1] < rects[0][1]:
+                                        top_rect = rects[1]
+                                        bottom_rect = rects[0]
+                                    x_top, y_top, width_top, height_top = top_rect
+                                    x_bottom, y_bottom, width_bottom, height_bottom = bottom_rect
+                                    x_topleft = x_top
+                                    x_bottomright = x_bottom
+                                    if x_bottomright < x_topleft:
+                                        x_topleft = x_bottom
+                                        x_bottomright = x_top
+                                        temp = width_bottom
+                                        width_bottom = width_top
+                                        width_top = temp
+
+                                    # adjustment = int((note_height - height) / 2)
+                                    note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
+                                    note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment,
+                                                        y_bottom + height_bottom + vertical_adjustment]
+                                    note.reset_center()
+                                    note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
                                     note.auto_extended = True
                                     return
 
@@ -1167,6 +1196,7 @@ class ImageProcessing:
         #    bottomright = [x + width, y + height]
         #    self.notes[page_index].append(Note(topleft, bottomright, True, True))
         #print(len(rects))
+        '''
         if len(rects) == 2:
             #print("2 rects")
             top_rect = rects[0]
@@ -1188,15 +1218,18 @@ class ImageProcessing:
             note.reset_center()
             note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
             note.auto_extended = True
+        '''
 
 
-
-        elif len(rects) == 1:
+        if len(rects) == 1:
+            print("half note is probably open", note.center)
+            '''
             x, y, width, height = rects[0]
             note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
             note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
             note.reset_center()
             note.auto_extended = True
+            '''
         else:
             print("couldnt autosnap half note ", len(rects), "rects")
 
@@ -1388,12 +1421,7 @@ class ImageProcessing:
         half_note_mask = np.zeros((h + 2, w + 2), np.uint8)
 
         intersection_image = cv.bitwise_and(horizontal, vertical)
-        if debugging:
-            cv.imwrite("agray.jpg", gray)
-            cv.imwrite("abw.jpg", bw)
-            cv.imwrite("ahorizontal.jpg", horizontal)
-            cv.imwrite("avertical.jpg", vertical)
-            cv.imwrite("aintersection.jpg", intersection_image)
+
         if self.is_list_iterable(self.notes[page_index]):
             for i in range(len(self.notes[page_index]) - 1, -1, -1):
                 note = self.notes[page_index][i]
@@ -1407,6 +1435,12 @@ class ImageProcessing:
                     self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
 
         #TODO reload image and do it again
+        if debugging:
+            cv.imwrite("agray.jpg", gray)
+            cv.imwrite("abw.jpg", bw)
+            cv.imwrite("ahorizontal.jpg", horizontal)
+            cv.imwrite("avertical.jpg", vertical)
+            cv.imwrite("aintersection.jpg", intersection_image)
 
     def split_up_notes_image(self, page_index, note_height, note_width):
         # print(note_height, note_width)
@@ -2019,37 +2053,28 @@ class ImageProcessing:
                 if feature is not None:
                     # if it is a note or accidental that has a letter labeled
                     if feature.letter != "":
+                        color = self.letter_colors[feature.letter.lower()]
                         #print("note: ", feature)
                         if feature.accidental != "":
                             #print("note: ", feature)
                             accidental = feature.accidental
                             if accidental == "flat":
-                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]),
-                                                     feature.bottomright, self.letter_colors[feature.letter])
+                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
                             if accidental == "sharp":
-                                self.fill_in_feature(page_index, feature.topleft,
-                                                     (feature.bottomright[0], feature.center[1]),
-                                                     self.letter_colors[feature.letter])
+                                self.fill_in_feature(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color)
 
                             if accidental == "double_flat":
-                                self.fill_in_feature(page_index, feature.topleft,
-                                                     (feature.center[0], feature.bottomright[1]),
-                                                     self.letter_colors[feature.letter])
+                                self.fill_in_feature(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color)
                             if accidental == "double_sharp":
-                                self.fill_in_feature(page_index,
-                                                     (feature.center[0], feature.topleft[1]), feature.bottomright,
-                                                     self.letter_colors[feature.letter])
+                                self.fill_in_feature(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color)
                             if accidental == "natural":
-                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
-                                                     self.letter_colors[feature.letter])
-
-
+                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
                         else:  # note with no accidental
                             self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
-                                                 self.letter_colors[feature.letter])
+                                                 color)
                         if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
-                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, self.letter_colors[feature.letter])
-                            self.fill_in_half_note(page_index, feature, self.letter_colors[feature.letter])
+                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
+                            self.fill_in_half_note(page_index, feature, color)
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
                     else:
                         if draw_rectangle == True:
@@ -2071,7 +2096,7 @@ class ImageProcessing:
                             #print("implied line", line.topleft, line.bottomright)
                             topleft_in_region = [region.topleft[0], line.calculate_y(region.topleft[0])]
                             bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
-                            cv.line(self.images[page_index], topleft_in_region, bottomright_in_region, self.letter_colors[line.letter], 1)
+                            cv.line(self.images[page_index], topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
         if filter_list[2].get() == 1:#bass clef
             self.draw_features(self.bass_clefs, page_index)
         if filter_list[3].get() == 1:#treble clef

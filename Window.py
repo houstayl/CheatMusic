@@ -34,15 +34,16 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
+    change cursor color based on feature mode
+    if note is manually set, then dont override. make letter capitalized if note override
+    calculate notes for distorted staff lines using horizontal image
     convert chopin pkls
     if no accidental found: set accidental to ""
-    add type for whole note: all it does is extend auto snap by 5 pixels: radiobutton: quarter, half, whole
     have region start at end of clef, not beginning
     in extend quarter note, if resultant note is mostly white, then dont add
     cv.threshold value
     own sliding rectangle for quarter note detection
     xmltodict: go measure by measure
-    for extending half note, try cetner first. if center is not in rect, then dont extend
     remove small notes, by area
     for quarter note, match template with bw image
     blackness bar
@@ -1169,7 +1170,7 @@ class ImageEditor(tk.Tk):
             self.set_feature_type("treble_clef")
         if c == 'n' or c == "N":
             self.set_feature_type("note")
-            self.set_feature_type("quarter")
+            self.set_note_type("quarter")
         if c == 'h' or c == 'H':
             self.set_feature_type("note")
             self.set_note_type("half")
@@ -1219,25 +1220,25 @@ class ImageEditor(tk.Tk):
 
         if self.current_feature is not None:
             if c == 'a' or c == "A":
-                self.current_feature.set_letter('a')
+                self.current_feature.set_letter('A')
                 self.draw_image_with_filters()
             if c == 'b' or c == "B":
-                self.current_feature.set_letter('b')
+                self.current_feature.set_letter('B')
                 self.draw_image_with_filters()
             if c == 'c' or c == "C":
-                self.current_feature.set_letter('c')
+                self.current_feature.set_letter('C')
                 self.draw_image_with_filters()
             if c == 'd' or c == "D":
-                self.current_feature.set_letter('d')
+                self.current_feature.set_letter('D')
                 self.draw_image_with_filters()
             if c == 'e' or c == "E":
-                self.current_feature.set_letter('e')
+                self.current_feature.set_letter('E')
                 self.draw_image_with_filters()
             if c == 'f' or c == "F":
-                self.current_feature.set_letter('f')
+                self.current_feature.set_letter('F')
                 self.draw_image_with_filters()
             if c == 'g' or c == "G":
-                self.current_feature.set_letter('g')
+                self.current_feature.set_letter('G')
                 self.draw_image_with_filters()
             if c == 'h' or c == 'H':
                 if isinstance(self.current_feature, Note):
