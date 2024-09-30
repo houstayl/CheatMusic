@@ -34,6 +34,8 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
+    center of naturals
+    showing accidental type in canvas mode
     change cursor color based on feature mode
     if note is manually set, then dont override. make letter capitalized if note override
     calculate notes for distorted staff lines using horizontal image
