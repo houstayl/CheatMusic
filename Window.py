@@ -34,22 +34,26 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
-    center of naturals
+    find un autosnapped half note
+    single click to add barlinen
+    double vert removed not working. beethoven sonata 22 page 5. for extend quarter note, always clear the notes in the rect.
+    dont allow template matching on small or all white rectangle
+    get barlines, dont allow overlap
+    detect non alternating clef
+    draw half notes over quarter notes
+    use staff line error bar
+    calculate note color on add. dont have to press button
+    center of naturals: autosnapping center?
     showing accidental type in canvas mode
-    change cursor color based on feature mode
-    if note is manually set, then dont override. make letter capitalized if note override
     calculate notes for distorted staff lines using horizontal image
     convert chopin pkls
     if no accidental found: set accidental to ""
     have region start at end of clef, not beginning
-    in extend quarter note, if resultant note is mostly white, then dont add
     cv.threshold value
-    own sliding rectangle for quarter note detection
     xmltodict: go measure by measure
     remove small notes, by area
     for quarter note, match template with bw image
     blackness bar
-    debug mode
     write shorcut keys 
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
     parallelize note calculating
@@ -60,7 +64,6 @@ Big TODO
     mxl parser: get all notes in measure, and there alteration, compare with
     jump to page
     extract notes and compare with mxml
-    half line detection
     dotted white line down center for quarter note accidetnal, black line for half note accidental
     auto extend note only applies to half/whole notes
     detect if note is on line or space for letter detection
@@ -99,15 +102,15 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-
+        self.frame_location = "top"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
-        self.left_frame.pack(side="left", fill="y")
+        #self.left_frame.pack(side="left", fill="y")
 
         self.page_indicator = tk.StringVar()
         # self.page_indicator.set(str(self.image_index) + "/" + self.num_pages)
         self.page_indicator_label = tk.Label(self.left_frame, textvariable=self.page_indicator)
-        self.page_indicator_label.pack()
+
 
         # Show selected feature label
         self.selected_label_text = tk.StringVar()
@@ -117,17 +120,14 @@ class ImageEditor(tk.Tk):
         self.feature_mode_add = True  # fasle for remove
         self.selected_label = tk.Label(self.left_frame,
                                        textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
-        self.selected_label.pack(pady=5)
 
 
         # Setting how the features will be added to just the current page, all pages, or the current and next pages
         self.add_mode_label = tk.Label(self.left_frame, text="Feature add mode:")
-        self.add_mode_label.pack()
         self.add_mode_combobox_values = ["Current page and next pages", "Current Page", "All pages", "Single"]
         self.add_mode_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.add_mode_combobox_values, takefocus=0)
         self.add_mode_combobox.current(0)
         #self.add_mode_combobox.bind("<FocusOut>", self.clear_combobox)
-        self.add_mode_combobox.pack()
 
         # CHeck button for whether to draw the image on the canvas or the jpg
         #self.draw_jpg_label = tk.Label(self.left_frame, text="Draw jpg:")
@@ -135,25 +135,17 @@ class ImageEditor(tk.Tk):
         self.draw_jpg = tk.IntVar()
         self.draw_jpg.set(0)
         self.draw_image_on_jpg_check_button = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.draw_jpg, command=self.draw_image_canvas_mode)
-        self.draw_image_on_jpg_check_button.pack()
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
         self.allow_note_to_be_auto_extended_check_button = tk.Checkbutton(self.left_frame, text="Allow note to be auto extended", onvalue=True, offvalue=False, variable=self.allow_note_to_be_auto_extended, command=self.draw_image_canvas_mode)
-        self.allow_note_to_be_auto_extended_check_button.pack()
 
         # Allow overlapping featues checkbox
         self.allow_overlapping = tk.IntVar()
         self.allow_overlapping.set(0)
-        self.allow_overlapping_check_button = tk.Checkbutton(self.left_frame, text="Allow overlapping squares on add", onvalue=1, offvalue=0, variable=self.allow_overlapping)
-        self.allow_overlapping_check_button.pack()
+        #self.allow_overlapping_check_button = tk.Checkbutton(self.left_frame, text="Allow overlapping squares on add", onvalue=1, offvalue=0, variable=self.allow_overlapping)
+        #self.allow_overlapping_check_button.pack()
 
-        '''
-        self.is_half_note = tk.BooleanVar()
-        self.is_half_note.set(False)
-        self.allow_overlapping_check_button = tk.Checkbutton(self.left_frame, text="Half note", onvalue=True, offvalue=False, variable=self.is_half_note)
-        self.allow_overlapping_check_button.pack()
-        '''
 
         self.note_type = tk.StringVar()
         self.note_types = ["quarter", "half", "whole"]
@@ -161,9 +153,7 @@ class ImageEditor(tk.Tk):
         self.note_type_radio_button_quarter = tk.Radiobutton(self.left_frame, text="Quarter Note", variable=self.note_type, value=self.note_types[0])
         self.note_type_radio_button_half = tk.Radiobutton(self.left_frame, text="Half Note", variable=self.note_type, value=self.note_types[1])
         self.note_type_radio_button_whole = tk.Radiobutton(self.left_frame, text="Whole Note", variable=self.note_type, value=self.note_types[2])
-        self.note_type_radio_button_quarter.pack()
-        self.note_type_radio_button_half.pack()
-        self.note_type_radio_button_whole.pack()
+
         #REmove adjacent features button
         #self.remove_adjacents_button = tk.Button(self.left_frame, text="Remove Overlaping Squares", command=self.remove_adjacent_matches_all)
         #self.remove_adjacents_button.pack(pady=5)
@@ -181,17 +171,17 @@ class ImageEditor(tk.Tk):
         #Staff line error scale
         self.staff_line_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Staff line error")
         self.staff_line_error_scale.set(5)
-        self.staff_line_error_scale.pack()
 
         self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, orient="horizontal", label="Note height/width ratio (Percentage)")
         self.note_width_ratio_scale.set(100)
-        self.note_width_ratio_scale.pack()
 
 
         #threshold scale
         self.threshold_scale = tk.Scale(self.left_frame, from_=0, to=99, orient="horizontal", label="Threshold")
         self.threshold_scale.set(80)
-        self.threshold_scale.pack()
+
+        self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale")
+        self.blackness_scale.set(127)
 
         #Used for three click staff line addition
         self.staff_line_block_coordinates = []
@@ -205,67 +195,83 @@ class ImageEditor(tk.Tk):
         self.flat_order = ['b', 'e', 'a', 'd', 'g', 'c', 'f',]
 
         self.key_label = tk.Label(self.left_frame, text="Key:")
-        self.key_label.pack()
         self.key_combobox_values = ["None","1 sharp", "2 sharps", "3 sharps", "4 sharps", "5 sharps", "6 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 flats", "6 flats"]
         self.key_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.key_combobox_values, takefocus=0)
         self.key_combobox.current(0)
-        self.key_combobox.pack()
 
 
 
         #Filtering what is displayted
-        '''
-        self.filter_label = tk.Label(self.left_frame, text="Filter: ")
-        self.filter_label.pack()
-        '''
         self.filter_list = []#staff line, implied line, bass, treble, barline, note, accidental, region border, colored notes
         for i in range(8):
             self.filter_list.append(tk.IntVar())
             self.filter_list[i].set(1)
         self.filter_list[1].set(0)
-        '''
-        self.staff_line_check_button = tk.Checkbutton(self.left_frame, text="Staff Lines", onvalue=1, offvalue=0,
-                                                       variable=self.filter_list[0], command=self.set_filter)
-        self.staff_line_check_button.pack()
-        self.implied_line_check_button = tk.Checkbutton(self.left_frame, text="Implied Lines", onvalue=1, offvalue=0,
-                                                      variable=self.filter_list[1], command=self.set_filter)
-        self.implied_line_check_button.pack()
-        self.bass_clef_check_button = tk.Checkbutton(self.left_frame, text="Bass Clefs", onvalue=1, offvalue=0, variable=self.filter_list[2], command=self.set_filter)
-        self.bass_clef_check_button.pack()
-        self.treble_clef_check_button = tk.Checkbutton(self.left_frame, text="Treble Clefs", onvalue=1, offvalue=0,
-                                                     variable=self.filter_list[3], command=self.set_filter)
-        self.treble_clef_check_button.pack()
-        self.barline_check_button = tk.Checkbutton(self.left_frame, text="Barlines", onvalue=1, offvalue=0,
-                                                       variable=self.filter_list[4], command=self.set_filter)
-        self.barline_check_button.pack()
-        self.note_check_button = tk.Checkbutton(self.left_frame, text="Notes", onvalue=1, offvalue=0,
-                                                       variable=self.filter_list[5], command=self.set_filter)
-        self.note_check_button.pack()
-        self.accidental_check_button = tk.Checkbutton(self.left_frame, text="Accidentals", onvalue=1, offvalue=0,
-                                                       variable=self.filter_list[6], command=self.set_filter)
-        self.accidental_check_button.pack()
-        self.region_borders_check_button = tk.Checkbutton(self.left_frame, text="Region Borders", onvalue=1, offvalue=0,
-                                                      variable=self.filter_list[7], command=self.set_filter)
-        self.region_borders_check_button.pack()
-        '''
-
 
 
         #Mutltiple notes
         self.num_notes_label = tk.Label(self.left_frame, text="Number of notes: ")
-        self.num_notes_label.pack()
         self.num_notes_values = [1, 2, 3, 4, 5, "Pb", "bP", "Pb-", "bP-", "Pb--", "bP--"]
         self.num_notes_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.num_notes_values, takefocus=0)
         self.num_notes_combobox.current(0)
-        self.num_notes_combobox.pack()
 
-        #Current image file_name
-        '''
-        self.current_image_file_name = tk.StringVar()
-        self.current_image_file_name.set("")
-        self.current_image_file_name_label = tk.Label(self.left_frame, textvariable = self.current_image_file_name)
-        self.current_image_file_name_label.pack()
-        '''
+        if self.frame_location == "top":
+            self.left_frame.pack(side="top", fill="y", anchor="w")
+            self.page_indicator_label.grid(row=0, column=0)
+            self.selected_label.grid(row=1, column=0)
+            self.add_mode_label.grid(row=2, column=0)
+            self.add_mode_combobox.grid(row=3, column=0)
+            self.draw_image_on_jpg_check_button.grid(row=4, column=0)
+            self.allow_note_to_be_auto_extended_check_button.grid(row=55, column=0)
+            self.note_type_radio_button_quarter.grid(row=6, column=0)
+            self.note_type_radio_button_half.grid(row=7, column=0)
+            self.note_type_radio_button_whole.grid(row=8, column=0)
+            self.staff_line_error_scale.grid(row=0, column=1)
+            self.note_width_ratio_scale.grid(row=1, column=1)
+            self.threshold_scale.grid(row=2, column=1)
+            self.blackness_scale.grid(row=3, column=1)
+            self.key_label.grid(row=4, column=1)
+            self.key_combobox.grid(row=5, column=1)
+            self.num_notes_label.grid(row=6, column=1)
+            self.num_notes_combobox.grid(row=7, column=1)
+            '''
+            self.page_indicator_label.pack()
+            self.selected_label.pack()
+            self.add_mode_label.pack()
+            self.add_mode_combobox.pack()
+            self.draw_image_on_jpg_check_button.pack()
+            self.allow_note_to_be_auto_extended_check_button.pack()
+            self.note_type_radio_button_quarter.pack()
+            self.note_type_radio_button_half.pack()
+            self.note_type_radio_button_whole.pack()
+            self.staff_line_error_scale.pack()
+            self.note_width_ratio_scale.pack()
+            self.threshold_scale.pack()
+            self.blackness_scale.pack()
+            self.key_label.pack()
+            self.key_combobox.pack()
+            self.num_notes_label.pack()
+            self.num_notes_combobox.pack()'''
+
+        else:
+            self.left_frame.pack(side="left", fill="y")
+            self.page_indicator_label.pack()
+            self.selected_label.pack(pady=5)
+            self.add_mode_label.pack()
+            self.add_mode_combobox.pack()
+            self.draw_image_on_jpg_check_button.pack()
+            self.allow_note_to_be_auto_extended_check_button.pack()
+            self.note_type_radio_button_quarter.pack()
+            self.note_type_radio_button_half.pack()
+            self.note_type_radio_button_whole.pack()
+            self.staff_line_error_scale.pack()
+            self.note_width_ratio_scale.pack()
+            self.threshold_scale.pack()
+            self.blackness_scale.pack()
+            self.key_label.pack()
+            self.key_combobox.pack()
+            self.num_notes_label.pack()
+            self.num_notes_combobox.pack()
 
 
 
@@ -357,10 +363,10 @@ class ImageEditor(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Open annotations with pdf", command=self.load_binary)
         file_menu.add_command(label="Save annotations with pdf", command=self.save_binary)
-        file_menu.add_separator()
-        #file_menu.add_command(label="Open annotations without pdf", command=self.load_annotations)
-        #file_menu.add_command(label="Save annotations without pdf", command=self.save_annotations)
         #file_menu.add_separator()
+        #file_menu.add_command(label="Open annotations without pdf", command=self.load_annotations)
+        #file_menu.add_command(label="Save annotations memory", command=self.save_binary_memory)
+        file_menu.add_separator()
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
         file_menu.add_separator()
@@ -508,6 +514,7 @@ class ImageEditor(tk.Tk):
         region_menu.add_separator()
         region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
         region_menu.add_command(label="Calculate note and accidental letters for distorted image", command=lambda: self.calculate_notes_and_accidentals_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note and accidental letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_and_accidentals_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
 
         region_menu.add_separator()
         region_menu.add_command(label="Calculate note accidentals", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
@@ -578,7 +585,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.regenerate_images(i)
+            self.image_processor.regenerate_images(i, self.blackness_scale.get())
         self.draw_image_with_filters()
 
     @staticmethod
@@ -669,7 +676,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get())
+            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get())
         self.draw_image_with_filters()
 
     def clear_combobox(self, event):
@@ -877,7 +884,8 @@ class ImageEditor(tk.Tk):
                     all_features = self.image_processor.array_types_dict[self.undo_feature_type][i]
                     for feature in list(self.undo_features[i]):
                         #print("removed feature")
-                        all_features.remove(feature)
+                        if feature in all_features:
+                            all_features.remove(feature)
         else:
             print("Nothing to undo")
         #print("undo features2: ", self.undo_features)
@@ -1031,6 +1039,41 @@ class ImageEditor(tk.Tk):
                     self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw)
         self.draw_image_with_filters()
 
+    def calculate_notes_and_accidentals_for_distorted_staff_lines_using_horizontal_erode(self, overwrite):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.all_clefs[i] is not None:
+                self.image_processor.all_clefs[i].clear()
+            if self.image_processor.regions[i] is not None:
+                self.image_processor.regions[i].clear()
+            self.image_processor.sort_clefs(i)
+            self.image_processor.get_clef_regions(i)
+            # self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
+            self.image_processor.sort_barlines(i, error=30)
+            self.image_processor.split_regions_by_bar(i)
+            # self.image_processor.are_notes_on_line(i)
+            self.image_processor.find_notes_and_accidentals_in_region(i)
+            if self.image_processor.regions[i] is not None:
+                img = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
+                if img is None:
+                    print('Error opening image: ')
+                    return -1
+                if len(img.shape) != 2:
+                    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+                else:
+                    gray = img
+                gray = cv.bitwise_not(gray)
+                bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+                horizontal_size = self.image_processor.note_height(i) + 5
+                horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+                bw = cv.erode(bw, horizontalStructure)
+                bw = cv.dilate(bw, horizontalStructure)
+                for region in self.image_processor.regions[i]:
+                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw)
+        self.draw_image_with_filters()
+
 
     def calculate_note_accidentals_for_regions(self, overwrite):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -1085,9 +1128,6 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def clear_note_type(self, type):
-        is_half = False
-        if type == "half":
-            is_half = True
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
@@ -1095,7 +1135,8 @@ class ImageEditor(tk.Tk):
             if self.image_processor.is_list_iterable(self.image_processor.notes[i]):
                 for j in range(len(self.image_processor.notes[i]) - 1, - 1, -1):
                     note = self.image_processor.notes[i][j]
-                    if note.is_half_note == is_half:
+                    if note.is_half_note == type:
+                        print(note.is_half_note)
                         self.image_processor.notes[i].remove(note)
         self.draw_image_with_filters()
 
@@ -1424,20 +1465,40 @@ class ImageEditor(tk.Tk):
             self.convert_is_half_note()
             self.draw_image_with_filters()
 
-
-    def save_annotations(self):
-        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
-                                            initialfile=self.file_name)
+    def save_binary_memory(self):
+        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
         if path == "":
-            print("No file selected")
+            print("no filename")
             return
         with open(path, "wb") as file:
-            pickle.dump(self.image_processor.treble_clefs)
-            pickle.dump(self.image_processor.bass_clefs)
-            pickle.dump(self.image_processor.stafflines)
-            pickle.dump(self.image_processor.barlines)
-            pickle.dump(self.image_processor.notes)
-            pickle.dump(self.image_processor.accidentals)
+            for i in range(self.num_pages):
+                self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
+            pickle.dump(self.file_name, file)
+            #pickle.dump(self.image_processor.images, file)
+            pickle.dump(self.image_processor.staff_lines, file)
+            pickle.dump(self.image_processor.treble_clefs, file)
+            pickle.dump(self.image_processor.bass_clefs, file)
+            pickle.dump(self.image_processor.barlines, file)
+            pickle.dump(self.image_processor.barlines_2d, file)
+            pickle.dump(self.image_processor.accidentals, file)
+            pickle.dump(self.image_processor.notes, file)
+            pickle.dump(self.image_processor.image_heights, file)
+            pickle.dump(self.image_processor.image_widths, file)
+            pickle.dump(self.image_processor.all_clefs, file)
+
+        def save_annotations(self):
+            path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
+                                                initialfile=self.file_name)
+            if path == "":
+                print("No file selected")
+                return
+            with open(path, "wb") as file:
+                pickle.dump(self.image_processor.treble_clefs)
+                pickle.dump(self.image_processor.bass_clefs)
+                pickle.dump(self.image_processor.stafflines)
+                pickle.dump(self.image_processor.barlines)
+                pickle.dump(self.image_processor.notes)
+                pickle.dump(self.image_processor.accidentals)
 
 
 
@@ -1485,12 +1546,14 @@ class ImageEditor(tk.Tk):
     def draw_features_on_canvas(self):
 
         if self.image_processor.notes[self.image_index] is not None:
+            color = self.bgr_to_hex(self.image_processor.type_colors["note"])
             for feature in self.image_processor.notes[self.image_index]:
                 self.draw_cross_hairs(feature, "red")
 
         if self.image_processor.accidentals[self.image_index] is not None:
             for feature in self.image_processor.accidentals[self.image_index]:
-                self.draw_cross_hairs(feature, "purple")
+                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
+                self.draw_cross_hairs(feature, color)
 
         if self.image_processor.staff_lines[self.image_index] is not None:
             for line in self.image_processor.staff_lines[self.image_index]:
@@ -1507,6 +1570,10 @@ class ImageEditor(tk.Tk):
             bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
             self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
 
+    def bgr_to_hex(self, bgr):
+        b, g, r = bgr
+        return f'#{r:02x}{g:02x}{b:02x}'
+
     def draw_cross_hairs(self, feature, color):
 
         x_mid = int(feature.center[0] * self.scale)
@@ -1516,7 +1583,7 @@ class ImageEditor(tk.Tk):
         x1 = int(feature.bottomright[0] * self.scale)
         y1 = int(feature.bottomright[1] * self.scale)
 
-        self.canvas.create_rectangle(x0, y0, x1, y1, outline=color)
+        self.canvas.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
         self.canvas.create_line(x0, y_mid, x1, y_mid, fill=color)
         self.canvas.create_line(x_mid, y0, x_mid, y1, fill=color)
 

@@ -55,7 +55,7 @@ class Feature:
         self.center = [int(self.topleft[0] + abs(self.bottomright[0] - self.topleft[0]) * .5), int(self.topleft[1] + abs(self.bottomright[1] - self.topleft[1]) * .5)]
         #print("new center", self.center)
     def __eq__(self, other):
-        return self.topleft == other.topleft and self.bottomright == other.bottomright and self.width == other.width and self.height == other.height and self.type == other.type and self.letter == other.letter and self.accidental == other.accidental
+        return self.topleft == other.topleft and self.bottomright == other.bottomright and self.get_width() == other.get_width() and self.get_height() == other.get_height() and self.type == other.type and self.letter == other.letter and self.accidental == other.accidental
     def __str__(self):
         topleft_string = "(" + str(self.topleft[0]) + ", " + str(self.topleft[1]) + ")"
         bottomright_string = "(" + str(self.bottomright[0]) + ", " + str(self.bottomright[1]) + ")"

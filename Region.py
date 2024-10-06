@@ -105,6 +105,8 @@ class Region:
                 if closest.letter == note.letter and (note.accidental.islower() or note.accidental == ""):
                     note.accidental = closest.type#[letter, accidental]
                     #print("innter", note.accidental)
+            else:
+                note.accidental = ""
 
                 #print("closest accidental: ", closest)
 
