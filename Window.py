@@ -34,6 +34,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
+    on set debuggnig set add mode to single
     only fidn staff line groups if  there are notes in region
     auto extend quarter note: remove overlapping squares that havnt been autoextended
     transpsose notes
@@ -45,11 +46,7 @@ Big TODO
     use staff line error bar
     calculate note color on add. dont have to press button
     center of naturals: autosnapping center?
-    showing accidental type in canvas mode
-    calculate notes for distorted staff lines using horizontal image
     convert chopin pkls
-    if no accidental found: set accidental to ""
-    have region start at end of clef, not beginning
     cv.threshold value
     xmltodict: go measure by measure
     remove small notes, by area

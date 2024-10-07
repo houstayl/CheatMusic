@@ -1203,14 +1203,12 @@ class ImageProcessing:
     def get_area_of_feature(self, feature):
         return int(abs(feature.bottomright[0] - feature.topleft[0]) * abs(feature.bottomright[1] - feature.topleft[1]))
 
-    def remove_overlapping_notes(self, page_index, note, note_height):
+    def remove_overlapping_notes(self, page_index, topleft, bottomright):
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             current_note = self.notes[page_index][i]
-            if self.do_features_overlap(note, current_note) and current_note.auto_extended == False:
-                #area = self.get_area_of_feature(note)
-                #area2 = self.get_area_of_feature(current_note)
-                #if area2 / area < 0.8:
+            if self.do_features_overlap(Feature(topleft, bottomright, "temp"), current_note) and current_note.auto_extended == False:
                 #TODO condition for removal
+                if current_note.auto_extended == False:
                     self.notes[page_index].pop(i)
 
 
@@ -1229,39 +1227,17 @@ class ImageProcessing:
             top = y + round(i * spacing)
             bottom = y + round((i + 1) * spacing)
             note = Note([x, top], [x + width, bottom], is_half_note="quarter", auto_extended=True)
-            self.remove_overlapping_notes(page_index, note, note_height)
+            #self.remove_overlapping_notes(page_index, note, note_height)
             self.notes[page_index].append(note)
 
-    '''
-    def extend_quarter_note_Pb(self, page_index, x, y, width, height, note_height):
-        mid_top = y + int(height / 3)
-        mid_bottom = y + int(height * 2 / 3)
-        x_mid = int(x + width / 2)
-        note1 = Note([x, y], [x_mid, mid_bottom], False, auto_extended=True)
-        note2 = Note([x_mid, mid_top], [x + width, y + height], False, auto_extended=True)
-        self.remove_overlapping_notes(page_index, note1, note_height)
-        self.remove_overlapping_notes(page_index, note2, note_height)
-        self.notes[page_index].append(note1)
-        self.notes[page_index].append(note2)
-
-    def extend_quarter_note_bP(self, page_index, x, y, width, height, note_height):
-        mid_top = y + int(height / 3)
-        mid_bottom = y + int(height * 2 / 3)
-        x_mid = int(x + width / 2)
-        note1 = Note([x, mid_top], [x_mid, y + height], False, auto_extended=True)
-        note2 = Note([x_mid, y], [x + width, mid_bottom], False, auto_extended=True)
-        self.remove_overlapping_notes(page_index, note1, note_height)
-        self.remove_overlapping_notes(page_index, note2, note_height)
-        self.notes[page_index].append(note1)
-        self.notes[page_index].append(note2)
-    '''
-
-    def using_rect_dimensions_get_combination_note_type(self, page_index, rect, note, note_height, note_width):
+    def using_rect_dimensions_get_combination_note_type(self, page_index, rect, note_height, note_width):
         x, y, width, height = rect
+        print(x, y, width, height, "rect dimensions")
         #if .7 < width / note_width < 1.3:
         height_ratio = round(height / note_height)
         if .5 < height_ratio < 1.5:
-            self.remove_overlapping_notes(page_index, note, note_height)
+            note = Note([x, y], [x + width, y + height], is_half_note="quarter", auto_extended=True)
+            self.notes[page_index].append(note)
             self.extend_quarter_note_single(note, x, y, width, height)
         elif 1.5 < height_ratio < 5.5:
             self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
@@ -1283,32 +1259,26 @@ class ImageProcessing:
                 pass
             else:
                 #print(rect)
-
                 x, y, width, height = rect
+                #note = Note([x, y], [x + width, y + height], False, auto_extended=True)
+                #self.notes[page_index].append(note)
+                #return
                 if .7 < width / note_width < 1.3:
-                    height_ratio = round(height / note_height)
-                    if .5 < height_ratio < 1.5:
-                        self.extend_quarter_note_single(note, x, y, width, height)
-                    elif 1.5 < height_ratio < 5.5:
-                        self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
+                    self.remove_overlapping_notes(page_index, [x, y], [x + width, y + height])
+                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note_height, note_width)
 
-                #elif .7 < width / note_width / 2 < 1.3 and .7 < height / note_height / 1.5 < 1.3:
-                    '''
-                    #if bottom right and topleft are black(no note there) then bP
-                    if img[y + height - 2][x + width - 2] == 0 and img[y + 2][x + 2] == 0:
-                       self.extend_quarter_note_bP(page_index, x, y, width, height, note_height)
-                    #if bottom left and top right are black then Pb
-                    elif img[y + height - 2][x + 2] == 0 and img[y + 2][ x + width - 2] == 0:
-                        self.extend_quarter_note_Pb(page_index, x, y, width, height, note_height)
-                    '''
                 elif .7 < width / note_width / 2 < 1.3:# and .7 < height > note_height  * 2:
                     #TODO we are editing the notes list while iterating through it. need to same img. try making blank line thicker
                     #Reseting the mask to 0
-                    h, w = mask.shape[:2]
-                    mask = np.zeros((h, w), np.uint8)
+                    #todo reset mask to 0 only in portion using rect dimensions
+                    mask_copy = mask[y:y+height+1, x:x+width+1].copy()
+                    np.set_printoptions(threshold=np.inf)
+                    print(mask_copy)
+                    mask[y:y+height, x:x+width] = np.zeros((height, width), np.uint8)
                     #Making a border on the center line
-                    for y_traverse in range(y, y + height + 1, 1):
+                    for y_traverse in range(y, y + height, 1):
                         img[y_traverse][x + int(width / 2)] = 0
+                    #removing small groups of pixels in case splitting not exactly in the center
                     horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (3, 1))
                     sub_image = img[y:y+height, x:x+width]
                     sub_image = cv.erode(sub_image, horizontalStructure)
@@ -1317,38 +1287,38 @@ class ImageProcessing:
                     if debugging:
                         cv.imwrite("avertremoved.jpg", img)
                     #traversing left side vertically
-                    #TODO find closest note to center of rect
                     for y_traverse in range(y, y + height + 1, 1):
                         start_point = (x + int(width / 4), y_traverse)
-                        if img[start_point[1]][start_point[0]] == 255:
-                            _, _, _, rect = cv.floodFill(img, mask, start_point, 255)
-                            if rect == (0, 0, 0, 0):
+                        print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
+                        if img[start_point[1]][start_point[0]] == 255 and mask_copy[start_point[1] - y][start_point[0] - x] == 1:
+                            _, _, _, rect2 = cv.floodFill(img, mask, start_point, 255)
+                            #self.barlines[page_index].append(Feature(start_point, [start_point[0] + 2, start_point[1] + 2], type="barline"))
+                            #self.images[page_index][start_point[1]][start_point[0]] = (255, 0, 0)
+                            if rect2 == (0, 0, 0, 0):
                                 pass
                             else:
-                                x2, y2, width2, height2 = rect
-                                note = self.find_closest_feature("note", page_index, x2 + int(width2 / 2), y2 + int(height2 / 2), error=-1)
-                                if note is not None:
-                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
-                                else:
-                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note="quarter")
-                                    self.append_features(page_index, "note", [note])
-                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                x2, y2, width2, height2 = rect2
+                                #self.treble_clefs[page_index].append(Feature([x,y], [x + width, y + height], "treble_clef"))
+                                self.remove_overlapping_notes(page_index, [x2, y2], [x2 + width2, y2 + height2])
+                                self.using_rect_dimensions_get_combination_note_type(page_index, rect2, note_height, note_width)
+                                #break
 
+                    for y_traverse in range(y, y + height, 1):
                         start_point = (x + int(width * 3 / 4), y_traverse)
-                        if img[start_point[1]][start_point[0]] == 255:
-                            _, _, _, rect = cv.floodFill(img, mask, start_point, 255)
-                            if rect == (0, 0, 0, 0):
+                        print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
+                        if img[start_point[1]][start_point[0]] == 255 and mask_copy[start_point[1] - y][start_point[0] - x] == 1:
+                            _, _, _, rect2 = cv.floodFill(img, mask, start_point, 255)
+                            #self.barlines[page_index].append(Feature(start_point, [start_point[0] + 2, start_point[1] + 2], type="barline"))
+                            #self.images[page_index][start_point[1]][start_point[0]] = (255, 0, 0)
+                            if rect2 == (0, 0, 0, 0):
                                 pass
                             else:
-                                x2, y2, width2, height2 = rect
-                                note = self.find_closest_feature("note", page_index, x2 + int(width2 / 2),
-                                                                 y2 + int(height2 / 2), error=-1)
-                                if note is not None:
-                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
-                                else:
-                                    note = Note([x2, y2], [x2 + width2, y2 + height2], is_half_note="quarter")
-                                    self.append_features(page_index, "note", [note])
-                                    self.using_rect_dimensions_get_combination_note_type(page_index, rect, note, note_height, note_width)
+                                x2, y2, width2, height2 = rect2
+                                #self.bass_clefs[page_index].append(Feature([x, y], [x + width, y + height], "bass_clef"))
+                                self.remove_overlapping_notes(page_index, [x2, y2], [x2 + width2, y2 + height2])
+                                self.using_rect_dimensions_get_combination_note_type(page_index, rect2, note_height, note_width)
+                                #break
+
                 else:
                     pass
                     #note = Note([x, y], [x + width, y + height], False, auto_extended=True)
@@ -1368,9 +1338,10 @@ class ImageProcessing:
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
         #print(note_height, note_width)
-        gray = cv.bitwise_not(self.gray_images[page_index])
+        #gray = cv.bitwise_not(self.gray_images[page_index])
         #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        _, bw = cv.threshold(gray, blackness, 255, cv.THRESH_BINARY)
+        _, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
+        bw = cv.bitwise_not(bw)
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
         horizontal_size = int(note_height / 2)
@@ -1407,7 +1378,7 @@ class ImageProcessing:
 
         #TODO reload image and do it again
         if debugging:
-            cv.imwrite("agray.jpg", gray)
+            cv.imwrite("agray.jpg", self.gray_images[page_index])
             cv.imwrite("abw.jpg", bw)
             cv.imwrite("ahorizontal.jpg", horizontal)
             cv.imwrite("avertical.jpg", vertical)
