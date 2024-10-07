@@ -34,6 +34,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
+    change cursor depending on add mode
+    auto extend quarter note: remove overlapping squares that havnt been autoextended
+    transpsose notes
     find un autosnapped half note
     single click to add barlinen
     double vert removed not working. beethoven sonata 22 page 5. for extend quarter note, always clear the notes in the rect.

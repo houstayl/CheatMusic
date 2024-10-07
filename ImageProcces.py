@@ -1206,7 +1206,7 @@ class ImageProcessing:
     def remove_overlapping_notes(self, page_index, note, note_height):
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             current_note = self.notes[page_index][i]
-            if self.do_features_overlap(note, current_note):
+            if self.do_features_overlap(note, current_note) and current_note.auto_extended == False:
                 #area = self.get_area_of_feature(note)
                 #area2 = self.get_area_of_feature(current_note)
                 #if area2 / area < 0.8:
@@ -1261,6 +1261,7 @@ class ImageProcessing:
         #if .7 < width / note_width < 1.3:
         height_ratio = round(height / note_height)
         if .5 < height_ratio < 1.5:
+            self.remove_overlapping_notes(page_index, note, note_height)
             self.extend_quarter_note_single(note, x, y, width, height)
         elif 1.5 < height_ratio < 5.5:
             self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
