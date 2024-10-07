@@ -34,13 +34,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODO
-    change cursor depending on add mode
+    only fidn staff line groups if  there are notes in region
     auto extend quarter note: remove overlapping squares that havnt been autoextended
     transpsose notes
     find un autosnapped half note
-    single click to add barlinen
     double vert removed not working. beethoven sonata 22 page 5. for extend quarter note, always clear the notes in the rect.
-    dont allow template matching on small or all white rectangle
     get barlines, dont allow overlap
     detect non alternating clef
     draw half notes over quarter notes
@@ -128,7 +126,7 @@ class ImageEditor(tk.Tk):
         # Setting how the features will be added to just the current page, all pages, or the current and next pages
         self.add_mode_label = tk.Label(self.left_frame, text="Feature add mode:")
         self.add_mode_combobox_values = ["Current page and next pages", "Current Page", "All pages", "Single"]
-        self.add_mode_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.add_mode_combobox_values, takefocus=0)
+        self.add_mode_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.add_mode_combobox_values, takefocus=0, postcommand=self.set_cursor)
         self.add_mode_combobox.current(0)
         #self.add_mode_combobox.bind("<FocusOut>", self.clear_combobox)
 
@@ -550,9 +548,24 @@ class ImageEditor(tk.Tk):
         self.menu.add_cascade(label="Info", menu=info_menu)
         #TODO, display image dimensions, number of notes, number of autosnapped notes, number of half notes
         #info_menu.
+        self.allow_small_template_matching = tk.BooleanVar()
+        self.allow_small_template_matching.set(False)
+        info_menu.add_checkbutton(label="(Checkbutton) Allow small or all white rectangles for template matching", variable=self.allow_small_template_matching)
         self.debugging = tk.BooleanVar()
         self.debugging.set(False)
         info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable = self.debugging)
+
+    def set_cursor(self):
+        if self.add_mode_combobox.get() == self.add_mode_combobox_values[0]:
+            self.canvas.config(cursor="arrow")
+        elif self.add_mode_combobox.get() == self.add_mode_combobox_values[1]:
+            self.canvas.config(cursor="dotbox")
+        elif self.add_mode_combobox.get() == self.add_mode_combobox_values[2]:
+            self.canvas.config(cursor="tcross")
+        elif self.add_mode_combobox.get() == self.add_mode_combobox_values[3]:
+            self.canvas.config(cursor="cross")
+        else:
+            print("something wrong with setting add mode combobox values")
 
     def open_paint(self):
         path = self.image_processor.images_filenames[self.image_index]
@@ -1372,12 +1385,16 @@ class ImageEditor(tk.Tk):
         self.open_paint()
     def on_f9_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[0])
+        self.set_cursor()
     def on_f10_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[1])
+        self.set_cursor()
     def on_f11_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[2])
+        self.set_cursor()
     def on_f12_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[3])
+        self.set_cursor()
 
 
     def todofunc(self, event):
@@ -1958,6 +1975,7 @@ class ImageEditor(tk.Tk):
 
 
             rectangle = Feature([x0_img, y0_img], [x1_img, y1_img], self.current_feature_type)
+
             if self.current_feature_type == "key":
                 print("key")
                 self.set_key(rectangle.topleft, rectangle.bottomright)
@@ -1970,9 +1988,25 @@ class ImageEditor(tk.Tk):
                 return
             if "staff_line" in self.current_feature_type:
                 return
-
             template = self.image_processor.images[self.image_index][rectangle.topleft[1]:rectangle.bottomright[1],
                        rectangle.topleft[0]:rectangle.bottomright[0]]
+            if self.allow_small_template_matching.get() == False and self.add_mode_combobox.get() != "Single":
+                if rectangle.get_width() <= 4 and rectangle.get_height() <= 4:
+                    print("rect to small. try disabling Allow small or all white rectangles for template matching in Info menu")
+                    return
+                h, w = template.shape[:2]
+                white_count = 0
+                gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+                _, template_bw = cv.threshold(gray_template, 127, 255, cv.THRESH_BINARY)
+                for y_traverse in range(h):
+                    for x_traverse in range(w):
+                        if template_bw[y_traverse][x_traverse] == 255:
+                            white_count += 1
+                print(white_count / (h * w) > .90, " white percentage")
+                if white_count / (h * w) > .90:
+                    print("rect to white, try disabling Allow small or all white rectangles for template matching in Info menu")
+                    return
+
             if self.get_loop_array_based_on_feature_mode() != "single":#if the add mode is in single, dont need to match template
                 match_template_params = (
                     template,
@@ -2102,6 +2136,7 @@ class ImageEditor(tk.Tk):
                     self.draw_image_with_filters()
                 else:
                     print("staff line diagonal click #", len(self.staff_line_diagonal_coordinates))
+
 
             else:
                 feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img)
