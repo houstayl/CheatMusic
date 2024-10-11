@@ -33,13 +33,21 @@ for small notes, turn of threshold and dont allow auto extending
 '''
 """
 TODO
-Big TODO
-    on set debuggnig set add mode to single
-    only fidn staff line groups if  there are notes in region
-    auto extend quarter note: remove overlapping squares that havnt been autoextended
+Big TODOn
+    calculate notes using staff lines dont use implied lines
+    calculate for distorted image: if you go too long without a group: output in terminal
+    calculate notes: flood fill note, then find closest staff line, then calculate note. no regions
+    an autosnap half note, dont allow center to not be in new rect
+    draw annotations of self.image
+    fidn region for note. do flood fill on small portion of image surrounding note
+    on half note: set allow note to be auto extended
+    default note hieght to 120
+    remove overlapping notes: if notes have same topleft and bottomright
+    find overlapping vertical half/whole and quarter note.
+    detect unused accidental, or accidental that is used far away
+    small notes button
     transpsose notes
     find un autosnapped half note
-    double vert removed not working. beethoven sonata 22 page 5. for extend quarter note, always clear the notes in the rect.
     get barlines, dont allow overlap
     detect non alternating clef
     draw half notes over quarter notes
@@ -128,15 +136,13 @@ class ImageEditor(tk.Tk):
         #self.add_mode_combobox.bind("<FocusOut>", self.clear_combobox)
 
         # CHeck button for whether to draw the image on the canvas or the jpg
-        #self.draw_jpg_label = tk.Label(self.left_frame, text="Draw jpg:")
-        #self.draw_jpg_label.pack()
-        self.draw_jpg = tk.IntVar()
-        self.draw_jpg.set(0)
-        self.draw_image_on_jpg_check_button = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.draw_jpg, command=self.draw_image_canvas_mode)
+        self.fast_editing_mode = tk.BooleanVar()
+        self.fast_editing_mode.set(False)
+        self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode, command=self.draw_image_canvas_mode)
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
-        self.allow_note_to_be_auto_extended_check_button = tk.Checkbutton(self.left_frame, text="Allow note to be auto extended", onvalue=True, offvalue=False, variable=self.allow_note_to_be_auto_extended, command=self.draw_image_canvas_mode)
+        self.allow_note_to_be_auto_extended_check_button = tk.Checkbutton(self.left_frame, text="Allow note to be auto extended", onvalue=True, offvalue=False, variable=self.allow_note_to_be_auto_extended)
 
         # Allow overlapping featues checkbox
         self.allow_overlapping = tk.IntVar()
@@ -219,7 +225,7 @@ class ImageEditor(tk.Tk):
             self.selected_label.grid(row=1, column=0)
             self.add_mode_label.grid(row=2, column=0)
             self.add_mode_combobox.grid(row=3, column=0)
-            self.draw_image_on_jpg_check_button.grid(row=4, column=0)
+            self.fast_editing_mode_checkbutton.grid(row=4, column=0)
             self.allow_note_to_be_auto_extended_check_button.grid(row=55, column=0)
             self.note_type_radio_button_quarter.grid(row=6, column=0)
             self.note_type_radio_button_half.grid(row=7, column=0)
@@ -257,7 +263,7 @@ class ImageEditor(tk.Tk):
             self.selected_label.pack(pady=5)
             self.add_mode_label.pack()
             self.add_mode_combobox.pack()
-            self.draw_image_on_jpg_check_button.pack()
+            self.fast_editing_mode_checkbutton.pack()
             self.allow_note_to_be_auto_extended_check_button.pack()
             self.note_type_radio_button_quarter.pack()
             self.note_type_radio_button_half.pack()
@@ -386,8 +392,8 @@ class ImageEditor(tk.Tk):
         view_menu.add_separator()
         view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
         view_menu.add_separator()
-        view_menu.add_command(label="Fast editing mode", command=self.switch_fast_editing_mode)
-        view_menu.add_separator()
+        #view_menu.add_command(label="Fast editing mode", command=self.switch_fast_editing_mode)
+        #view_menu.add_separator()
         view_menu.add_command(label="Fill in white spots", command=self.fill_in_white_spots)
         view_menu.add_separator()
         view_menu.add_checkbutton(label="Staff Lines", onvalue=1, offvalue=0, variable=self.filter_list[0], command=self.set_filter)
@@ -479,12 +485,15 @@ class ImageEditor(tk.Tk):
         note_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
         note_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
         note_menu.add_separator()
-        note_menu.add_command(label="Auto remove small erroneous notes", command=self.remove_small_notes)
+        note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
         note_menu.add_separator()
-        note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
-        note_menu.add_separator()
-        note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
-        note_menu.add_separator()
+        note_menu.add_command(label="Detect unautosnapped half note", command=self.detect_unautosnapped_half_notes)
+        #note_menu.add_command(label="Auto remove small erroneous notes", command=self.remove_small_notes)
+        #note_menu.add_separator()
+        #note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
+        #note_menu.add_separator()
+        #note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
+        #note_menu.add_separator()
         note_menu.add_command(label="Convert notes", command=self.convert_is_half_note)
 
         #note_menu.add_command(label="Are notes on line", command=self.are_notes_on_line)
@@ -550,7 +559,26 @@ class ImageEditor(tk.Tk):
         info_menu.add_checkbutton(label="(Checkbutton) Allow small or all white rectangles for template matching", variable=self.allow_small_template_matching)
         self.debugging = tk.BooleanVar()
         self.debugging.set(False)
-        info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable = self.debugging)
+        info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable=self.debugging, command=self.on_toggle_debugging)
+
+    def on_toggle_debugging(self):
+        if self.debugging.get() == True:
+            self.add_mode_combobox.set(self.add_mode_combobox_values[3])
+
+    def remove_unautosnapped_notes(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.remove_unautosnapped_notes(i)
+        self.draw_image_with_filters()
+
+    def detect_unautosnapped_half_notes(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.detect_unautosnapped_half_notes(i)
 
     def set_cursor(self):
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[0]:
@@ -801,11 +829,11 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def switch_fast_editing_mode(self):
-        if self.draw_jpg.get() == 1:
-            self.draw_jpg.set(0)
+        if self.fast_editing_mode.get() == True:
+            self.fast_editing_mode.set(False)
         else:
-            self.draw_jpg.set(1)
-        self.draw_image_with_filters()
+            self.fast_editing_mode.set(True)
+        #self.draw_image_with_filters()
 
     def rotate_cw(self):
         '''
@@ -1047,9 +1075,14 @@ class ImageEditor(tk.Tk):
                 else:
                     gray = img
                 gray = cv.bitwise_not(gray)
-                bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+                #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+                _, bw = cv.threshold(gray, self.blackness_scale.get(), 255, cv.THRESH_BINARY)
+
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw)
+                    if len(region.notes) > 0 or len(region.accidentals) > 0:
+                        self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                if self.debugging.get() == True:
+                    cv.imwrite("anote_calculating.jpg", bw)
         self.draw_image_with_filters()
 
     def calculate_notes_and_accidentals_for_distorted_staff_lines_using_horizontal_erode(self, overwrite):
@@ -1078,13 +1111,17 @@ class ImageEditor(tk.Tk):
                 else:
                     gray = img
                 gray = cv.bitwise_not(gray)
-                bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-                horizontal_size = self.image_processor.note_height(i) + 5
+                #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+                _, bw = cv.threshold(gray, self.blackness_scale.get(), 255, cv.THRESH_BINARY)
+                horizontal_size = self.image_processor.get_note_height(i) + 5
                 horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
                 bw = cv.erode(bw, horizontalStructure)
                 bw = cv.dilate(bw, horizontalStructure)
+
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw)
+                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                if self.debugging.get() == True:
+                    cv.imwrite("anote_calculating_horizontal.jpg", bw)
         self.draw_image_with_filters()
 
 
@@ -1235,13 +1272,15 @@ class ImageEditor(tk.Tk):
             self.set_note_type("whole")
         if c == 'y' or c == "Y":
             self.set_feature_type("barline")
+            #setting mode to Single
+            self.add_mode_combobox.set(self.add_mode_combobox_values[3])
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
-            if self.draw_jpg.get() == 0:
-                self.draw_jpg.set(1)
+            if self.fast_editing_mode.get() == False:
+                self.fast_editing_mode.set(True)
             else:
-                self.draw_jpg.set(0)
+                self.fast_editing_mode.set(False)
             self.draw_image_with_filters()
         if c == ',':
             self.allow_note_to_be_auto_extended.set(not self.allow_note_to_be_auto_extended.get())
@@ -1378,6 +1417,8 @@ class ImageEditor(tk.Tk):
         self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
     def on_f5_press(self, event):
         self.regenerate_images()
+        if self.fast_editing_mode.get() == True:
+            self.regenerate_images()
     def on_f6_press(self, event):
         self.open_paint()
     def on_f9_press(self, event):
@@ -1532,16 +1573,50 @@ class ImageEditor(tk.Tk):
             #for i in range(self.num_pages):
             #    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
             self.draw_image_with_filters()
+    def draw_image_with_filters(self):
+        self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
+        #self.current_image_file_name.set(self.image_processor.images_filenames[self.image_index])
+        #if self.current_feature is not None:
+        #    f = self.current_feature
+        #    topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
+        #    bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
+        #    self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
+        if self.fast_editing_mode.get() == False:
+            self.image_processor.draw_image(self.filter_list, self.image_index)
+            #self.image_processor.draw_image_without_reloading(self.filter_list, self.image_index, self.photo)
+            self.display_image()
+        #drawing the image on the boxes on the canvas
+        else:
+            self.display_image()
+
+    def draw_image_canvas_mode(self):
+        if self.fast_editing_mode.get() == True:
+            filter_temp = []
+            filter = [0, 0, 0, 0, 0, 1, 1, 0, 1]  # staff line, implied line, bass, treble, barline, note, accidental, region border, colored notes
+            for i in range(len(filter)):
+                filter_temp.append(tk.IntVar())
+                filter_temp[i].set(filter[i])
+            self.image_processor.draw_image(filter_temp, self.image_index)
+            self.display_image()
+        else:
+            self.draw_image_with_filters()
+
+    def reload_image(self):
+        self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])  # self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+        self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
+
 
     def display_image(self):
         #clearing the canvas so there arent shapes drawn on top of each other making things slow
         self.canvas.delete("all")
 
-        if self.draw_jpg.get() == 0:
+        if self.fast_editing_mode.get() == False:
             print("drawing image on jpg")
-            self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
-            self.photo = ImageTk.PhotoImage(
-                self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
+            #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
+            #self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
+            #self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
+            self.reload_image()
             self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
             if self.current_feature is not None:
@@ -1552,10 +1627,8 @@ class ImageEditor(tk.Tk):
         else:
             print("Drawing image on canvas")
             #self.image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
-            self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
-
-            self.photo = ImageTk.PhotoImage(
-                self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
+            #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
             self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
             self.draw_features_on_canvas()
@@ -1571,7 +1644,7 @@ class ImageEditor(tk.Tk):
             for feature in self.image_processor.accidentals[self.image_index]:
                 color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
                 self.draw_cross_hairs(feature, color)
-
+        '''
         if self.image_processor.staff_lines[self.image_index] is not None:
             for line in self.image_processor.staff_lines[self.image_index]:
                 #line = int(line * self.scale)
@@ -1580,6 +1653,7 @@ class ImageEditor(tk.Tk):
                 x1 = int(line.bottomright[0] * self.scale)
                 y1 = int(line.bottomright[1] * self.scale)
                 self.canvas.create_line(x0, y0, x1, y1, fill="green")
+        '''
 
         if self.current_feature is not None:
             f = self.current_feature
@@ -1777,6 +1851,9 @@ class ImageEditor(tk.Tk):
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index + 1) % self.num_pages
         self.draw_image_canvas_mode()
+        if self.fast_editing_mode.get() == True:
+            print("reloading image")
+            self.reload_image()
         self.draw_image_with_filters()
         #self.display_image()
 
@@ -1786,43 +1863,24 @@ class ImageEditor(tk.Tk):
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index - 1) % self.num_pages
         self.draw_image_canvas_mode()
+        if self.fast_editing_mode.get() == True:
+            self.reload_image()
         self.draw_image_with_filters()
         #self.display_image()
 
     def zoom_in(self):
         self.scale *= 1.1
+        if self.fast_editing_mode.get() == True:
+            self.reload_image()
         self.display_image()
 
     def zoom_out(self):
         self.scale /= 1.1
+        if self.fast_editing_mode.get() == True:
+            self.reload_image()
         self.display_image()
 
-    def draw_image_with_filters(self):
-        self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
-        #self.current_image_file_name.set(self.image_processor.images_filenames[self.image_index])
-        #if self.current_feature is not None:
-        #    f = self.current_feature
-        #    topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
-        #    bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
-        #    self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
-        if self.draw_jpg.get() == 0:
-            self.image_processor.draw_image(self.filter_list, self.image_index)
-            self.display_image()
-        #drawing the image on the boxes on the canvas
-        else:
-            self.display_image()
 
-    def draw_image_canvas_mode(self):
-        if self.draw_jpg.get() == 1:
-            filter_temp = []
-            filter = [1, 0, 0, 0, 0, 1, 1, 0, 1]  # staff line, implied line, bass, treble, barline, note, accidental, region border, colored notes
-            for i in range(len(filter)):
-                filter_temp.append(tk.IntVar())
-                filter_temp[i].set(filter[i])
-            self.image_processor.draw_image(filter_temp, self.image_index)
-            self.display_image()
-        else:
-            self.draw_image_with_filters()
 
     def on_right_click(self, event):
         self.current_feature = None
@@ -2079,18 +2137,29 @@ class ImageEditor(tk.Tk):
 
             else:#only add single feature
                 print("single feature")
+                #append_rect = True
                 if rectangle.type == "note":
                     auto_extended = not self.allow_note_to_be_auto_extended.get()
-                    print(auto_extended, "auto_extended")
+                    #print(auto_extended, "auto_extended")
                     note_type = self.note_type.get()
-                    print("note_type", note_type)
+                    #print("note_type", note_type)
                     rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=note_type, auto_extended=auto_extended)
-                    if self.num_notes_combobox.get() != 1:
+                    if self.num_notes_combobox.get() != "1":
                         rectangle = self.convert_notes([rectangle])
+                    else:
+                        if self.allow_note_to_be_auto_extended.get() == True:
+                            #print("auto extend note single")
+                            self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), rectangle)
+                        if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
+                            self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
+                        self.calculate_notes_and_accidentals_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        return
+                #if append_rect is True:
                 if isinstance(rectangle, list):
                     self.image_processor.append_features(self.image_index, rectangle[0].type, rectangle)
                 else:
                     self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
+
                 self.draw_image_with_filters()
 
         else:#if rect wasnt started
@@ -2148,6 +2217,14 @@ class ImageEditor(tk.Tk):
                     #if self.current_feature_type == "note":
                     #    self.image_processor.add_note_by_center_coordinate(self.image_index, x_img, y_img, self.is_half_note.get(), self.note_width_ratio_scale.get())
                     print("No feature in click area")
+                    if self.current_feature_type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
+                        self.image_processor.add_feature_on_click(self.image_index, x_img, y_img, self.current_feature_type)
+                    if self.current_feature_type == "barline":
+                        self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
+                    #if self.current_feature_type == "note" and self.note_type.get() == "quarter":
+                    #    self.image_processor.add_small_note_on_click(self.image_index, x_img, y_img)
+                    self.draw_image_with_filters()
+
 
     def convert_notes(self, notes):
         new_notes = []

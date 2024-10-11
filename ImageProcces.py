@@ -259,6 +259,41 @@ class ImageProcessing:
             return True
         return False
 
+    def add_feature_on_click(self, page_index, x, y, type):
+        note_height = self.get_note_height(page_index)
+
+        topleft = [x - note_height // 2, y - note_height]
+        bottomright = [x + note_height // 2, y + note_height]
+        if "flat" == type:
+            topleft = [x - note_height // 2, y - (note_height * 3) // 2]
+            bottomright = [x + note_height // 2, y + note_height // 2]
+        elif "double_flat" == type:
+            topleft = [x - note_height, y - (note_height * 3) // 2]
+            bottomright = [x + note_height, y + note_height // 2]
+        elif "double_sharp" == type:
+            topleft = [x - note_height // 2, y - note_height // 2]
+            bottomright = [x + note_height // 2, y + note_height // 2]
+        feature = Feature(topleft, bottomright, type)
+        self.append_features(page_index, type, [feature])
+
+    def add_small_note_on_click(self, page_index, x, y):
+        note_height = self.get_note_height(page_index) // 2
+        topleft = [x - note_height, y - note_height]
+        bottomright = [x + note_height, y + note_height]
+        note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
+        self.append_features(page_index, "note", [note])
+
+    def add_barline_on_click(self, page_index, x, y):
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            for i in range(0, len(self.staff_lines[page_index]), 10):
+                if i + 9 < len(self.staff_lines[page_index]):
+                    top = self.staff_lines[page_index][i].calculate_y(x)
+                    bottom = self.staff_lines[page_index][i + 9].calculate_y(x)
+                    if top < y < bottom:
+                        barline = Feature([x, top],[x + 4, bottom], "barline")
+                        self.append_features(page_index, "barline", [barline])
+                        return
+            print("staff line error when adding barline")
     '''
     If staff lines are note a multiple of 5, then error
     '''
@@ -464,6 +499,8 @@ class ImageProcessing:
         else:
             self.barlines[page_index] = self.barlines[page_index] + barlines
         #self.remove_adjacent_matches() TODO remove overlapping
+        self.remove_adjacent_matches(self.barlines[page_index], 10)
+
         self.sort_barlines(page_index, error=30)
 
 
@@ -813,7 +850,7 @@ class ImageProcessing:
             note.letter = letters[letter_index]
 
 
-    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img):
+    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
         #TODO
         notes = region.notes
         accidentals = region.accidentals
@@ -834,27 +871,34 @@ class ImageProcessing:
         topright = lines_in_region[0].calculate_y(region.bottomright[0])
         bottomleft = lines_in_region[4].calculate_y(region.topleft[0])
         bottomright = lines_in_region[4].calculate_y(region.bottomright[0])
-        top_y = min(topleft, topright) - 5
-        bottom_y = max(bottomleft, bottomright) + 5
-        #current_group = []
-        for x in range(region.topleft[0], region.bottomright[0], 1):
+        top_y = min(topleft, topright) - staff_line_error
+        bottom_y = max(bottomleft, bottomright) + staff_line_error
+        current_group = []
+        x = region.topleft[0]
+        while x < region.bottomright[0]:
+        #for x in range(region.topleft[0], region.bottomright[0], 1):
             group = self.detect_staff_line_group(img, x, top_y, bottom_y)
             if group:
                 coordinates_2d = [[x, y] for y in group]
-                region.staff_line_groups.append(coordinates_2d)
+                current_group.append(coordinates_2d)
                 #current_group.append([x, group])
                 #for y in group:
                 #self.notes[page_index].append(Note([x-1, group[0]],[x+1, group[4]], False, False, False))
+                cv.line(img, [x, coordinates_2d[0][1]], [x, coordinates_2d[4][1]], 255, 1)
                 x += 20
+            else:
+                x += 1
         for note in notes:
             closest_group = None
             min_distance = 100000
-            for group in region.staff_line_groups:
+            for group in current_group:
                 if abs(group[0][0] - note.center[0]) < min_distance:
                     closest_group = group
                     min_distance = abs(x - note.center[0])
-            if group is not None:
-                self.calculate_note_or_accidental(note, group, region.clef)
+            if closest_group is not None:
+                self.calculate_note_or_accidental(note, closest_group, region.clef)
+            else:
+                print("couldnt find any groups for region", region.topleft, region.bottomright)
         for acc in accidentals:
             closest_group = None
             min_distance = 100000
@@ -950,7 +994,17 @@ class ImageProcessing:
             if note.get_width() / note_height > 2:
                 self.notes[page_index].pop(i)
 
+    def remove_unautosnapped_notes(self, page_index):
+        for i in range(len(self.notes[page_index]) - 1, -1, -1):
+             if self.notes[page_index][i].auto_extended == False:
+                self.notes[page_index].pop(i)
 
+
+    def detect_unautosnapped_half_notes(self, page_index):
+        for i in range(len(self.notes[page_index]) - 1, -1, -1):
+            note = self.notes[page_index][i]
+            if note.auto_extended == False and note.is_half_note == "half" or note.is_half_note == "whole":
+                print("Half note not auto extended on page ", page_index, ": ", note.center)
     def do_features_overlap(self, one, two):
         #if one feature is to the left
         if one.bottomright[0] <= two.topleft[0] or two.bottomright[0] <= one.topleft[0]:
@@ -1149,7 +1203,7 @@ class ImageProcessing:
                                         rects.append(rect)
                                         #self.notes[page_index].append(Note([rect[0], rect[1]], [rect[0] + rect[2], rect[1] + rect[3]], "quarter", True))
 
-                                if .5 < height / note_height < 1.3 and .5 < width / note_width < 1.3:
+                                if .5 < height / note_height < 1.3 and .3 < width / note_width < 1.3:
                                     #adjustment = int((note_height - height) / 2)
                                     note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
                                     note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
@@ -1204,12 +1258,13 @@ class ImageProcessing:
         return int(abs(feature.bottomright[0] - feature.topleft[0]) * abs(feature.bottomright[1] - feature.topleft[1]))
 
     def remove_overlapping_notes(self, page_index, topleft, bottomright):
-        for i in range(len(self.notes[page_index]) - 1, -1, -1):
-            current_note = self.notes[page_index][i]
-            if self.do_features_overlap(Feature(topleft, bottomright, "temp"), current_note) and current_note.auto_extended == False:
-                #TODO condition for removal
-                if current_note.auto_extended == False:
-                    self.notes[page_index].pop(i)
+        if self.is_list_iterable(self.notes[page_index]):
+            for i in range(len(self.notes[page_index]) - 1, -1, -1):
+                current_note = self.notes[page_index][i]
+                if self.do_features_overlap(Feature(topleft, bottomright, "temp"), current_note) and current_note.auto_extended == False:
+                    #TODO condition for removal
+                    if current_note.auto_extended == False:
+                        self.notes[page_index].pop(i)
 
 
     def extend_quarter_note_single(self, note, x, y, width, height):
@@ -1228,16 +1283,18 @@ class ImageProcessing:
             bottom = y + round((i + 1) * spacing)
             note = Note([x, top], [x + width, bottom], is_half_note="quarter", auto_extended=True)
             #self.remove_overlapping_notes(page_index, note, note_height)
-            self.notes[page_index].append(note)
+            self.append_features(page_index, "note", [note])
+
 
     def using_rect_dimensions_get_combination_note_type(self, page_index, rect, note_height, note_width):
         x, y, width, height = rect
-        print(x, y, width, height, "rect dimensions")
+        #print(x, y, width, height, "rect dimensions")
         #if .7 < width / note_width < 1.3:
         height_ratio = round(height / note_height)
         if .5 < height_ratio < 1.5:
             note = Note([x, y], [x + width, y + height], is_half_note="quarter", auto_extended=True)
-            self.notes[page_index].append(note)
+            #self.notes[page_index].append(note)
+            self.append_features(page_index, "note", [note])
             self.extend_quarter_note_single(note, x, y, width, height)
         elif 1.5 < height_ratio < 5.5:
             self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
@@ -1273,7 +1330,7 @@ class ImageProcessing:
                     #todo reset mask to 0 only in portion using rect dimensions
                     mask_copy = mask[y:y+height+1, x:x+width+1].copy()
                     np.set_printoptions(threshold=np.inf)
-                    print(mask_copy)
+                    #print(mask_copy)
                     mask[y:y+height, x:x+width] = np.zeros((height, width), np.uint8)
                     #Making a border on the center line
                     for y_traverse in range(y, y + height, 1):
@@ -1289,7 +1346,7 @@ class ImageProcessing:
                     #traversing left side vertically
                     for y_traverse in range(y, y + height + 1, 1):
                         start_point = (x + int(width / 4), y_traverse)
-                        print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
+                        #print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
                         if img[start_point[1]][start_point[0]] == 255 and mask_copy[start_point[1] - y][start_point[0] - x] == 1:
                             _, _, _, rect2 = cv.floodFill(img, mask, start_point, 255)
                             #self.barlines[page_index].append(Feature(start_point, [start_point[0] + 2, start_point[1] + 2], type="barline"))
@@ -1305,7 +1362,7 @@ class ImageProcessing:
 
                     for y_traverse in range(y, y + height, 1):
                         start_point = (x + int(width * 3 / 4), y_traverse)
-                        print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
+                        #print("y_start", y, "yend", y + height, "traverse", y_traverse, "reset mask val", mask[start_point[1]][start_point[0]], "old mask val", mask_copy[start_point[1] - y][start_point[0] - x])
                         if img[start_point[1]][start_point[0]] == 255 and mask_copy[start_point[1] - y][start_point[0] - x] == 1:
                             _, _, _, rect2 = cv.floodFill(img, mask, start_point, 255)
                             #self.barlines[page_index].append(Feature(start_point, [start_point[0] + 2, start_point[1] + 2], type="barline"))
@@ -1333,7 +1390,7 @@ class ImageProcessing:
     '''
     usign an image that removes staff lines, extends notes
     '''
-    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, blackness):
+    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, blackness, note=None):
         print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
@@ -1363,18 +1420,23 @@ class ImageProcessing:
         half_note_mask = np.zeros((h + 2, w + 2), np.uint8)
 
         intersection_image = cv.bitwise_and(horizontal, vertical)
-
-        if self.is_list_iterable(self.notes[page_index]):
-            for i in range(len(self.notes[page_index]) - 1, -1, -1):
-                note = self.notes[page_index][i]
-                if note.is_auto_extended() == True:
-                    continue
-                if note.is_half_note == "quarter":
-                    remove = self.auto_extend_quarter_note(page_index, note, intersection_image, mask, note_height, note_width, debugging)
-                    if remove == "remove":
-                        self.notes[page_index].pop(i)
-                else:
-                    self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
+        if note is not None:
+            if note.is_half_note == "quarter":
+                remove = self.auto_extend_quarter_note(page_index, note, intersection_image, mask, note_height, note_width, debugging)
+            else:
+                self.auto_extend_half_note(page_index, note, bw, half_note_mask, note_height, note_width)
+        else:
+            if self.is_list_iterable(self.notes[page_index]):
+                for i in range(len(self.notes[page_index]) - 1, -1, -1):
+                    current_note = self.notes[page_index][i]
+                    if current_note.is_auto_extended() == True:
+                        continue
+                    if current_note.is_half_note == "quarter":
+                        remove = self.auto_extend_quarter_note(page_index, current_note, intersection_image, mask, note_height, note_width, debugging)
+                        if remove == "remove":
+                            self.notes[page_index].pop(i)
+                    else:
+                        self.auto_extend_half_note(page_index, current_note, bw, half_note_mask, note_height, note_width)
 
         #TODO reload image and do it again
         if debugging:
@@ -1691,6 +1753,33 @@ class ImageProcessing:
         #        print(c.type, end=" ")
         #    print()
 
+
+    def split_notes_by_measure(self, page_index):
+        region_lines = [0]  # Start of first region will always be from top of page
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            for i in range(4, len(self.staff_lines[page_index]), 5):
+                # find midpoint between staff lines
+                if i + 1 < len(self.staff_lines[page_index]):
+                    midpoint = self.image_widths[page_index] / 2
+                    region_lines.append(int((self.staff_lines[page_index][i].calculate_y(midpoint) + self.staff_lines[page_index][i + 1].calculate_y(midpoint)) / 2))
+        else:
+            print("staff line error on ", page_index)
+            return
+        region_lines.append(self.image_heights[page_index])
+        self.sort_clefs(page_index)
+        self.sort_barlines(page_index, error=30)
+        if self.is_list_iterable(self.all_clefs[page_index]) and self.is_list_iterable(self.barlines_2d[page_index]):
+            for row in self.all_clefs[page_index]:
+                first = row[0]
+                for j in range(len(self.barlines_2d[page_index])):
+                    for k in range(len(self.barlines_2d[page_index][j])):
+                        #TODO
+                        if self.is_bar_in_region(self.regions[page_index][i], self.barlines_2d[page_index][j][k]):
+                            pass
+        else:
+            print("clef error or barline error on", page_index)
+            return
+    #TODO start at first clef in line. then go to barlines, then end of page. then find noets in those regions
     '''
     Using sorted clefs, gets regions
     '''
@@ -1704,7 +1793,7 @@ class ImageProcessing:
                 midpoint = self.image_widths[page_index] / 2
                 region_lines.append(int((self.staff_lines[page_index][i].calculate_y(midpoint) + self.staff_lines[page_index][i + 1].calculate_y(midpoint)) / 2))
         region_lines.append(self.image_heights[page_index])
-        print("Image height: ", self.image_heights[page_index])
+        #print("Image height: ", self.image_heights[page_index])
 
         if self.all_clefs[page_index] != None:
             #print("Clefs not empty")
@@ -1719,10 +1808,10 @@ class ImageProcessing:
                             # if there are multiple clefs on this staff line, bottom right of region stops at next staff line
                             if len(self.all_clefs[page_index][i]) > 1:
                                 # if this staff isnt the right most staff that already goes to the end of the page
-                                print("multiple clefs on same line")
+                                #print("multiple clefs on same line")
                                 if j != len(self.all_clefs[page_index][i]) - 1:
                                     bottom_right = (self.all_clefs[page_index][i][j + 1].topleft[0], region_lines[k])
-                                    print("Multiple clefs on same line: bottom right: ", bottom_right)
+                                    #print("Multiple clefs on same line: bottom right: ", bottom_right)
 
                             r = Region(top_left, bottom_right, self.all_clefs[page_index][i][j].type)
                             if self.regions[page_index] is None:
@@ -1980,7 +2069,7 @@ class ImageProcessing:
                                     if rect != (0, 0, 0, 0):
                                         if height / note_height < 1.3 and width / note_height < 1.3:
                                             rects.append(rect)
-                                    if .5 < height / note_height < 1.3 and .5 < width / note_height < 1.3:
+                                    if .5 < height / note_height < 1.3 and .3 < width / note_height < 1.3:
                                         break_loop = True
                                     if len(rects) == 2:
                                         break_loop = True
@@ -2093,21 +2182,100 @@ class ImageProcessing:
             self.draw_features(self.treble_clefs, page_index)
         if filter_list[4].get() == 1:#barline
             self.draw_features(self.barlines, page_index)
-        if filter_list[5].get() == 1:#note
-            self.draw_features(self.notes, page_index)
         if filter_list[6].get() == 1: #accidental
             self.draw_features(self.accidentals, page_index)
+        if filter_list[5].get() == 1:#note
+            self.draw_features(self.notes, page_index)
         if filter_list[7].get() == 1:#region border
             if self.regions[page_index] is not None:
                 for region in self.regions[page_index]:
                     if region.clef == "bass_clef" or region.clef == "treble_clef":
                         cv.rectangle(self.images[page_index], region.topleft, region.bottomright, self.type_colors[region.clef], 1)
                         #print("Region: ", region.topleft, region.bottomright)
-        print("drawing image")
+        #print("drawing image")
         cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
         #clearing the image of drawings
         self.images[page_index] = cv.imread(self.images_filenames[page_index])
 
+    def fill_in_feature_without_reloading(self, page_index, topleft, bottomright, color, image):
+        for i in range(topleft[1], bottomright[1], 1):
+            for j in range(topleft[0], bottomright[0], 1):
+                if self.gray_images[page_index][i][j] < 255 / 2:
+                    image[i][j] = color
+
+    def draw_features_without_reloading(self, features, page_index, image, draw_rectangle=True):
+        #print("Drawing the features loop")
+        if features[page_index] is not None:
+            for feature in features[page_index]:
+                if feature is not None:
+                    # if it is a note or accidental that has a letter labeled
+                    if feature.letter != "":
+                        color = self.letter_colors[feature.letter.lower()]
+                        #print("note: ", feature)
+                        if feature.accidental != "":
+                            #print("note: ", feature)
+                            accidental = feature.accidental.lower()
+                            if accidental == "flat":
+                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
+                            if accidental == "sharp":
+                                self.fill_in_feature(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color)
+
+                            if accidental == "double_flat":
+                                self.fill_in_feature(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color)
+                            if accidental == "double_sharp":
+                                self.fill_in_feature(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color)
+                            if accidental == "natural":
+                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
+                        else:  # note with no accidental
+                            self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
+                                                 color)
+                        if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
+                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
+                            self.fill_in_half_note(page_index, feature, color)
+                        # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
+                    else:
+                        if draw_rectangle == True:
+                            cv.rectangle(image, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
+
+    def draw_staff_lines_without_reloading(self, page_index):
+        if self.staff_lines[page_index] is not None:
+            for line in self.staff_lines[page_index]:
+                cv.line(self.images[page_index], line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
+
+    def draw_image_without_reloading(self, filter_list, page_index, image):
+        # print("Filter list", filter_list)
+        if filter_list[0].get() == 1:  # staffline
+            self.draw_staff_lines(page_index)
+        if filter_list[1].get() == 1:  # implied line
+            if self.regions[page_index] is not None:
+                for region in self.regions[page_index]:
+                    if region.implied_lines is not None:
+                        for line in region.implied_lines:
+                            # print("implied line", line.topleft, line.bottomright)
+                            topleft_in_region = [region.topleft[0], line.calculate_y(region.topleft[0])]
+                            bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
+                            cv.line(image, topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
+        if filter_list[2].get() == 1:  # bass clef
+            self.draw_features(self.bass_clefs, page_index)
+        if filter_list[3].get() == 1:  # treble clef
+            # print("Drawing treble clefs")
+            self.draw_features(self.treble_clefs, page_index)
+        if filter_list[4].get() == 1:  # barline
+            self.draw_features(self.barlines, page_index)
+        if filter_list[6].get() == 1:  # accidental
+            self.draw_features(self.accidentals, page_index)
+        if filter_list[5].get() == 1:  # note
+            self.draw_features(self.notes, page_index)
+        if filter_list[7].get() == 1:  # region border
+            if self.regions[page_index] is not None:
+                for region in self.regions[page_index]:
+                    if region.clef == "bass_clef" or region.clef == "treble_clef":
+                        cv.rectangle(image, region.topleft, region.bottomright, self.type_colors[region.clef], 1)
+                        # print("Region: ", region.topleft, region.bottomright)
+        # print("drawing image")
+        #cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
+        # clearing the image of drawings
+        #self.images[page_index] = cv.imread(self.images_filenames[page_index])
 
 
 

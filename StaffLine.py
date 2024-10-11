@@ -24,13 +24,13 @@ class StaffLine(Feature):
         if 0 <= new_topleft[0] < width and 0 <= new_topleft[1] < height:
             self.topleft = new_topleft
         else:
-            print("extending staff line out of bounds top left", self.topleft, self.bottomright, width, height)
+            #print("extending staff line out of bounds top left", self.topleft, self.bottomright, width, height)
             self.topleft = [0, self.topleft[1]]
             #TODO find closest point inbounds
         if 0 <= new_bottomright[0] < width and 0 <= new_bottomright[1] < height:
             self.bottomright = new_bottomright
         else:
-            print("extending staff line out of bounds bottom right", self.topleft, self.bottomright, width, height)
+            #print("extending staff line out of bounds bottom right", self.topleft, self.bottomright, width, height)
             self.bottomright = [width - 1, self.bottomright[1]]
             #TODO
 
