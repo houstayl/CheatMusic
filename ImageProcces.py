@@ -1205,10 +1205,13 @@ class ImageProcessing:
 
                                 if .5 < height / note_height < 1.3 and .3 < width / note_width < 1.3:
                                     #adjustment = int((note_height - height) / 2)
-                                    note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
-                                    note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
-                                    note.reset_center()
-                                    note.auto_extended = True
+                                    if x <= center_x <= x + width and y <= center_y <= y + height:
+                                        note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+                                        note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+                                        note.reset_center()
+                                        note.auto_extended = True
+                                    else:
+                                        print("center not in resultant half note", center_x, center_y)
                                     return
 
                                 if len(rects) == 2:
@@ -1228,14 +1231,17 @@ class ImageProcessing:
                                         temp = width_bottom
                                         width_bottom = width_top
                                         width_top = temp
+                                    if x_topleft <= center_x <= x_bottomright + width_bottom and y_top <= center_y <= y_bottom + height_bottom:
 
-                                    # adjustment = int((note_height - height) / 2)
-                                    note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
-                                    note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment,
-                                                        y_bottom + height_bottom + vertical_adjustment]
-                                    note.reset_center()
-                                    note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
-                                    note.auto_extended = True
+                                        # adjustment = int((note_height - height) / 2)
+                                        note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
+                                        note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment,
+                                                            y_bottom + height_bottom + vertical_adjustment]
+                                        note.reset_center()
+                                        note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
+                                        note.auto_extended = True
+                                    else:
+                                        print("center not in resultant half note", center_x, center_y)
                                     return
 
         if len(rects) == 1:
@@ -1263,7 +1269,7 @@ class ImageProcessing:
                 current_note = self.notes[page_index][i]
                 if self.do_features_overlap(Feature(topleft, bottomright, "temp"), current_note) and current_note.auto_extended == False:
                     #TODO condition for removal
-                    if current_note.auto_extended == False:
+                    if current_note.auto_extended == False or self.current_note.topleft == topleft and self.current_note.bottomright == bottomright:
                         self.notes[page_index].pop(i)
 
 

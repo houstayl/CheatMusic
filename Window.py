@@ -34,12 +34,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    calculate single note on on_button_release
     calculate notes using staff lines dont use implied lines
     calculate for distorted image: if you go too long without a group: output in terminal
     calculate notes: flood fill note, then find closest staff line, then calculate note. no regions
     an autosnap half note, dont allow center to not be in new rect
-    draw annotations of self.image
-    fidn region for note. do flood fill on small portion of image surrounding note
     on half note: set allow note to be auto extended
     default note hieght to 120
     remove overlapping notes: if notes have same topleft and bottomright
@@ -108,7 +107,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "top"
+        #self.frame_location = "top"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -627,7 +627,9 @@ class ImageEditor(tk.Tk):
             loop = [self.image_index]
         for i in loop:
             self.image_processor.regenerate_images(i, self.blackness_scale.get())
-        self.draw_image_with_filters()
+        if self.fast_editing_mode.get() == True:
+            self.reload_image()
+        self.draw_image_canvas_mode()
 
     @staticmethod
     def fill_in_white_spots_parallel(task):
@@ -1261,15 +1263,26 @@ class ImageEditor(tk.Tk):
             self.set_feature_type("bass_clef")
         if c == 't' or c == "T":
             self.set_feature_type("treble_clef")
+        if c == 'q' or c == 'Q':
+            self.set_feature_type("note")
+            self.set_note_type("quarter")
+            self.allow_note_to_be_auto_extended.set(True)
+            self.threshold_scale.set(80)
         if c == 'n' or c == "N":
             self.set_feature_type("note")
             self.set_note_type("quarter")
+            self.allow_note_to_be_auto_extended.set(False)
+            self.threshold_scale.set(90)
         if c == 'h' or c == 'H':
             self.set_feature_type("note")
             self.set_note_type("half")
+            self.allow_note_to_be_auto_extended.set(True)
+            self.threshold_scale.set(80)
         if c == 'w' or c == "W":
             self.set_feature_type("note")
             self.set_note_type("whole")
+            self.allow_note_to_be_auto_extended.set(True)
+            self.threshold_scale.set(80)
         if c == 'y' or c == "Y":
             self.set_feature_type("barline")
             #setting mode to Single
@@ -1419,6 +1432,7 @@ class ImageEditor(tk.Tk):
         self.regenerate_images()
         if self.fast_editing_mode.get() == True:
             self.regenerate_images()
+
     def on_f6_press(self, event):
         self.open_paint()
     def on_f9_press(self, event):
