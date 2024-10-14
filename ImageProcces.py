@@ -852,6 +852,7 @@ class ImageProcessing:
 
     def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
         #TODO
+        print("calculating notes and accidentals for distorted staff lines on page", page-index)
         notes = region.notes
         accidentals = region.accidentals
         height, width = img.shape[:2]
@@ -875,6 +876,7 @@ class ImageProcessing:
         bottom_y = max(bottomleft, bottomright) + staff_line_error
         current_group = []
         x = region.topleft[0]
+        consecutive_times_without_finding_group = 0
         while x < region.bottomright[0]:
         #for x in range(region.topleft[0], region.bottomright[0], 1):
             group = self.detect_staff_line_group(img, x, top_y, bottom_y)
@@ -886,8 +888,12 @@ class ImageProcessing:
                 #self.notes[page_index].append(Note([x-1, group[0]],[x+1, group[4]], False, False, False))
                 cv.line(img, [x, coordinates_2d[0][1]], [x, coordinates_2d[4][1]], 255, 1)
                 x += 20
+                consecutive_times_without_finding_group = 0
             else:
+                consecutive_times_without_finding_group += 1
                 x += 1
+            if consecutive_times_without_finding_group > 20:
+                print("went 20 pixels without detecting staff lines", region.topleft. region.bottomright)
         for note in notes:
             closest_group = None
             min_distance = 100000
@@ -1381,7 +1387,6 @@ class ImageProcessing:
                                 self.remove_overlapping_notes(page_index, [x2, y2], [x2 + width2, y2 + height2])
                                 self.using_rect_dimensions_get_combination_note_type(page_index, rect2, note_height, note_width)
                                 #break
-
                 else:
                     pass
                     #note = Note([x, y], [x + width, y + height], False, auto_extended=True)
@@ -1392,6 +1397,49 @@ class ImageProcessing:
             #TODO remove note
 
 
+    def extend_small_note(self, page_index, x, y, blackness):
+        note_height = self.get_note_height(page_index)
+        # print(note_height, note_width)
+        # gray = cv.bitwise_not(self.gray_images[page_index])
+        # bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        _, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
+        bw = cv.bitwise_not(bw)
+        vertical = np.copy(bw)
+        horizontal = np.copy(bw)
+        horizontal_size = int(note_height / 2)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        verticalsize = int(note_height / 2)
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        intersection = cv.bitwise_and(horizontal, vertical)
+        h, w = intersection.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+        intersection_image = cv.bitwise_and(horizontal, vertical)
+        if intersection_image[y][x] == 255:
+            _, _, _, rect = cv.floodFill(intersection_image, mask, (x, y), 255)
+            if rect == (0, 0, 0, 0):
+                print("small note note not found")
+                pass
+            else:
+                #print(rect)
+                print("small note found")
+                x, y, width, height = rect
+                adjustment = 1
+
+                topleft = [x - adjustment, y - adjustment]
+                bottomright = [x + width + adjustment, y + height + adjustment]
+                note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
+                self.append_features(page_index, "note", [note])
+        else:
+            print("center note black")
 
     '''
     usign an image that removes staff lines, extends notes

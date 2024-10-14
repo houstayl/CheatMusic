@@ -34,6 +34,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    reload page on []{}
     calculate single note on on_button_release
     calculate notes using staff lines dont use implied lines
     calculate for distorted image: if you go too long without a group: output in terminal
@@ -1303,6 +1304,8 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 5) % self.num_pages
             self.draw_image_canvas_mode()
+            if self.fast_editing_mode.get() == True:
+                self.reload_image()
             self.draw_image_with_filters()
         if c == "]":
             self.current_feature = None
@@ -1310,6 +1313,8 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 5) % self.num_pages
             self.draw_image_canvas_mode()
+            if self.fast_editing_mode.get() == True:
+                self.reload_image()
             self.draw_image_with_filters()
         if c == "{":
             self.current_feature = None
@@ -1317,6 +1322,8 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 10) % self.num_pages
             self.draw_image_canvas_mode()
+            if self.fast_editing_mode.get() == True:
+                print("reloading image")
             self.draw_image_with_filters()
         if c == "}":
             self.current_feature = None
@@ -1324,6 +1331,8 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 10) % self.num_pages
             self.draw_image_canvas_mode()
+            if self.fast_editing_mode.get() == True:
+                self.reload_image()
             self.draw_image_with_filters()
 
         if self.current_feature is not None:
@@ -2219,7 +2228,7 @@ class ImageEditor(tk.Tk):
 
 
             else:
-                feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img)
+                feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img, error=1)
                 if feature is not None:
                     print("feature found: ", feature)
                     self.current_feature = feature
@@ -2235,8 +2244,8 @@ class ImageEditor(tk.Tk):
                         self.image_processor.add_feature_on_click(self.image_index, x_img, y_img, self.current_feature_type)
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
-                    #if self.current_feature_type == "note" and self.note_type.get() == "quarter":
-                    #    self.image_processor.add_small_note_on_click(self.image_index, x_img, y_img)
+                    if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
+                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get())
                     self.draw_image_with_filters()
 
 
