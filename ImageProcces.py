@@ -852,7 +852,7 @@ class ImageProcessing:
 
     def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
         #TODO
-        print("calculating notes and accidentals for distorted staff lines on page", page-index)
+        print("calculating notes and accidentals for distorted staff lines on page", page_index)
         notes = region.notes
         accidentals = region.accidentals
         height, width = img.shape[:2]
@@ -893,7 +893,7 @@ class ImageProcessing:
                 consecutive_times_without_finding_group += 1
                 x += 1
             if consecutive_times_without_finding_group > 20:
-                print("went 20 pixels without detecting staff lines", region.topleft. region.bottomright)
+                print("went 20 pixels without detecting staff lines", region.topleft, region.bottomright)
         for note in notes:
             closest_group = None
             min_distance = 100000

@@ -34,10 +34,10 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    reload page on []{}
+    match template quarter note using intersection image
+    change where buttons are packed on resizeing window
     calculate single note on on_button_release
     calculate notes using staff lines dont use implied lines
-    calculate for distorted image: if you go too long without a group: output in terminal
     calculate notes: flood fill note, then find closest staff line, then calculate note. no regions
     an autosnap half note, dont allow center to not be in new rect
     on half note: set allow note to be auto extended
@@ -108,8 +108,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        #self.frame_location = "top"
-        self.frame_location = "side"
+        self.frame_location = "top"
+        #self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
