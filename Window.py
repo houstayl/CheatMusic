@@ -1,6 +1,6 @@
 import tkinter as tk
 import cv2 as cv
-from tkinter import filedialog, Canvas, Scale, ttk
+from tkinter import filedialog, Canvas, Scale, ttk, messagebox
 from PIL import Image, ImageTk, ImageDraw
 import os, shutil
 import PDFtoImages
@@ -34,6 +34,8 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    ask to close
+    load etude info from old memory
     match template quarter note using intersection image
     change where buttons are packed on resizeing window
     calculate single note on on_button_release
@@ -94,6 +96,7 @@ Big TODOn
 class ImageEditor(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.title("Image Editor")
         self.dirname = os.path.dirname(__file__)
         self.file_name = ""
@@ -108,8 +111,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "top"
-        #self.frame_location = "side"
+        #self.frame_location = "top"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -561,6 +564,11 @@ class ImageEditor(tk.Tk):
         self.debugging = tk.BooleanVar()
         self.debugging.set(False)
         info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable=self.debugging, command=self.on_toggle_debugging)
+
+    def on_closing(self):
+        # Ask for confirmation before closing the window
+        if messagebox.askokcancel("Quit", "Do you really want to quit?"):
+            self.destroy()  # Close the window if confirmed
 
     def on_toggle_debugging(self):
         if self.debugging.get() == True:
