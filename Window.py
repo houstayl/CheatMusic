@@ -34,7 +34,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    ask to close
+    detect if note is on line
     load etude info from old memory
     match template quarter note using intersection image
     change where buttons are packed on resizeing window

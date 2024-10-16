@@ -1203,7 +1203,6 @@ class ImageProcessing:
                             if height > note_height * 1.5 or width > note_height * 2:
                                 print("Half note is open", note.center)
                             else:
-
                                 if rect != (0,0,0,0):
                                     if height / note_height < 1.3 and width / note_width < 1.3:
                                         rects.append(rect)
@@ -1220,7 +1219,6 @@ class ImageProcessing:
                                     else:
                                         print("center not in resultant half note", center_x, center_y)
                                     return
-
                                 if len(rects) == 2:
                                     top_rect = rects[0]
                                     bottom_rect = rects[1]
@@ -1975,12 +1973,13 @@ class ImageProcessing:
         cv.imwrite("ahorizontalonline.jpg", horizontal)
         '''
         for note in self.notes[page_index]:
-            histogram = []
-            for y in range(note.topleft[1], note.bottomright[1], 1):
-                if gray[y][note.center[0]] == 255:
-                    pass
-                    #width = get_width()
-                    #TODO get horizontal histograms and see if one line is bigger than others. Make sure no notes beside current note
+            if note.is_half_note == "quarter":
+                histogram = []
+                for y in range(note.topleft[1], note.bottomright[1], 1):
+                    if gray[y][note.center[0]] == 255:
+                        pass
+                        #width = get_width()
+                        #TODO get horizontal histograms and see if one line is bigger than others. Make sure no notes beside current note
 
 
     def find_notes_and_accidentals_in_region(self, page_index):
