@@ -1216,6 +1216,7 @@ class ImageProcessing:
                                         note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
                                         note.reset_center()
                                         note.auto_extended = True
+                                        note.is_on_line = False
                                     else:
                                         print("center not in resultant half note", center_x, center_y)
                                     return
@@ -1246,6 +1247,7 @@ class ImageProcessing:
                                         note.reset_center()
                                         note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
                                         note.auto_extended = True
+                                        note.is_on_line = True
                                     else:
                                         print("center not in resultant half note", center_x, center_y)
                                     return

@@ -33,6 +33,18 @@ class Region:
                 min = abs(point[1] - line.calculate_y(point[0]))
                 closest_line = line
         return closest_line
+    def find_closest_line_to_feature(self, feature):
+        if feature.is_on_line == None:
+            return self.find_closest_line(feature.center)
+        else:
+            point = feature.center
+            min = 10000
+            closest_line = 0
+            for line in self.implied_lines:
+                if abs(point[1] - line.calculate_y(point[0])) < min and isinstance(feature, Note) and line.is_on_line == feature.is_on_line:
+                    min = abs(point[1] - line.calculate_y(point[0]))
+                    closest_line = line
+            return closest_line
 
     '''
     Given the center lien of a note, it finds the two adjacent implied lines and returns them in an array
@@ -129,7 +141,7 @@ class Region:
         #TODO use note.is_on_line to find closest line that matches is_on_line
         if feature.letter != "" and overwrite == False:
             return
-        closest_line = self.find_closest_line(feature.center)
+        closest_line = self.find_closest_line_to_feature(feature)
         #y_dif = closest_line.y - feature.center[1]
         #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
         #print("accidental autosnaped", closest_line.calculate_y(feature.center[0]))
