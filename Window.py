@@ -34,6 +34,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    single click for half note 2 rects
+    if half note center is black then is on line
+    get rid of note types radio buttons and pute note tupe ito currentfeautretype
+    single click to add clef
+    for half note, if rect really skinny
     detect if note is on line
     load etude info from old memory
     match template quarter note using intersection image
