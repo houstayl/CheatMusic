@@ -1942,7 +1942,20 @@ class ImageProcessing:
                                 # break
                 i = i + 1
 
-    def are_notes_on_line(self, page_index):
+    def handle_half_and_quarter_note_overlap(self, page_index):
+        #TODO compare each note. if notes are verticallly aligned and one is half\whole, have it override quarter
+        #TODO if half notes are overlapping, maybe do nothing. have to thing about notes white regions overlapping each other?
+        if self.is_list_iterable(self.notes[page_index]):
+            for note1 in self.notes[page_index]:
+                for note2 in self.notes[page_index]:
+                    note1 != note2
+                        if self.do_features_overlap(note1, note2):
+                            pass
+
+                        #if notes are vertically overlapped and dont have the same type
+
+
+    def determine_if_notes_are_on_line(self, page_index):
         #todo detect if note is on line or on space. if there are notes adjacent, only check one side
         #todo use intersection image to flood fill notes. if width is greater, only take one side
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)

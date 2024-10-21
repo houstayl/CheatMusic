@@ -34,8 +34,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    for detecting center line: compare horizonta image ti ntersection image
+    detect anomalies: find largest and smallest notes
     single click for half note 2 rects
     if half note center is black then is on line
+    get rid of note types radio buttons and pute note tupe ito currentfeautretype
     get rid of note types radio buttons and pute note tupe ito currentfeautretype
     single click to add clef
     for half note, if rect really skinny
@@ -185,8 +188,8 @@ class ImageEditor(tk.Tk):
         self.staff_line_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Staff line error")
         self.staff_line_error_scale.set(5)
 
-        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, orient="horizontal", label="Note height/width ratio (Percentage)")
-        self.note_width_ratio_scale.set(100)
+        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=5, orient="horizontal", label="Note height/width ratio (Percentage)")
+        self.note_width_ratio_scale.set(145)
 
 
         #threshold scale
@@ -503,7 +506,10 @@ class ImageEditor(tk.Tk):
         #note_menu.add_separator()
         #note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
         #note_menu.add_separator()
-        note_menu.add_command(label="Convert notes", command=self.convert_is_half_note)
+        #note_menu.add_command(label="Convert notes", command=self.convert_is_half_note)
+        note_menu.add_command(label="Detect if notes are on line or on space", command=self.determine_if_notes_are_on_line)
+        note_menu.add_separator()
+        note_menu.add_command(label="Handle half/whole note vertical overlap with quarter note", command=self.handle_half_and_quarter_note_overlap)
 
         #note_menu.add_command(label="Are notes on line", command=self.are_notes_on_line)
 
@@ -570,6 +576,21 @@ class ImageEditor(tk.Tk):
         self.debugging.set(False)
         info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable=self.debugging, command=self.on_toggle_debugging)
 
+
+    def handle_half_and_quarter_note_overlap(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.handle_half_and_quarter_note_overlap(i)
+        self.draw_image_with_filters()
+
+    def determine_if_notes_are_on_line(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.determine_if_notes_are_on_line(i)
     def on_closing(self):
         # Ask for confirmation before closing the window
         if messagebox.askokcancel("Quit", "Do you really want to quit?"):
@@ -1304,6 +1325,7 @@ class ImageEditor(tk.Tk):
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
+            self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == False:
                 self.fast_editing_mode.set(True)
             else:
@@ -1452,8 +1474,8 @@ class ImageEditor(tk.Tk):
         self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
     def on_f5_press(self, event):
         self.regenerate_images()
-        if self.fast_editing_mode.get() == True:
-            self.regenerate_images()
+        #if self.fast_editing_mode.get() == True:
+        #    self.regenerate_images()
 
     def on_f6_press(self, event):
         self.open_paint()
@@ -1633,6 +1655,7 @@ class ImageEditor(tk.Tk):
                 filter_temp.append(tk.IntVar())
                 filter_temp[i].set(filter[i])
             self.image_processor.draw_image(filter_temp, self.image_index)
+            self.reload_image()
             self.display_image()
         else:
             self.draw_image_with_filters()
@@ -1678,6 +1701,16 @@ class ImageEditor(tk.Tk):
 
         if self.image_processor.accidentals[self.image_index] is not None:
             for feature in self.image_processor.accidentals[self.image_index]:
+                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
+                self.draw_cross_hairs(feature, color)
+
+        if self.image_processor.is_list_iterable(self.image_processor.treble_clefs[self.image_index]):
+            for feature in self.image_processor.treble_clefs[self.image_index]:
+                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
+                self.draw_cross_hairs(feature, color)
+
+        if self.image_processor.is_list_iterable(self.image_processor.bass_clefs[self.image_index]):
+            for feature in self.image_processor.bass_clefs[self.image_index]:
                 color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
                 self.draw_cross_hairs(feature, color)
         '''

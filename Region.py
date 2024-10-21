@@ -34,8 +34,11 @@ class Region:
                 closest_line = line
         return closest_line
     def find_closest_line_to_feature(self, feature):
-        if feature.is_on_line == None:
-            return self.find_closest_line(feature.center)
+        # if it is not a note, or if it is a note and isonline is none
+        if not isinstance(feature, Note) or isinstance(feature, Note) and feature.is_on_line == None:
+            line = self.find_closest_line(feature.center)
+            print("closset line", line)
+            return line
         else:
             point = feature.center
             min = 10000
@@ -49,6 +52,7 @@ class Region:
     '''
     Given the center lien of a note, it finds the two adjacent implied lines and returns them in an array
     If no adjacent lines are found, it returns an empty list
+    '''
     '''
     def find_adjacent_lines(self, line):
         #print("start find_adj")
@@ -73,7 +77,7 @@ class Region:
                     note.auto_extended = True
                     #note.topleft = (note.topleft[0], adjacent_implied_lines.calculate_y(note.topleft[0]))
                     #note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
-
+    '''
     def find_accidental_for_note(self, overwrite):
         #TODO find other closest lines. get rid of closest lines, just within note height pixels and same letter
         for note in self.notes:
@@ -152,6 +156,7 @@ class Region:
         #feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
         if feature.letter.islower() or feature.letter == '':
             #print("setting letter", closest_line.letter)
+            print(closest_line, "closest line")
             feature.letter = closest_line.letter
 
 
