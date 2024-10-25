@@ -37,7 +37,7 @@ class Region:
         # if it is not a note, or if it is a note and isonline is none
         if not isinstance(feature, Note) or isinstance(feature, Note) and feature.is_on_line == None:
             line = self.find_closest_line(feature.center)
-            print("closset line", line)
+            #print("closset line", line)
             return line
         else:
             point = feature.center
@@ -156,7 +156,7 @@ class Region:
         #feature.bottomright = (feature.bottomright[0], feature.bottomright[1] + y_dif)
         if feature.letter.islower() or feature.letter == '':
             #print("setting letter", closest_line.letter)
-            print(closest_line, "closest line")
+            #print(closest_line, "closest line")
             feature.letter = closest_line.letter
 
 

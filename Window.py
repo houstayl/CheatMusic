@@ -34,6 +34,8 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    make sure to undo convert half notes.
+    staff line error bar for staff line pixel length
     for detecting center line: compare horizonta image ti ntersection image
     detect anomalies: find largest and smallest notes
     single click for half note 2 rects
@@ -487,8 +489,8 @@ class ImageEditor(tk.Tk):
         note_menu.add_separator()
         #note_menu.add_command(label="Auto detect quarter notes (Prerequisite: Staff lines)",command=self.auto_detect_quarter_notes)
         #note_menu.add_separator()
-        note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
-        note_menu.add_separator()
+        #note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
+        #note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
         note_menu.add_separator()
         note_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
@@ -499,7 +501,7 @@ class ImageEditor(tk.Tk):
         note_menu.add_separator()
         note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
         note_menu.add_separator()
-        note_menu.add_command(label="Detect unautosnapped half note", command=self.detect_unautosnapped_half_notes)
+        #note_menu.add_command(label="Detect unautosnapped half note", command=self.detect_unautosnapped_half_notes)
         #note_menu.add_command(label="Auto remove small erroneous notes", command=self.remove_small_notes)
         #note_menu.add_separator()
         #note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
@@ -1578,7 +1580,7 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
                 self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
                 cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
-            self.convert_is_half_note()
+            #self.convert_is_half_note()
             self.draw_image_with_filters()
 
     def save_binary_memory(self):
@@ -2207,7 +2209,7 @@ class ImageEditor(tk.Tk):
             else:#only add single feature
                 print("single feature")
                 #append_rect = True
-                if rectangle.type == "note":
+                if rectangle.type == "note": #if note
                     auto_extended = not self.allow_note_to_be_auto_extended.get()
                     #print(auto_extended, "auto_extended")
                     note_type = self.note_type.get()
@@ -2218,7 +2220,10 @@ class ImageEditor(tk.Tk):
                     else:
                         if self.allow_note_to_be_auto_extended.get() == True:
                             #print("auto extend note single")
-                            self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), rectangle)
+                            if self.note_type.get() == "quarter":
+                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), rectangle)
+                            else:
+                                self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
                         if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
                             self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
                         self.calculate_notes_and_accidentals_for_regions_using_staff_lines(self.overwrite_regions.get())
@@ -2292,6 +2297,8 @@ class ImageEditor(tk.Tk):
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get())
+                    if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:
+                        self.image_processor.extend_half_note_single_click(self.image_index, x_img, y_img, self.note_type.get())
                     self.draw_image_with_filters()
 
 

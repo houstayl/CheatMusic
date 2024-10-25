@@ -766,6 +766,7 @@ class ImageProcessing:
     Todo: draws vertical lines, finds if vertical line intersects staff line exactly 5 times
     '''
     def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index):
+        print("getting staff lines on page", page_index)
         self.sort_clefs(page_index)
         self.staff_lines[page_index] = []
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
@@ -1265,6 +1266,114 @@ class ImageProcessing:
 
 
 
+    def extend_half_note_single_drag(self, page_index, note):
+        rects = []
+        # adjustment = 2
+        vertical_adjustment = 2
+        horizontal_adjustment = 2
+        if note.is_half_note == "whole":
+            horizontal_adjustment = 7
+        # cv.imwrite("ahalfnote.jpg", img)
+        img = np.copy(self.bw_images[page_index])
+        h, w = img.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+        #note_height = self.get_note_height(page_index)
+        # traversing around the center and outward
+        center_x, center_y = note.center
+
+        # Calculate the maximum radius from the center to the rectangle's edges
+        x_radius = note.get_width() // 2
+        y_radius = note.get_height() // 2
+        max_radius = max(x_radius, y_radius)
+        # Traverse outward from the center
+        for radius in range(max_radius + 1):
+            for y_offset in range(-radius, radius + 1):
+                for x_offset in range(-radius, radius + 1):
+                    # Calculate the current position
+                    x_traverse = center_x + x_offset
+                    y_traverse = center_y + y_offset
+
+                    # Ensure the position is within the bounds of the rectangle
+                    if (note.topleft[0] <= x_traverse <= note.bottomright[0] and note.topleft[1] <= y_traverse <=
+                            note.bottomright[1]):
+                        # Do your processing here with x_traverse and y_traverse
+                        # if pixel is white, flood fill
+                        if img[y_traverse][x_traverse] != 0:
+
+                            start_point = (x_traverse, y_traverse)
+                            _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+                            # print(rect)
+                            x, y, width, height = rect
+
+                            if rect != (0, 0, 0, 0):
+                                rects.append(rect)
+                            if len(rects) == 2:
+                                top_rect = rects[0]
+                                bottom_rect = rects[1]
+                                # if second rect is above first rect
+                                if rects[1][1] < rects[0][1]:
+                                    top_rect = rects[1]
+                                    bottom_rect = rects[0]
+                                x_top, y_top, width_top, height_top = top_rect
+                                x_bottom, y_bottom, width_bottom, height_bottom = bottom_rect
+                                x_topleft = x_top
+                                x_bottomright = x_bottom
+                                if x_bottomright < x_topleft:
+                                    x_topleft = x_bottom
+                                    x_bottomright = x_top
+                                    temp = width_bottom
+                                    width_bottom = width_top
+                                    width_top = temp
+
+                                # adjustment = int((note_height - height) / 2)
+                                note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
+                                note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment,
+                                                    y_bottom + height_bottom + vertical_adjustment]
+                                note.reset_center()
+                                note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
+                                note.auto_extended = True
+                                note.is_on_line = True
+                                print(note, "on_line", note.is_on_line)
+                                return
+
+        if len(rects) == 1:
+            note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+            note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+            note.reset_center()
+            note.auto_extended = True
+            note.is_on_line = False
+            print(note, "on_line", note.is_on_line)
+        else:
+            print("couldnt autosnap half note ", len(rects), "rects")
+
+
+    def extend_half_note_single_click(self, page_index, center_x, center_y, type):
+        rects = []
+        # adjustment = 2
+        vertical_adjustment = 2
+        horizontal_adjustment = 2
+        if type == "whole":
+            horizontal_adjustment = 7
+        # cv.imwrite("ahalfnote.jpg", img)
+        img = np.copy(self.bw_images[page_index])
+
+        # if pixel is white, flood fill
+        if img[center_y][center_x] != 0:
+            start_point = (center_x, center_y)
+            h, w = img.shape[:2]
+            mask = np.zeros((h + 2, w + 2), np.uint8)
+            _, _, _, rect = cv.floodFill(img, mask, start_point, 0)
+            # print(rect)
+            x, y, width, height = rect
+
+            if rect != (0, 0, 0, 0):
+                topleft = [x - horizontal_adjustment, y - vertical_adjustment]
+                bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+                note = Note(topleft, bottomright, is_half_note=type, is_on_line=False, auto_extended=True)
+                print(note, "on_line", note.is_on_line)
+                self.append_features(page_index, "note", [note])
+        else:
+            print("couldnt autosnap half note ", len(rects), "rects")
 
     def get_area_of_feature(self, feature):
         return int(abs(feature.bottomright[0] - feature.topleft[0]) * abs(feature.bottomright[1] - feature.topleft[1]))
@@ -1942,18 +2051,94 @@ class ImageProcessing:
                                 # break
                 i = i + 1
 
+    def find_note_perfectly_overlapping_below(self, page_index, note):
+        #print(type(note), "in method below")
+        for current_note in self.notes[page_index]:
+            if current_note.topleft[0] == note.topleft[0] and current_note.bottomright[0] == note.bottomright[0] and note.bottomright[1] == current_note.topleft[1]:
+                return current_note
+        return None
+
+    def find_note_perfectly_overlapping_above(self, page_index, note):
+        #print(type(note), "in method aabove")
+        for current_note in self.notes[page_index]:
+            if current_note.topleft[0] == note.topleft[0] and current_note.bottomright[0] == note.bottomright[0] and note.topleft[1] == current_note.bottomright[1]:
+                return current_note
+        return None
     def handle_half_and_quarter_note_overlap(self, page_index):
-        #TODO compare each note. if notes are verticallly aligned and one is half\whole, have it override quarter
-        #TODO if half notes are overlapping, maybe do nothing. have to thing about notes white regions overlapping each other?
+        #TODO call after extend_half_note
+        print("handle half and quarter note overlap on ", page_index)
         if self.is_list_iterable(self.notes[page_index]):
-            for note1 in self.notes[page_index]:
-                for note2 in self.notes[page_index]:
-                    note1 != note2
-                        if self.do_features_overlap(note1, note2):
+            for i in range(len(self.notes[page_index])):
+                for j in range(i, len(self.notes[page_index]), 1):
+                    if i != j:
+                        note1 = self.notes[page_index][i]
+                        note2 = self.notes[page_index][j]
+                        half_or_whole_note= None
+                        quarter_note = None
+                        if note1.is_half_note == "quarter" and note2.is_half_note in ["half", "whole"]:
+                            #print("quarter half")
+                            quarter_note = note1
+                            half_or_whole_note = note2
+                        elif note2.is_half_note == "quarter" and note1.is_half_note in ["half", "whole"]:
+                            #print("half quarter")
+                            quarter_note = note2
+                            half_or_whole_note = note1
+                        else:
+                            continue
+                        is_quarter_above = None
+                        #if quarter note above half note
+                        if self.does_horizontal_line_intersect_feature(half_or_whole_note.topleft, half_or_whole_note.get_topright(), quarter_note) == True:
+                            #quarter_note.bottomright[1] = half_or_whole_note.topleft[1]
+                            #quarter_note.reset_center()
+                            #print("quarter above")
+                            is_quarter_above = True
+                        #if quarter note below half note
+                        elif self.does_horizontal_line_intersect_feature(half_or_whole_note.get_bottomleft(), half_or_whole_note.bottomright, quarter_note) == True:
+                            #quarter_note.topleft[1] = half_or_whole_note.bottomright[1]
+                            #quarter_note.reset_center()
+                            #print("quarter below")
+                            is_quarter_above = False
+                        else:
                             pass
-
-                        #if notes are vertically overlapped and dont have the same type
-
+                            #print("no overlap")
+                            #if notes are vertically overlapped and dont have the same type
+                        if is_quarter_above != None:
+                            notes = [quarter_note]
+                            #print("last note", notes[-1])
+                            if is_quarter_above == True:
+                                while True:
+                                    next_note = self.find_note_perfectly_overlapping_above(page_index, notes[-1])
+                                    if next_note is None:
+                                        break
+                                    notes.append(next_note)
+                            else:
+                                #print("last note", notes[-1])
+                                while True:
+                                    next_note = self.find_note_perfectly_overlapping_below(page_index, notes[-1])
+                                    if next_note is None:
+                                        #print("next note is none")
+                                        break
+                                    #print("next note", next_note)
+                                    notes.append(next_note)
+                            if is_quarter_above == True:
+                                topleft = notes[-1].topleft
+                                bottomright = [notes[0].bottomright[0], half_or_whole_note.topleft[1]]
+                            else:
+                                topleft = [notes[0].topleft[0], half_or_whole_note.bottomright[1]]
+                                bottomright = notes[-1].bottomright
+                            num_notes = len(notes)
+                            #print("num notes", num_notes)
+                            spacing = abs(topleft[1] - bottomright[1]) / num_notes
+                            for note in notes:
+                                self.notes[page_index].remove(note)
+                            for k in range(num_notes):
+                                tl = [topleft[0], topleft[1] + int(spacing * k)]
+                                br = [bottomright[0], topleft[1] + int(spacing * (k + 1))]
+                                #print("tl and br", tl, br, spacing * (k + 1), k)
+                                n = Note(tl, br, "quarter", True)
+                                n.letter = notes[k].letter
+                                n.accidental = notes[k].accidental
+                                self.notes[page_index].append(n)
 
     def determine_if_notes_are_on_line(self, page_index):
         #todo detect if note is on line or on space. if there are notes adjacent, only check one side

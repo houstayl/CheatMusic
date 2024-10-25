@@ -8,7 +8,7 @@ class StaffLine(Feature):
             self.bottomright[1] = self.topleft[1]
         else:
             self.slope = (self.bottomright[1] - self.topleft[1]) / (self.bottomright[0] - self.topleft[0])
-        self.y_intercept = round(self.topleft[1] + self.slope * (self.topleft[0] - 0))
+        self.y_intercept = round(self.topleft[1] - self.slope * (self.topleft[0] - 0))
         self.extend_line(image_width, image_height)
         #used for implied line
         self.is_on_line=is_on_line
