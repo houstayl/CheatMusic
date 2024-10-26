@@ -121,8 +121,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "top"
-        #self.frame_location = "side"
+        #self.frame_location = "top"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -350,6 +350,7 @@ class ImageEditor(tk.Tk):
         self.bind("<F4>", self.on_f4_press)#calculate accidentals
         self.bind("<F5>", self.on_f5_press)#regenerate images
         self.bind("<F6>", self.on_f6_press)#open paint
+        self.bind("<F7>", self.on_f7_press)#handle half and quarter overlap
         self.bind("<F9>", self.on_f9_press)  # calculate notes
         self.bind("<F10>", self.on_f10_press)  # calculate notes
         self.bind("<F11>", self.on_f11_press)  # calculate notes
@@ -1481,6 +1482,8 @@ class ImageEditor(tk.Tk):
 
     def on_f6_press(self, event):
         self.open_paint()
+    def on_f7_press(self, event):
+        self.handle_half_and_quarter_note_overlap()
     def on_f9_press(self, event):
         self.add_mode_combobox.set(self.add_mode_combobox_values[0])
         self.set_cursor()
