@@ -2087,20 +2087,30 @@ class ImageProcessing:
                             continue
                         is_quarter_above = None
                         #if quarter note above half note
+                        angle_margin = 45
                         if self.does_horizontal_line_intersect_feature(half_or_whole_note.topleft, half_or_whole_note.get_topright(), quarter_note) == True:
-                            #quarter_note.bottomright[1] = half_or_whole_note.topleft[1]
-                            #quarter_note.reset_center()
-                            #print("quarter above")
-                            is_quarter_above = True
+                            delta_y = quarter_note.center[1] - half_or_whole_note.center[1]
+                            delta_x = quarter_note.center[0] - half_or_whole_note.center[0]
+                            angle = math.atan2(delta_y, delta_x)
+                            angle_deg = math.degrees(angle)
+                            if angle_deg < 0:
+                                angle_deg += 360
+                            print(angle_deg)
+                            if 270 - angle_margin <= angle_deg < 270 + angle_margin:
+                                is_quarter_above = True
                         #if quarter note below half note
                         elif self.does_horizontal_line_intersect_feature(half_or_whole_note.get_bottomleft(), half_or_whole_note.bottomright, quarter_note) == True:
-                            #quarter_note.topleft[1] = half_or_whole_note.bottomright[1]
-                            #quarter_note.reset_center()
-                            #print("quarter below")
-                            is_quarter_above = False
+                            delta_y = quarter_note.center[1] - half_or_whole_note.center[1]
+                            delta_x = quarter_note.center[0] - half_or_whole_note.center[0]
+                            angle = math.atan2(delta_y, delta_x)
+                            angle_deg = math.degrees(angle)
+                            if angle_deg < 0:
+                                angle_deg += 360
+                            print(angle_deg)
+                            if 90 - angle_margin <= angle_deg < 90 + angle_margin:
+                                is_quarter_above = False
                         else:
                             pass
-                            #print("no overlap")
                             #if notes are vertically overlapped and dont have the same type
                         if is_quarter_above != None:
                             notes = [quarter_note]
