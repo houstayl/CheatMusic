@@ -34,11 +34,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    calculate accidental letters: find closest note to the right
     make sure to undo convert half notes.
     staff line error bar for staff line pixel length
     for detecting center line: compare horizonta image ti ntersection image
     detect anomalies: find largest and smallest notes
-    single click for half note 2 rects
     if half note center is black then is on line
     get rid of note types radio buttons and pute note tupe ito currentfeautretype
     get rid of note types radio buttons and pute note tupe ito currentfeautretype
@@ -168,9 +168,9 @@ class ImageEditor(tk.Tk):
         self.note_type = tk.StringVar()
         self.note_types = ["quarter", "half", "whole"]
         self.note_type.set(self.note_types[0])
-        self.note_type_radio_button_quarter = tk.Radiobutton(self.left_frame, text="Quarter Note", variable=self.note_type, value=self.note_types[0])
-        self.note_type_radio_button_half = tk.Radiobutton(self.left_frame, text="Half Note", variable=self.note_type, value=self.note_types[1])
-        self.note_type_radio_button_whole = tk.Radiobutton(self.left_frame, text="Whole Note", variable=self.note_type, value=self.note_types[2])
+        #self.note_type_radio_button_quarter = tk.Radiobutton(self.left_frame, text="Quarter Note", variable=self.note_type, value=self.note_types[0])
+        #self.note_type_radio_button_half = tk.Radiobutton(self.left_frame, text="Half Note", variable=self.note_type, value=self.note_types[1])
+        #self.note_type_radio_button_whole = tk.Radiobutton(self.left_frame, text="Whole Note", variable=self.note_type, value=self.note_types[2])
 
         #REmove adjacent features button
         #self.remove_adjacents_button = tk.Button(self.left_frame, text="Remove Overlaping Squares", command=self.remove_adjacent_matches_all)
@@ -212,10 +212,10 @@ class ImageEditor(tk.Tk):
         self.sharp_order = ['f', 'c', 'g', 'd', 'a', 'e', 'b']
         self.flat_order = ['b', 'e', 'a', 'd', 'g', 'c', 'f',]
 
-        self.key_label = tk.Label(self.left_frame, text="Key:")
-        self.key_combobox_values = ["None","1 sharp", "2 sharps", "3 sharps", "4 sharps", "5 sharps", "6 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 flats", "6 flats"]
-        self.key_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.key_combobox_values, takefocus=0)
-        self.key_combobox.current(0)
+        #self.key_label = tk.Label(self.left_frame, text="Key:")
+        #self.key_combobox_values = ["None","1 sharp", "2 sharps", "3 sharps", "4 sharps", "5 sharps", "6 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 flats", "6 flats"]
+        #self.key_combobox = ttk.Combobox(self.left_frame, state="readonly", values=self.key_combobox_values, takefocus=0)
+        #self.key_combobox.current(0)
 
 
 
@@ -241,15 +241,15 @@ class ImageEditor(tk.Tk):
             self.add_mode_combobox.grid(row=3, column=0)
             self.fast_editing_mode_checkbutton.grid(row=4, column=0)
             self.allow_note_to_be_auto_extended_check_button.grid(row=55, column=0)
-            self.note_type_radio_button_quarter.grid(row=6, column=0)
-            self.note_type_radio_button_half.grid(row=7, column=0)
-            self.note_type_radio_button_whole.grid(row=8, column=0)
+            #self.note_type_radio_button_quarter.grid(row=6, column=0)
+            #self.note_type_radio_button_half.grid(row=7, column=0)
+            #self.note_type_radio_button_whole.grid(row=8, column=0)
             self.staff_line_error_scale.grid(row=0, column=1)
             self.note_width_ratio_scale.grid(row=1, column=1)
             self.threshold_scale.grid(row=2, column=1)
             self.blackness_scale.grid(row=3, column=1)
-            self.key_label.grid(row=4, column=1)
-            self.key_combobox.grid(row=5, column=1)
+            #self.key_label.grid(row=4, column=1)
+            #self.key_combobox.grid(row=5, column=1)
             self.num_notes_label.grid(row=6, column=1)
             self.num_notes_combobox.grid(row=7, column=1)
             '''
@@ -279,15 +279,15 @@ class ImageEditor(tk.Tk):
             self.add_mode_combobox.pack()
             self.fast_editing_mode_checkbutton.pack()
             self.allow_note_to_be_auto_extended_check_button.pack()
-            self.note_type_radio_button_quarter.pack()
-            self.note_type_radio_button_half.pack()
-            self.note_type_radio_button_whole.pack()
+            #self.note_type_radio_button_quarter.pack()
+            #self.note_type_radio_button_half.pack()
+            #self.note_type_radio_button_whole.pack()
             self.staff_line_error_scale.pack()
             self.note_width_ratio_scale.pack()
             self.threshold_scale.pack()
             self.blackness_scale.pack()
-            self.key_label.pack()
-            self.key_combobox.pack()
+            #self.key_label.pack()
+            #self.key_combobox.pack()
             self.num_notes_label.pack()
             self.num_notes_combobox.pack()
 
@@ -528,6 +528,23 @@ class ImageEditor(tk.Tk):
         key_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Key", menu=key_menu)
         key_menu.add_command(label="Set key for current page", command=self.set_key_for_current_page)
+        key_menu.add_separator()
+        self.key_type = tk.StringVar()
+        self.key_values = ["None", "1 sharp", "2 sharps", "3 sharps", "4 sharps", "5 sharps", "6 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 flats", "6 flats"]
+        key_menu.add_radiobutton(label="None", variable=self.key_type, value=self.key_values[0])
+        key_menu.add_radiobutton(label="1 Sharp", variable=self.key_type, value=self.key_values[1])
+        key_menu.add_radiobutton(label="2 Sharps", variable=self.key_type, value=self.key_values[2])
+        key_menu.add_radiobutton(label="3 Sharps", variable=self.key_type, value=self.key_values[3])
+        key_menu.add_radiobutton(label="4 Sharps", variable=self.key_type, value=self.key_values[4])
+        key_menu.add_radiobutton(label="5 Sharps", variable=self.key_type, value=self.key_values[5])
+        key_menu.add_radiobutton(label="6 Sharps", variable=self.key_type, value=self.key_values[6])
+        key_menu.add_radiobutton(label="1 flat", variable=self.key_type, value=self.key_values[7])
+        key_menu.add_radiobutton(label="2 flats", variable=self.key_type, value=self.key_values[8])
+        key_menu.add_radiobutton(label="3 flats", variable=self.key_type, value=self.key_values[9])
+        key_menu.add_radiobutton(label="4 flats", variable=self.key_type, value=self.key_values[10])
+        key_menu.add_radiobutton(label="5 flats", variable=self.key_type, value=self.key_values[11])
+        key_menu.add_radiobutton(label="6 flats", variable=self.key_type, value=self.key_values[12])
+
 
         #Region menu
         self.overwrite_regions = tk.BooleanVar()
@@ -788,7 +805,7 @@ class ImageEditor(tk.Tk):
         topleft = [0,0]
         bottomright = [self.image_processor.image_widths[self.image_index] - 1, self.image_processor.image_heights[self.image_index] - 1]
 
-        key = self.key_combobox.get()
+        key = self.key_type
         if key == "None":
             print("key is none")
             # todo get rid of all accidentals for none key
@@ -1257,7 +1274,10 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.staff_line_diagonal_coordinates = []
         self.current_feature_type = feature_name
-        self.selected_label_text.set("Current Feature Selected: \n" + self.current_feature_type)
+        if self.current_feature_type == "note":
+            self.selected_label_text.set("Current Feature Selected: \n" + self.note_type.get() + " " + self.current_feature_type)
+        else:
+            self.selected_label_text.set("Current Feature Selected: \n" + self.current_feature_type)
     def set_note_type(self, note_type):
         self.note_type.set(note_type)
         print("note type: ", self.note_type.get())
@@ -1267,7 +1287,7 @@ class ImageEditor(tk.Tk):
         if loop_array == "single":
             loop_array = [self.image_index]
         for i in loop_array:
-            key = self.key_combobox.get()
+            key = self.key_type.get()
             if key == "None":
                 print("key is none")
                 #todo get rid of all accidentals for none key
