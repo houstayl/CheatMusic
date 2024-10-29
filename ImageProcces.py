@@ -74,7 +74,7 @@ class ImageProcessing:
             self.image_heights.append(self.images[i].shape[0])
             self.image_widths.append(self.images[i].shape[1])
             self.gray_images.append(cv.cvtColor(self.images[i], cv.COLOR_BGR2GRAY))
-            self.bw_images.append(cv.threshold(self.gray_images[i], 127, 255, cv.THRESH_BINARY)[1])
+            self.bw_images.append(cv.threshold(self.gray_images[i], 210, 255, cv.THRESH_BINARY)[1])
             #self.lines_removed_images.append(cv.adaptiveThreshold(self.graw_images[i], 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2))
             #self.get_staff_lines(page_index=i)
             #self.draw_staff_lines(page_index=i)

@@ -34,6 +34,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    to check for half note finding same rects, check dimensions of found rects with current dimensionsq
+    for auto extend quarter note: scroll bar for erode size
+    detect anomalies: widest notes, tallest notes, notes with wierdest dimension rations. for notes that are accidentals: notes with smallest and largest amount of pixels changes
     calculate accidental letters: find closest note to the right
     make sure to undo convert half notes.
     staff line error bar for staff line pixel length
@@ -121,8 +124,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        #self.frame_location = "top"
-        self.frame_location = "side"
+        self.frame_location = "top"
+        #self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -199,7 +202,7 @@ class ImageEditor(tk.Tk):
         self.threshold_scale.set(80)
 
         self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale")
-        self.blackness_scale.set(127)
+        self.blackness_scale.set(210)
 
         #Used for three click staff line addition
         self.staff_line_block_coordinates = []
@@ -1583,6 +1586,7 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
             pickle.dump(self.image_processor, file)
             pickle.dump(self.file_name, file)
+            print("saved", path)
 
     def load_binary(self):
         file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
@@ -1627,19 +1631,19 @@ class ImageEditor(tk.Tk):
             pickle.dump(self.image_processor.image_widths, file)
             pickle.dump(self.image_processor.all_clefs, file)
 
-        def save_annotations(self):
-            path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
-                                                initialfile=self.file_name)
-            if path == "":
-                print("No file selected")
-                return
-            with open(path, "wb") as file:
-                pickle.dump(self.image_processor.treble_clefs)
-                pickle.dump(self.image_processor.bass_clefs)
-                pickle.dump(self.image_processor.stafflines)
-                pickle.dump(self.image_processor.barlines)
-                pickle.dump(self.image_processor.notes)
-                pickle.dump(self.image_processor.accidentals)
+    def save_annotations(self):
+        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
+                                            initialfile=self.file_name)
+        if path == "":
+            print("No file selected")
+            return
+        with open(path, "wb") as file:
+            pickle.dump(self.image_processor.treble_clefs)
+            pickle.dump(self.image_processor.bass_clefs)
+            pickle.dump(self.image_processor.stafflines)
+            pickle.dump(self.image_processor.barlines)
+            pickle.dump(self.image_processor.notes)
+            pickle.dump(self.image_processor.accidentals)
 
 
 
