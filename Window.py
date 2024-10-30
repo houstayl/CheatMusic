@@ -124,8 +124,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "top"
-        #self.frame_location = "side"
+        #self.frame_location = "top"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -1043,8 +1043,10 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        check_num_clefs_and_staff_lines = False
         for i in loop:
-            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i,)
+            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines)
+            check_num_clefs_and_staff_lines = True
         self.draw_image_with_filters()
 
     def generate_staff_lines(self):
@@ -2449,16 +2451,17 @@ class ImageEditor(tk.Tk):
     @staticmethod
     def process_feature(args):
         i, image, gray_image, match_template_params = args
-        print("Process ", i, "started")
+        #print("Process ", i, "started")
         # Unpack the match_template parameters
         template, color, rect_type, is_half_note, auto_extended, threshold, error, draw = match_template_params
         features = ImageEditor.match_template_parallel(image, gray_image, template, color, rect_type, is_half_note, auto_extended, threshold, error=error,
                                                   draw=draw)
         if features is not None:
             #TODO remove adjacent matches based on feature size
-            print("num features: ", len(features), "on page: ", i)
+            #print("num features: ", len(features), "on page: ", i)
+            print("On page ", i, ": ", len(features), "features found")
 
-        print("Process ", i, "ended")
+        #print("Process ", i, "ended")
         return features
 
 

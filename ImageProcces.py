@@ -434,6 +434,7 @@ class ImageProcessing:
     Gets barlines by finding vertical lines that start at upper top staff line and end at lower bottom staff line
     '''
     def get_barlines(self, page_index):
+        print("getting barlines page", page_index)
         start_and_end_staff_lines = []
         #0 and 9th staff lines
         for i in range(0 ,len(self.staff_lines[page_index]), 10):
@@ -765,10 +766,33 @@ class ImageProcessing:
     '''
     Todo: draws vertical lines, finds if vertical line intersects staff line exactly 5 times
     '''
-    def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index):
+    def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index, check_num_clefs_and_staff_lines):
         print("getting staff lines on page", page_index)
         self.sort_clefs(page_index)
+        num_lines = 0
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            num_lines = len(self.staff_lines[page_index])
         self.staff_lines[page_index] = []
+
+        #cv.imwrite("aimg.jpg", img)
+        #TODO calculate all groups, then find closest group for note
+        staff_line_areas = []
+        # findind first clef in line
+        if not self.is_list_iterable(self.all_clefs[page_index]):
+            print("Need to add clefs")
+            return
+        for row in self.all_clefs[page_index]:
+            clef = row[0]
+            adjustment = 20
+            if clef.type == "treble_clef":
+                adjustment = 0
+            top = [clef.topleft[0], clef.topleft[1] - adjustment]
+            bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
+            staff_line_areas.append([top, bottom])
+        if check_num_clefs_and_staff_lines and len(staff_line_areas) * 5 == num_lines:
+            print("skipped getting staff lines since number of clefs equals number of staff lines")
+            return
+        current_staff_lines = []
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
         if img is None:
@@ -788,22 +812,7 @@ class ImageProcessing:
 
         height, width = bw.shape[:2]
         img = bw
-        #cv.imwrite("aimg.jpg", img)
-        #TODO calculate all groups, then find closest group for note
-        staff_line_areas = []
-        # findind first clef in line
-        if not self.is_list_iterable(self.all_clefs[page_index]):
-            print("Need to add clefs")
-            return
-        for row in self.all_clefs[page_index]:
-            clef = row[0]
-            adjustment = 20
-            if clef.type == "treble_clef":
-                adjustment = 0
-            top = [clef.topleft[0], clef.topleft[1] - adjustment]
-            bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
-            staff_line_areas.append([top, bottom])
-        current_staff_lines = []
+
         for area in staff_line_areas:
             top, bottom = area
             current_group = []
