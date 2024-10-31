@@ -34,6 +34,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    override staff line so dont check clef and num staff lines
+    on hangle half and quarter note overlap: if quarter notes are reallly small, combine into one note
+    find horizontal lines that are removed by vertical erode fo note online detection
     to check for half note finding same rects, check dimensions of found rects with current dimensionsq
     for auto extend quarter note: scroll bar for erode size
     detect anomalies: widest notes, tallest notes, notes with wierdest dimension rations. for notes that are accidentals: notes with smallest and largest amount of pixels changes
@@ -124,8 +127,8 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        #self.frame_location = "top"
-        self.frame_location = "side"
+        self.frame_location = "top"
+        #self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -1045,8 +1048,11 @@ class ImageEditor(tk.Tk):
             loop = [self.image_index]
         check_num_clefs_and_staff_lines = False
         for i in loop:
+            if i == self.image_index:
+                check_num_clefs_and_staff_lines = False
+            else:
+                check_num_clefs_and_staff_lines = True
             self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines)
-            check_num_clefs_and_staff_lines = True
         self.draw_image_with_filters()
 
     def generate_staff_lines(self):

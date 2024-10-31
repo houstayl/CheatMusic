@@ -772,7 +772,6 @@ class ImageProcessing:
         num_lines = 0
         if self.is_list_iterable(self.staff_lines[page_index]):
             num_lines = len(self.staff_lines[page_index])
-        self.staff_lines[page_index] = []
 
         #cv.imwrite("aimg.jpg", img)
         #TODO calculate all groups, then find closest group for note
@@ -790,8 +789,10 @@ class ImageProcessing:
             bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
             staff_line_areas.append([top, bottom])
         if check_num_clefs_and_staff_lines and len(staff_line_areas) * 5 == num_lines:
-            print("skipped getting staff lines since number of clefs equals number of staff lines")
+            #print(len(staff_line_areas), num_lines, " clegs and num nlines")
+            print("no new clefs")
             return
+        self.staff_lines[page_index] = []
         current_staff_lines = []
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
@@ -858,6 +859,38 @@ class ImageProcessing:
         letter_index = (letter_index - note_shift) % len(letters)
         if note.letter.islower():
             note.letter = letters[letter_index]
+
+    def calculate_accidental_letter_by_finding_closest_note(self, page_index, override):
+        #todo pass in accidental
+        print("calculating accidental by finding closest note page", page_index)
+        if self.is_list_iterable(self.accidentals[page_index]):
+            for accidental in self.accidentals[page_index]:
+                #dont override capital letters because they have been manually set
+                if accidental.letter.isupper() == True:
+                    continue
+                if self.is_list_iterable(self.notes[page_index]):
+                    min_dist = 1000000
+                    closest_note = None
+                    for note in self.notes[page_index]:
+                        #if note is to right of accidental  and note and accidental have similiar y value
+
+                        if note.center[0] > accidental.center[0] and abs(note.center[1] - accidental.center[1]) < note.get_height() / 2:
+                            dist = note.center[0] - accidental.center[0]
+                            if dist < min_dist:
+                                min_dist = dist
+                                closest_note = note
+                    #if note was found and has letter
+                    if closest_note is not None and closest_note.letter != "":
+                        if override == True:
+                            accidental.letter = closest_note.letter
+                        else:
+                            if accidental.letter == "":
+                                accidental.letter = closest_note.letter
+
+
+
+
+
 
 
     def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
