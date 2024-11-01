@@ -128,7 +128,7 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        #self.frame_location = "side"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -2258,7 +2258,9 @@ class ImageEditor(tk.Tk):
                             if self.note_type.get() == "quarter":
                                 self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), rectangle)
                             else:
-                                self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
+                                is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
+                                if is_note_on_space == True:
+                                    messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
                         if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
                             self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
                         self.calculate_notes_and_accidentals_for_regions_using_staff_lines(self.overwrite_regions.get())

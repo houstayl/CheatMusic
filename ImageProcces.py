@@ -437,9 +437,14 @@ class ImageProcessing:
         print("getting barlines page", page_index)
         start_and_end_staff_lines = []
         #0 and 9th staff lines
-        for i in range(0 ,len(self.staff_lines[page_index]), 10):
-            if i + 9 < len(self.staff_lines[page_index]):
-                start_and_end_staff_lines.append([self.staff_lines[page_index][i], self.staff_lines[page_index][i + 9]])
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            for i in range(0 ,len(self.staff_lines[page_index]), 10):
+                if i + 9 < len(self.staff_lines[page_index]):
+                    start_and_end_staff_lines.append([self.staff_lines[page_index][i], self.staff_lines[page_index][i + 9]])
+        else:
+            print("needs staff lines")
+            return
+
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
         if img is None:
@@ -1385,6 +1390,8 @@ class ImageProcessing:
             note.auto_extended = True
             note.is_on_line = False
             print(note, "on_line", note.is_on_line)
+            note_is_on_space = True
+            return note_is_on_space
         else:
             print("couldnt autosnap half note ", len(rects), "rects")
 
