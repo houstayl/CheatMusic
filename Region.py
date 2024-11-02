@@ -146,6 +146,9 @@ class Region:
         if feature.letter != "" and overwrite == False:
             return
         closest_line = self.find_closest_line_to_feature(feature)
+        if isinstance(closest_line, int):
+            print("no closest line found")
+            return
         #y_dif = closest_line.y - feature.center[1]
         #if feature.type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
         #print("accidental autosnaped", closest_line.calculate_y(feature.center[0]))
