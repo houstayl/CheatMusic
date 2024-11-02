@@ -936,7 +936,7 @@ class ImageProcessing:
         consecutive_times_without_finding_group = 0
         while x < region.bottomright[0]:
         #for x in range(region.topleft[0], region.bottomright[0], 1):
-            group = self.detect_staff_line_group(img, x, top_y, bottom_y)
+            group = self.detect_staff_line_group(page_index, img, x, top_y, bottom_y)
             if group:
                 coordinates_2d = [[x, y] for y in group]
                 current_group.append(coordinates_2d)
