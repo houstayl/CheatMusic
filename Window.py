@@ -128,7 +128,7 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        #self.frame_location = "side"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")

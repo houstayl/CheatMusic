@@ -729,26 +729,27 @@ class ImageProcessing:
 
 
 
-    def detect_staff_line_group(self, img, x, top_y, bottom_y, staff_line_thickness=5):
+    def detect_staff_line_group(self, page_index, img, x, top_y, bottom_y, staff_line_thickness=5):
         points = []
 
         # Iterate through the y-axis in the column (x)
         y = top_y
         while y < bottom_y:
-            if img[y][x] == 255:
-                y_start = y
+            if self.in_bounds(x, y, self.image_widths[page_index], self.image_heights[page_index]):
+                if img[y][x] == 255:
+                    y_start = y
 
-                # Continue until the end of the white pixel region
-                while y < bottom_y and img[y][x] == 255:
-                    y += 1
+                    # Continue until the end of the white pixel region
+                    while y < bottom_y and img[y][x] == 255:
+                        y += 1
 
-                # Check if the detected white region is too thick
-                if (y - y_start) > staff_line_thickness:
-                    return False
+                    # Check if the detected white region is too thick
+                    if (y - y_start) > staff_line_thickness:
+                        return False
 
-                # Store the midpoint of the white region
-                midpoint = y_start + (y - y_start) // 2
-                points.append(midpoint)
+                    # Store the midpoint of the white region
+                    midpoint = y_start + (y - y_start) // 2
+                    points.append(midpoint)
 
             y += 1
 
@@ -830,7 +831,7 @@ class ImageProcessing:
             count = 0
             #find group on left side
             for x in range(top[0], width, 1):
-                group = self.detect_staff_line_group(img, x, top[1], bottom[1])
+                group = self.detect_staff_line_group(page_index, img, x, top[1], bottom[1])
                 if group:
                     left_x = x
                     left_group = group
@@ -841,7 +842,7 @@ class ImageProcessing:
                 return
             #find group on right side with similiar height to other group
             for x in range(self.image_widths[page_index] - 1, top[0], -1):
-                group = self.detect_staff_line_group(img, x, top[1], bottom[1])
+                group = self.detect_staff_line_group(page_index, img, x, top[1], bottom[1])
                 if group:
                     #print(abs((group[4] - group[0]) / (left_group[4] - left_group[0])))
                     if .7 < abs((group[4] - group[0]) / (left_group[4] - left_group[0])) < 1.3:
