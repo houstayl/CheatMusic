@@ -799,23 +799,24 @@ class ImageProcessing:
             return
         self.staff_lines[page_index] = []
         current_staff_lines = []
-        img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
+        #img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
-        if img is None:
-            print('Error opening image: ')
-            return -1
+       # if img is None:
+       #     print('Error opening image: ')
+       #     return -1
 
         # Transform source image to gray if it is not already
-        if len(img.shape) != 2:
-            gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        else:
-            gray = img
+        #if len(img.shape) != 2:
+        #    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        #else:
+        #    gray = img
 
         # Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
-        gray = cv.bitwise_not(gray)
+        #gray = cv.bitwise_not(gray)
         # horizontal = cv.bitwise_not(gray)
-        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-
+        #gray = cv.bitwise_not(self.gray_images[page_index])
+        #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+        bw = cv.bitwise_not(self.bw_images[page_index])
         height, width = bw.shape[:2]
         img = bw
 
@@ -827,6 +828,7 @@ class ImageProcessing:
             right_x = 0
             right_group = []
             count = 0
+            #find group on left side
             for x in range(top[0], width, 1):
                 group = self.detect_staff_line_group(img, x, top[1], bottom[1])
                 if group:
@@ -834,13 +836,19 @@ class ImageProcessing:
                     left_group = group
                     count += 1
                     break
+            if left_group == []:
+                print("couldnt find left group")
+                return
+            #find group on right side with similiar height to other group
             for x in range(self.image_widths[page_index] - 1, top[0], -1):
                 group = self.detect_staff_line_group(img, x, top[1], bottom[1])
                 if group:
-                    right_x = x
-                    right_group = group
-                    count += 1
-                    break
+                    #print(abs((group[4] - group[0]) / (left_group[4] - left_group[0])))
+                    if .7 < abs((group[4] - group[0]) / (left_group[4] - left_group[0])) < 1.3:
+                        right_x = x
+                        right_group = group
+                        count += 1
+                        break
             if count == 2:
                 for i in range(5):
                     current_staff_lines.append(StaffLine([left_x,left_group[i]],[right_x, right_group[i]],width, height))

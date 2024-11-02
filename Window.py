@@ -128,7 +128,7 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        self.frame_location = "side"
+        #self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -467,11 +467,12 @@ class ImageEditor(tk.Tk):
         # Staff line menu
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
-        staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
-        staff_line_menu.add_command(label="Generate staff lines diagonal, Primary method (Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
-        staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
+        #staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
+        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
+        #staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
         staff_line_menu.add_separator()
-        staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
+        staff_line_menu.add_command(label="Generate staff lines override(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line(override=True))
+        #staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
 
         # Barline menu
         barline_menu = tk.Menu(self.menu, tearoff=0)
@@ -1042,7 +1043,7 @@ class ImageEditor(tk.Tk):
             self.image_processor.get_staff_lines_diagonal_recursive(i, error_value, use_union_image=use_union_image, vertical_size=20, horizontal_size=20)
         self.draw_image_with_filters()
 
-    def generate_staff_lines_diagonal_by_traversing_vertical_line(self):
+    def generate_staff_lines_diagonal_by_traversing_vertical_line(self, override=False):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
@@ -1052,6 +1053,8 @@ class ImageEditor(tk.Tk):
                 check_num_clefs_and_staff_lines = False
             else:
                 check_num_clefs_and_staff_lines = True
+            if override == True:
+                check_num_clefs_and_staff_lines = False
             self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines)
         self.draw_image_with_filters()
 
