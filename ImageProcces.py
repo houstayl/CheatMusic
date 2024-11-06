@@ -1475,7 +1475,7 @@ class ImageProcessing:
             #self.notes[page_index].append(note)
             self.append_features(page_index, "note", [note])
             self.extend_quarter_note_single(note, x, y, width, height)
-        elif 1.5 < height_ratio < 5.5:
+        elif 1.5 <= height_ratio < 5.5:
             self.extend_quarter_note_multiple(page_index, x, y, width, height, note_height, height_ratio)
     '''
     Using flood fill on center of note, if rect dimensions make match an expected note's dimensions, then extend.
@@ -1611,7 +1611,7 @@ class ImageProcessing:
     '''
     usign an image that removes staff lines, extends notes
     '''
-    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, blackness, note=None):
+    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, blackness, erode_strength, note=None):
         print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
@@ -1622,13 +1622,13 @@ class ImageProcessing:
         bw = cv.bitwise_not(bw)
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
-        horizontal_size = int(note_height / 2)
+        horizontal_size = round(note_height / 2 * erode_strength)
         horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
 
         # Apply morphology operations
         horizontal = cv.erode(horizontal, horizontalStructure)
         horizontal = cv.dilate(horizontal, horizontalStructure)
-        verticalsize = int(note_height / 2)
+        verticalsize = round(note_height / 2 * erode_strength)
         # Create structure element for extracting vertical lines through morphology operations
         verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
 

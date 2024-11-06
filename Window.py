@@ -143,9 +143,8 @@ class ImageEditor(tk.Tk):
         self.current_feature_type = "treble_clef"
         self.current_feature = None
         self.selected_label_text.set("Current Feature Selected: \n " + self.current_feature_type)
-        self.feature_mode_add = True  # fasle for remove
-        self.selected_label = tk.Label(self.left_frame,
-                                       textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
+        #self.feature_mode_add = True  # fasle for remove
+        self.selected_label = tk.Label(self.left_frame, textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
 
 
         # Setting how the features will be added to just the current page, all pages, or the current and next pages
@@ -207,6 +206,10 @@ class ImageEditor(tk.Tk):
         self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale")
         self.blackness_scale.set(210)
 
+        #Erode stregth scale
+        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=10, orient="horizontal", label="Erode strength")
+        self.erode_strength_scale.set(100)
+
         #Used for three click staff line addition
         self.staff_line_block_coordinates = []
 
@@ -246,7 +249,7 @@ class ImageEditor(tk.Tk):
             self.add_mode_label.grid(row=2, column=0)
             self.add_mode_combobox.grid(row=3, column=0)
             self.fast_editing_mode_checkbutton.grid(row=4, column=0)
-            self.allow_note_to_be_auto_extended_check_button.grid(row=55, column=0)
+            self.allow_note_to_be_auto_extended_check_button.grid(row=5, column=0)
             #self.note_type_radio_button_quarter.grid(row=6, column=0)
             #self.note_type_radio_button_half.grid(row=7, column=0)
             #self.note_type_radio_button_whole.grid(row=8, column=0)
@@ -254,10 +257,11 @@ class ImageEditor(tk.Tk):
             self.note_width_ratio_scale.grid(row=1, column=1)
             self.threshold_scale.grid(row=2, column=1)
             self.blackness_scale.grid(row=3, column=1)
+            self.erode_strength_scale.grid(row=4, column=1)
             #self.key_label.grid(row=4, column=1)
             #self.key_combobox.grid(row=5, column=1)
-            self.num_notes_label.grid(row=6, column=1)
-            self.num_notes_combobox.grid(row=7, column=1)
+            self.num_notes_label.grid(row=5, column=1)
+            self.num_notes_combobox.grid(row=6, column=1)
             '''
             self.page_indicator_label.pack()
             self.selected_label.pack()
@@ -292,6 +296,7 @@ class ImageEditor(tk.Tk):
             self.note_width_ratio_scale.pack()
             self.threshold_scale.pack()
             self.blackness_scale.pack()
+            self.erode_strength_scale.pack()
             #self.key_label.pack()
             #self.key_combobox.pack()
             self.num_notes_label.pack()
@@ -781,7 +786,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get())
+            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), self.erode_strength_scale.get() / 100)
         self.draw_image_with_filters()
 
     def clear_combobox(self, event):
@@ -1290,8 +1295,10 @@ class ImageEditor(tk.Tk):
         self.current_feature_type = feature_name
         if self.current_feature_type == "note":
             self.selected_label_text.set("Current Feature Selected: \n" + self.note_type.get() + " " + self.current_feature_type)
+            print("note set")
         else:
             self.selected_label_text.set("Current Feature Selected: \n" + self.current_feature_type)
+            print("other set")
     def set_note_type(self, note_type):
         self.note_type.set(note_type)
         print("note type: ", self.note_type.get())
@@ -1336,23 +1343,23 @@ class ImageEditor(tk.Tk):
         if c == 't' or c == "T":
             self.set_feature_type("treble_clef")
         if c == 'q' or c == 'Q':
-            self.set_feature_type("note")
             self.set_note_type("quarter")
+            self.set_feature_type("note")
             self.allow_note_to_be_auto_extended.set(True)
             self.threshold_scale.set(80)
         if c == 'n' or c == "N":
-            self.set_feature_type("note")
             self.set_note_type("quarter")
+            self.set_feature_type("note")
             self.allow_note_to_be_auto_extended.set(False)
             self.threshold_scale.set(90)
         if c == 'h' or c == 'H':
-            self.set_feature_type("note")
             self.set_note_type("half")
+            self.set_feature_type("note")
             self.allow_note_to_be_auto_extended.set(True)
             self.threshold_scale.set(80)
         if c == 'w' or c == "W":
-            self.set_feature_type("note")
             self.set_note_type("whole")
+            self.set_feature_type("note")
             self.allow_note_to_be_auto_extended.set(True)
             self.threshold_scale.set(80)
         if c == 'y' or c == "Y":
@@ -2259,7 +2266,7 @@ class ImageEditor(tk.Tk):
                         if self.allow_note_to_be_auto_extended.get() == True:
                             #print("auto extend note single")
                             if self.note_type.get() == "quarter":
-                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), rectangle)
+                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), self.erode_strength_scale.get() / 100, rectangle)
                             else:
                                 is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
                                 if is_note_on_space == True:
