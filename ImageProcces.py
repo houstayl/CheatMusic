@@ -839,7 +839,7 @@ class ImageProcessing:
                     break
             if left_group == []:
                 print("couldnt find left group")
-                return
+                continue
             #find group on right side with similiar height to other group
             for x in range(self.image_widths[page_index] - 1, top[0], -1):
                 group = self.detect_staff_line_group(page_index, img, x, top[1], bottom[1])

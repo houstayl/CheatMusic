@@ -34,6 +34,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    on key set mode to single
+    when changing a feature manually, dont redraw all features, jsut that one
+    online detection: find pixels that appear in horizonal erode, but not vertical and are attached from flood fill
     override staff line so dont check clef and num staff lines
     on hangle half and quarter note overlap: if quarter notes are reallly small, combine into one note
     find horizontal lines that are removed by vertical erode fo note online detection
@@ -128,7 +131,7 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        self.frame_location = "side"
+        #self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
