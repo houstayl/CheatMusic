@@ -1515,7 +1515,7 @@ class ImageProcessing:
                     for y_traverse in range(y, y + height, 1):
                         img[y_traverse][x + int(width / 2)] = 0
                     #removing small groups of pixels in case splitting not exactly in the center
-                    horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (3, 1))
+                    horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (round(width / 4), 1))
                     sub_image = img[y:y+height, x:x+width]
                     sub_image = cv.erode(sub_image, horizontalStructure)
                     sub_image = cv.dilate(sub_image, horizontalStructure)
