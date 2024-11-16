@@ -160,7 +160,7 @@ class ImageEditor(tk.Tk):
         # CHeck button for whether to draw the image on the canvas or the jpg
         self.fast_editing_mode = tk.BooleanVar()
         self.fast_editing_mode.set(False)
-        self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode, command=self.draw_image_canvas_mode)
+        self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode)#, command=self.draw_image_canvas_mode)
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
@@ -697,9 +697,10 @@ class ImageEditor(tk.Tk):
             loop = [self.image_index]
         for i in loop:
             self.image_processor.regenerate_images(i, self.blackness_scale.get())
-        if self.fast_editing_mode.get() == True:
-            self.reload_image()
-        self.draw_image_canvas_mode()
+        #if self.fast_editing_mode.get() == True:
+        self.reload_image()
+        self.draw_image_with_filters()
+        #self.draw_image_canvas_mode()
 
     @staticmethod
     def fill_in_white_spots_parallel(task):
@@ -1372,7 +1373,7 @@ class ImageEditor(tk.Tk):
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
-            self.draw_image_canvas_mode()
+            #self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == False:
                 self.fast_editing_mode.set(True)
             else:
@@ -1385,7 +1386,7 @@ class ImageEditor(tk.Tk):
             self.staff_line_diagonal_coordinates = []
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 5) % self.num_pages
-            self.draw_image_canvas_mode()
+            #self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == True:
                 self.reload_image()
             self.draw_image_with_filters()
@@ -1394,7 +1395,7 @@ class ImageEditor(tk.Tk):
             self.staff_line_diagonal_coordinates = []
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 5) % self.num_pages
-            self.draw_image_canvas_mode()
+            #self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == True:
                 self.reload_image()
             self.draw_image_with_filters()
@@ -1403,7 +1404,7 @@ class ImageEditor(tk.Tk):
             self.staff_line_diagonal_coordinates = []
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 10) % self.num_pages
-            self.draw_image_canvas_mode()
+            #self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == True:
                 print("reloading image")
             self.draw_image_with_filters()
@@ -1412,7 +1413,7 @@ class ImageEditor(tk.Tk):
             self.staff_line_diagonal_coordinates = []
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 10) % self.num_pages
-            self.draw_image_canvas_mode()
+            #self.draw_image_canvas_mode()
             if self.fast_editing_mode.get() == True:
                 self.reload_image()
             self.draw_image_with_filters()
@@ -1683,15 +1684,10 @@ class ImageEditor(tk.Tk):
             self.draw_image_with_filters()
     def draw_image_with_filters(self):
         self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
-        #self.current_image_file_name.set(self.image_processor.images_filenames[self.image_index])
-        #if self.current_feature is not None:
-        #    f = self.current_feature
-        #    topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
-        #    bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
-        #    self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
         if self.fast_editing_mode.get() == False:
-            self.image_processor.draw_image(self.filter_list, self.image_index)
-            #self.image_processor.draw_image_without_reloading(self.filter_list, self.image_index, self.photo)
+            #image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index),cv.COLOR_BGR2RGB)
+            #self.image = Image.fromarray(image)
+            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
             self.display_image()
         #drawing the image on the boxes on the canvas
         else:
@@ -1711,8 +1707,11 @@ class ImageEditor(tk.Tk):
             self.draw_image_with_filters()
 
     def reload_image(self):
-        self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])  # self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+        #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])  # self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
+        image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index), cv.COLOR_BGR2RGB)
+        self.image = Image.fromarray(image)
         self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
+        #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
 
 
     def display_image(self):
@@ -1733,6 +1732,7 @@ class ImageEditor(tk.Tk):
                 topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
                 bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
                 self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
+            print("image displayed")
         else:
             print("Drawing image on canvas")
             #self.image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
@@ -1743,7 +1743,6 @@ class ImageEditor(tk.Tk):
             self.draw_features_on_canvas()
 
     def draw_features_on_canvas(self):
-
         if self.image_processor.notes[self.image_index] is not None:
             color = self.bgr_to_hex(self.image_processor.type_colors["note"])
             for feature in self.image_processor.notes[self.image_index]:
@@ -1763,6 +1762,16 @@ class ImageEditor(tk.Tk):
             for feature in self.image_processor.bass_clefs[self.image_index]:
                 color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
                 self.draw_cross_hairs(feature, color)
+
+        if self.image_processor.is_list_iterable(self.image_processor.regions[self.image_index]):
+            for region in self.image_processor.regions[self.image_index]:
+                if region.clef == "bass_clef" or region.clef == "treble_clef":
+                    color = self.bgr_to_hex(self.image_processor.type_colors[region.clef])
+                    x0 = int(region.topleft[0] * self.scale)
+                    y0 = int(region.topleft[1] * self.scale)
+                    x1 = int(region.bottomright[0] * self.scale)
+                    y1 = int(region.bottomright[1] * self.scale)
+                    self.canvas.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
         '''
         if self.image_processor.staff_lines[self.image_index] is not None:
             for line in self.image_processor.staff_lines[self.image_index]:
@@ -1969,7 +1978,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_diagonal_coordinates = []
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index + 1) % self.num_pages
-        self.draw_image_canvas_mode()
+        #self.draw_image_canvas_mode()
         if self.fast_editing_mode.get() == True:
             print("reloading image")
             self.reload_image()
@@ -1981,7 +1990,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_diagonal_coordinates = []
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index - 1) % self.num_pages
-        self.draw_image_canvas_mode()
+        #self.draw_image_canvas_mode()
         if self.fast_editing_mode.get() == True:
             self.reload_image()
         self.draw_image_with_filters()
@@ -2277,6 +2286,7 @@ class ImageEditor(tk.Tk):
                         if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
                             self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
                         self.calculate_notes_and_accidentals_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        self.draw_image_with_filters()
                         return
                 #if append_rect is True:
                 if isinstance(rectangle, list):
