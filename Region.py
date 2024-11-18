@@ -127,7 +127,8 @@ class Region:
                 #print("closest accidental: ", closest)
 
 
-
+    def calculate_notes_using_staff_lines(self, all_staff_lines):
+        pass
     '''
     Changing center coordinate of feature to be on an implied line
     '''

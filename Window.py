@@ -35,21 +35,14 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    command line arguments for vertical window
     for staff line detection: only keep pixels that were vertically eroded
     fill in half note: check bounds to match topleft and bottomright
     view erode image
     take staff line angle into account for note detection
     on key set mode to single
-    when changing a feature manually, dont redraw all features, jsut that one
     online detection: find pixels that appear in horizonal erode, but not vertical and are attached from flood fill
-    override staff line so dont check clef and num staff lines
-    on hangle half and quarter note overlap: if quarter notes are reallly small, combine into one note
     find horizontal lines that are removed by vertical erode fo note online detection
-    to check for half note finding same rects, check dimensions of found rects with current dimensionsq
-    for auto extend quarter note: scroll bar for erode size
     detect anomalies: widest notes, tallest notes, notes with wierdest dimension rations. for notes that are accidentals: notes with smallest and largest amount of pixels changes
-    calculate accidental letters: find closest note to the right
     make sure to undo convert half notes.
     staff line error bar for staff line pixel length
     for detecting center line: compare horizonta image ti ntersection image
@@ -153,7 +146,6 @@ class ImageEditor(tk.Tk):
         self.selected_label_text = tk.StringVar()
         self.current_feature_type = "treble_clef"
         self.current_feature = None
-        self.current_feature_rectangle = None
         self.selected_label_text.set("Current Feature Selected: \n " + self.current_feature_type)
         #self.feature_mode_add = True  # fasle for remove
         self.selected_label = tk.Label(self.left_frame, textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
@@ -167,9 +159,12 @@ class ImageEditor(tk.Tk):
         #self.add_mode_combobox.bind("<FocusOut>", self.clear_combobox)
 
         # CHeck button for whether to draw the image on the canvas or the jpg
-        self.fast_editing_mode = tk.BooleanVar()
-        self.fast_editing_mode.set(False)
-        self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode)#, command=self.draw_image_canvas_mode)
+        #self.fast_editing_mode = tk.BooleanVar()
+        #self.fast_editing_mode.set(False)
+        #self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode)#, command=self.draw_image_canvas_mode)
+        self.show_borders_and_crosshairs = tk.BooleanVar()
+        self.show_borders_and_crosshairs.set(False)
+        self.show_borders_and_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.show_borders_and_crosshairs)
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
@@ -260,7 +255,8 @@ class ImageEditor(tk.Tk):
             self.selected_label.grid(row=1, column=0)
             self.add_mode_label.grid(row=2, column=0)
             self.add_mode_combobox.grid(row=3, column=0)
-            self.fast_editing_mode_checkbutton.grid(row=4, column=0)
+            #self.fast_editing_mode_checkbutton.grid(row=4, column=0)
+            self.show_borders_and_crosshairs_checkbutton.grid(row=4, column=0)
             self.allow_note_to_be_auto_extended_check_button.grid(row=5, column=0)
             #self.note_type_radio_button_quarter.grid(row=6, column=0)
             #self.note_type_radio_button_half.grid(row=7, column=0)
@@ -299,7 +295,8 @@ class ImageEditor(tk.Tk):
             self.selected_label.pack(pady=5)
             self.add_mode_label.pack()
             self.add_mode_combobox.pack()
-            self.fast_editing_mode_checkbutton.pack()
+            #self.fast_editing_mode_checkbutton.pack()
+            self.show_borders_and_crosshairs_checkbutton.pack()
             self.allow_note_to_be_auto_extended_check_button.pack()
             #self.note_type_radio_button_quarter.pack()
             #self.note_type_radio_button_half.pack()
@@ -578,12 +575,13 @@ class ImageEditor(tk.Tk):
         region_menu.add_checkbutton(label="(Checkbox)Overwrite manual note and accidental changes", variable=self.overwrite_regions)
         #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note and accidental letters", command=lambda: self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
-        region_menu.add_command(label="Calculate note and accidental letters for distorted image", command=lambda: self.calculate_notes_and_accidentals_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
-        region_menu.add_command(label="Calculate note and accidental letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_and_accidentals_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
-
+        region_menu.add_command(label="Calculate note letters(Give notes color)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note letters for distorted image", command=lambda: self.calculate_notes_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note accidentals", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate note accidentals(Shade notes)", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
 
 
         #Reset menu
@@ -707,7 +705,7 @@ class ImageEditor(tk.Tk):
         for i in loop:
             self.image_processor.regenerate_images(i, self.blackness_scale.get())
         #if self.fast_editing_mode.get() == True:
-        self.reload_image()
+        #self.reload_image()
         self.draw_image_with_filters()
         #self.draw_image_canvas_mode()
 
@@ -910,13 +908,6 @@ class ImageEditor(tk.Tk):
             self.image_processor.autosnap_notes_to_implied_line(i)
         self.draw_image_with_filters()
 
-    def switch_fast_editing_mode(self):
-        if self.fast_editing_mode.get() == True:
-            self.fast_editing_mode.set(False)
-        else:
-            self.fast_editing_mode.set(True)
-        #self.draw_image_with_filters()
-
     def rotate_cw(self):
         '''
         image = Image.open(self.image_processor.images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
@@ -1115,11 +1106,12 @@ class ImageEditor(tk.Tk):
             #self.image_processor.draw_regions(i)
         self.draw_image_with_filters()
 
-    def calculate_notes_and_accidentals_for_regions_using_staff_lines(self, overwrite):
+    def calculate_notes_for_regions_using_staff_lines(self, overwrite):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            print("calculate notes using staff lines page", i)
             if self.image_processor.all_clefs[i] is not None:
                 self.image_processor.all_clefs[i].clear()
             if self.image_processor.regions[i] is not None:
@@ -1134,10 +1126,13 @@ class ImageEditor(tk.Tk):
             if self.image_processor.regions[i] is not None:
                 for region in self.image_processor.regions[i]:
                     region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
-                    region.autosnap_notes_and_accidentals(overwrite)
+                    #region.autosnap_notes_and_accidentals(overwrite)
+                    self.image_processor.calculate_notes_using_staff_lines(i, region, overwrite)
         self.draw_image_with_filters()
 
-    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, overwrite):
+
+
+    def calculate_notes_for_distorted_staff_lines(self, overwrite):
 
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
@@ -1169,12 +1164,12 @@ class ImageEditor(tk.Tk):
 
                 for region in self.image_processor.regions[i]:
                     if len(region.notes) > 0 or len(region.accidentals) > 0:
-                        self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                        self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
                 if self.debugging.get() == True:
                     cv.imwrite("anote_calculating.jpg", bw)
         self.draw_image_with_filters()
 
-    def calculate_notes_and_accidentals_for_distorted_staff_lines_using_horizontal_erode(self, overwrite):
+    def calculate_notes_for_distorted_staff_lines_using_horizontal_erode(self, overwrite):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
@@ -1208,11 +1203,18 @@ class ImageEditor(tk.Tk):
                 bw = cv.dilate(bw, horizontalStructure)
 
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_and_accidentals_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
                 if self.debugging.get() == True:
                     cv.imwrite("anote_calculating_horizontal.jpg", bw)
         self.draw_image_with_filters()
 
+    def calculate_accidental_letter_by_finding_closest_note(self, overwrite):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            self.image_processor.calculate_accidental_letter_by_finding_closest_note(i, overwrite)
+        self.draw_image_with_filters()
 
     def calculate_note_accidentals_for_regions(self, overwrite):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -1382,11 +1384,7 @@ class ImageEditor(tk.Tk):
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
-            #self.draw_image_canvas_mode()
-            if self.fast_editing_mode.get() == False:
-                self.fast_editing_mode.set(True)
-            else:
-                self.fast_editing_mode.set(False)
+            self.show_borders_and_crosshairs.set(not self.show_borders_and_crosshairs.get())
             self.draw_image_with_filters()
         if c == ',':
             self.allow_note_to_be_auto_extended.set(not self.allow_note_to_be_auto_extended.get())
@@ -1396,8 +1394,6 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 5) % self.num_pages
             #self.draw_image_canvas_mode()
-            if self.fast_editing_mode.get() == True:
-                self.reload_image()
             self.draw_image_with_filters()
         if c == "]":
             self.current_feature = None
@@ -1405,8 +1401,6 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 5) % self.num_pages
             #self.draw_image_canvas_mode()
-            if self.fast_editing_mode.get() == True:
-                self.reload_image()
             self.draw_image_with_filters()
         if c == "{":
             self.current_feature = None
@@ -1414,8 +1408,6 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index - 10) % self.num_pages
             #self.draw_image_canvas_mode()
-            if self.fast_editing_mode.get() == True:
-                print("reloading image")
             self.draw_image_with_filters()
         if c == "}":
             self.current_feature = None
@@ -1423,8 +1415,6 @@ class ImageEditor(tk.Tk):
             self.staff_line_block_coordinates = []
             self.image_index = (self.image_index + 10) % self.num_pages
             #self.draw_image_canvas_mode()
-            if self.fast_editing_mode.get() == True:
-                self.reload_image()
             self.draw_image_with_filters()
 
         if self.current_feature is not None:
@@ -1526,7 +1516,7 @@ class ImageEditor(tk.Tk):
     def on_f2_press(self, event):
         self.auto_extend_notes()
     def on_f3_press(self, event):
-        self.calculate_notes_and_accidentals_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
+        self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
     def on_f4_press(self, event):
         self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
     def on_f5_press(self, event):
@@ -1558,12 +1548,10 @@ class ImageEditor(tk.Tk):
     def scroll_vertical(self, event):
         self.current_feature = None
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.canvas.delete(self.current_feature_rectangle)
 
     def scroll_horizontal(self, event):
         self.current_feature = None
         self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.canvas.delete(self.current_feature_rectangle)
 
 
     def open_pdf(self):
@@ -1575,7 +1563,7 @@ class ImageEditor(tk.Tk):
             print("Filename: ", self.file_name)
             self.num_pages = PDFtoImages.filename_to_images(file_path)
             self.image_processor = ImageProcessing(self.dirname, file_path, self.num_pages)
-            self.display_image()
+            self.draw_image_with_filters()
         else:
             print("no file selected")
 
@@ -1694,129 +1682,21 @@ class ImageEditor(tk.Tk):
             #for i in range(self.num_pages):
             #    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
             self.draw_image_with_filters()
+
     def draw_image_with_filters(self):
         self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
-        if self.fast_editing_mode.get() == False:
-            #image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index),cv.COLOR_BGR2RGB)
-            #self.image = Image.fromarray(image)
-            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
-            self.display_image()
-        #drawing the image on the boxes on the canvas
-        else:
-            self.display_image()
-
-    def draw_image_canvas_mode(self):
-        if self.fast_editing_mode.get() == True:
-            filter_temp = []
-            filter = [0, 0, 0, 0, 0, 1, 1, 0, 1]  # staff line, implied line, bass, treble, barline, note, accidental, region border, colored notes
-            for i in range(len(filter)):
-                filter_temp.append(tk.IntVar())
-                filter_temp[i].set(filter[i])
-            self.image_processor.draw_image(filter_temp, self.image_index)
-            self.reload_image()
-            self.display_image()
-        else:
-            self.draw_image_with_filters()
+        self.display_image()
 
     def reload_image(self):
-        #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])  # self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
-        image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index), cv.COLOR_BGR2RGB)
+        image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders_and_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
         self.image = Image.fromarray(image)
-        self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
-        #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
-
+        self.photo = ImageTk.PhotoImage(self.image)
 
     def display_image(self):
-        #clearing the canvas so there arent shapes drawn on top of each other making things slow
-        self.canvas.delete("all")
+        self.reload_image()
+        self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
+        self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
-        if self.fast_editing_mode.get() == False:
-            print("drawing image on jpg")
-            #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
-            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
-            #self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
-            #self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
-            self.reload_image()
-            self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
-            self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
-            if self.current_feature is not None:
-                f = self.current_feature
-                topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
-                bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
-                self.current_feature_rectangle = self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
-            print("image displayed")
-        else:
-            print("Drawing image on canvas")
-            #self.image = Image.open(self.dirname + "\\SheetsMusic\\page" + str(self.image_index) + ".jpg")
-            #self.image = Image.open(self.image_processor.annotated_images_filenames[self.image_index])#self.dirname + "\\SheetsMusic\\Annotated\\annotated" + str(self.image_index) + ".png")
-            #self.photo = ImageTk.PhotoImage(self.image.resize((int(self.image.width * self.scale), int(self.image.height * self.scale))))
-            self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
-            self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
-            self.draw_features_on_canvas()
-
-    def draw_features_on_canvas(self):
-        if self.image_processor.notes[self.image_index] is not None:
-            color = self.bgr_to_hex(self.image_processor.type_colors["note"])
-            for feature in self.image_processor.notes[self.image_index]:
-                self.draw_cross_hairs(feature, "red")
-
-        if self.image_processor.accidentals[self.image_index] is not None:
-            for feature in self.image_processor.accidentals[self.image_index]:
-                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
-                self.draw_cross_hairs(feature, color)
-
-        if self.image_processor.is_list_iterable(self.image_processor.treble_clefs[self.image_index]):
-            for feature in self.image_processor.treble_clefs[self.image_index]:
-                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
-                self.draw_cross_hairs(feature, color)
-
-        if self.image_processor.is_list_iterable(self.image_processor.bass_clefs[self.image_index]):
-            for feature in self.image_processor.bass_clefs[self.image_index]:
-                color = self.bgr_to_hex(self.image_processor.type_colors[feature.type])
-                self.draw_cross_hairs(feature, color)
-
-        if self.image_processor.is_list_iterable(self.image_processor.regions[self.image_index]):
-            for region in self.image_processor.regions[self.image_index]:
-                if region.clef == "bass_clef" or region.clef == "treble_clef":
-                    color = self.bgr_to_hex(self.image_processor.type_colors[region.clef])
-                    x0 = int(region.topleft[0] * self.scale)
-                    y0 = int(region.topleft[1] * self.scale)
-                    x1 = int(region.bottomright[0] * self.scale)
-                    y1 = int(region.bottomright[1] * self.scale)
-                    self.canvas.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
-        '''
-        if self.image_processor.staff_lines[self.image_index] is not None:
-            for line in self.image_processor.staff_lines[self.image_index]:
-                #line = int(line * self.scale)
-                x0 = int(line.topleft[0] * self.scale)
-                y0 = int(line.topleft[1] * self.scale)
-                x1 = int(line.bottomright[0] * self.scale)
-                y1 = int(line.bottomright[1] * self.scale)
-                self.canvas.create_line(x0, y0, x1, y1, fill="green")
-        '''
-
-        if self.current_feature is not None:
-            f = self.current_feature
-            topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
-            bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
-            self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
-
-    def bgr_to_hex(self, bgr):
-        b, g, r = bgr
-        return f'#{r:02x}{g:02x}{b:02x}'
-
-    def draw_cross_hairs(self, feature, color):
-
-        x_mid = int(feature.center[0] * self.scale)
-        y_mid = int(feature.center[1] * self.scale)
-        x0 = int(feature.topleft[0] * self.scale)
-        y0 = int(feature.topleft[1] * self.scale)
-        x1 = int(feature.bottomright[0] * self.scale)
-        y1 = int(feature.bottomright[1] * self.scale)
-
-        self.canvas.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
-        self.canvas.create_line(x0, y_mid, x1, y_mid, fill=color)
-        self.canvas.create_line(x_mid, y0, x_mid, y1, fill=color)
 
     def left_key_press(self, event):
         print("left key pressed")
@@ -1991,11 +1871,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index + 1) % self.num_pages
         #self.draw_image_canvas_mode()
-        if self.fast_editing_mode.get() == True:
-            print("reloading image")
-            self.reload_image()
         self.draw_image_with_filters()
-        #self.display_image()
 
     def previous_image(self):
         self.current_feature = None
@@ -2003,22 +1879,15 @@ class ImageEditor(tk.Tk):
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index - 1) % self.num_pages
         #self.draw_image_canvas_mode()
-        if self.fast_editing_mode.get() == True:
-            self.reload_image()
         self.draw_image_with_filters()
-        #self.display_image()
 
     def zoom_in(self):
         self.scale *= 1.1
-        if self.fast_editing_mode.get() == True:
-            self.reload_image()
-        self.display_image()
+        self.draw_image_with_filters()
 
     def zoom_out(self):
         self.scale /= 1.1
-        if self.fast_editing_mode.get() == True:
-            self.reload_image()
-        self.display_image()
+        self.draw_image_with_filters()
 
 
 
@@ -2297,7 +2166,7 @@ class ImageEditor(tk.Tk):
                                     messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
                         if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
                             self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
-                        self.calculate_notes_and_accidentals_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
                         self.draw_image_with_filters()
                         return
                 #if append_rect is True:
@@ -2360,18 +2229,20 @@ class ImageEditor(tk.Tk):
                     #self.rect = self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
                     self.draw_image_with_filters()
                 else:
-                    self.canvas.delete(self.current_feature_rectangle)
                     #if self.current_feature_type == "note":
                     #    self.image_processor.add_note_by_center_coordinate(self.image_index, x_img, y_img, self.is_half_note.get(), self.note_width_ratio_scale.get())
                     print("No feature in click area")
                     if self.current_feature_type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
                         self.image_processor.add_feature_on_click(self.image_index, x_img, y_img, self.current_feature_type)
+                        self.image_processor.calculate_accidental_letter_by_finding_closest_note(self.image_index, self.overwrite_regions.get())
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get(), self.erode_strength_scale.get() / 100)
+                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
                     if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_half_note_single_click(self.image_index, x_img, y_img, self.note_type.get())
+                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
                     self.draw_image_with_filters()
 
 

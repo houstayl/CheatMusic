@@ -800,23 +800,6 @@ class ImageProcessing:
             return
         self.staff_lines[page_index] = []
         current_staff_lines = []
-        #img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
-        # Check if image is loaded fine
-       # if img is None:
-       #     print('Error opening image: ')
-       #     return -1
-
-        # Transform source image to gray if it is not already
-        #if len(img.shape) != 2:
-        #    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        #else:
-        #    gray = img
-
-        # Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
-        #gray = cv.bitwise_not(gray)
-        # horizontal = cv.bitwise_not(gray)
-        #gray = cv.bitwise_not(self.gray_images[page_index])
-        #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
         bw = cv.bitwise_not(self.bw_images[page_index])
         height, width = bw.shape[:2]
         img = bw
@@ -862,7 +845,8 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
 
-    def calculate_note_or_accidental(self, note, group, clef):
+
+    def calculate_note_or_accidental(self, note, group, clef, overwrite):
         spacing = abs(group[4][1] - group[0][1]) / 8
         distance = note.center[1] - group[0][1]
         letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
@@ -870,9 +854,48 @@ class ImageProcessing:
         if clef == "treble_clef":
             letter_index = 5
         note_shift = round(distance / spacing)
+        is_on_line = note_shift % 2 == 0
+        if is_on_line != note.is_on_line:
+            pass
         letter_index = (letter_index - note_shift) % len(letters)
         if note.letter.islower():
             note.letter = letters[letter_index]
+
+    def calculate_note_or_accidental_using_staff_lines(self, note, staff_lines_in_region, clef, overwrite):
+        spacing = abs(staff_lines_in_region[4].calculate_y(note.center[0]) - staff_lines_in_region[0].calculate_y(note.center[0])) / 8
+        distance = note.center[1] - staff_lines_in_region[0].calculate_y(note.center[0])
+        letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+        letter_index = 0
+        if clef == "treble_clef":
+            letter_index = 5
+        note_shift = round(distance / spacing)
+        is_on_line = note_shift % 2 == 0
+        #print(distance, spacing)
+        if note.is_on_line != None and is_on_line != note.is_on_line:
+            if distance / spacing > note_shift:
+                note_shift += 1
+            else:
+                note_shift -= 1
+        letter_index = (letter_index - note_shift) % len(letters)
+        if note.letter.islower() or note.letter == "":
+            note.letter = letters[letter_index]
+
+    def calculate_notes_using_staff_lines(self, page_index, region, overwrite):
+        notes = region.notes
+        lines_in_region = []
+        width = self.image_widths[page_index]
+        if self.is_list_iterable(self.staff_lines[page_index]) == False:
+            return
+        for line in self.staff_lines[page_index]:
+            if region.topleft[1] < line.calculate_y(width / 2) < region.bottomright[1]:  # if line is in region
+                lines_in_region.append(line)
+        if len(lines_in_region) == 5:
+            line_spacing = abs(lines_in_region[-1].calculate_y(width / 2) - lines_in_region[0].calculate_y(width / 2)) / 8
+        else:
+            print("missing staff line")
+            return
+        for note in notes:
+            self.calculate_note_or_accidental_using_staff_lines(note, lines_in_region, region.clef, overwrite)
 
     def calculate_accidental_letter_by_finding_closest_note(self, page_index, override):
         #todo pass in accidental
@@ -907,11 +930,10 @@ class ImageProcessing:
 
 
 
-    def calculate_notes_and_accidentals_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
+    def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
         #TODO
         print("calculating notes and accidentals for distorted staff lines on page", page_index)
         notes = region.notes
-        accidentals = region.accidentals
         height, width = img.shape[:2]
         lines_in_region = []
         if self.is_list_iterable(self.staff_lines[page_index]) == False:
@@ -962,15 +984,6 @@ class ImageProcessing:
                 self.calculate_note_or_accidental(note, closest_group, region.clef)
             else:
                 print("couldnt find any groups for region", region.topleft, region.bottomright)
-        for acc in accidentals:
-            closest_group = None
-            min_distance = 100000
-            for group in region.staff_line_groups:
-                if abs(group[0][0] - acc.center[0]) < min_distance:
-                    closest_group = group
-                    min_distance = abs(x - acc.center[0])
-            if group is not None:
-                self.calculate_note_or_accidental(acc, group, region.clef)
 
     def generate_diagonal_staff_lines_block(self, page_index, topleft, topright, bottomright):
         line_spacing = int(abs(topright[1] - bottomright[1]) / 4)
@@ -2258,6 +2271,7 @@ class ImageProcessing:
                             #notes_in_region.append(note.copy())
                             notes_in_region.append(note)
                     region.notes = (notes_in_region)
+                    #print(region.notes)
                 else:
                     print("notes empty on page", page_index)
 
@@ -2334,287 +2348,6 @@ class ImageProcessing:
             return True
         return False
     '''
-
-    def fill_in_half_note(self, page_index, note, color):
-        #travel from center to top until you hit black. if you dont hit black, dont fill.
-        # draw cross hair. if sharp add upper cross hair if flat add lower cross hair
-        note_height = self.get_note_height(page_index)
-        topleft = [note.topleft[0], note.topleft[1]]
-        bottomright = [note.bottomright[0], note.bottomright[1]]
-        center = note.center
-        accidental = note.accidental.lower()
-        #cv.imwrite("abw.jpg", self.bw_images[page_index])
-        #draw line down center then recursively expand
-        if accidental == "" or accidental == "natural":
-            #for x in range(topleft[0], bottomright[0], 1):
-            #    self.images[page_index][center[1]][x] = color
-            pass
-            #return
-        else:
-            #TODO move mask out of method
-            sub_image = self.bw_images[page_index][topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
-            #print(sub_image)
-            #sub_image = cv.bitwise_not(sub_image)
-            h, w = sub_image.shape[:2]
-            #print("height weight",h,w)
-            sub_mask = np.zeros((h + 2, w + 2), np.uint8)
-            #img = cv.bitwise_not(self.bw_images[page_index])
-            #h, w = img.shape[:2]
-            #mask = np.zeros((h + 2, w + 2), np.uint8)
-            #img = np.copy(self.images[page_index])
-            #print(self.images[page_index].shape[:2], bw.shape[:2])
-
-            rects = []
-            #center_x, center_y = note.center
-            center_x, center_y = [note.center[0] - topleft[0], note.center[1] - topleft[1]]
-            # Calculate the maximum radius from the center to the rectangle's edges
-            x_radius = note.get_width() // 2
-            y_radius = note.get_height() // 2
-            max_radius = max(x_radius, y_radius)
-            # Traverse outward from the center
-            break_loop = False
-            for radius in range(max_radius + 1):
-                for y_offset in range(-radius, radius + 1):
-                    for x_offset in range(-radius, radius + 1):
-                        # Calculate the current position
-                        x_traverse = center_x + x_offset
-                        y_traverse = center_y + y_offset
-
-                        # Ensure the position is within the bounds of the rectangle
-                        if (0 <= x_traverse < note.get_width() and 0 <= y_traverse < note.get_height()):
-                            # Do your processing here with x_traverse and y_traverse
-                            # if pixel is white, flood fill
-                            if sub_image[y_traverse][x_traverse] > 0:
-                                start_point = (x_traverse, y_traverse)
-                                _, _, _, rect = cv.floodFill(sub_image, sub_mask, start_point, 255)
-                                # print(rect)
-                                #x, y, width, height = rect
-                                if rect != (0, 0, 0, 0):
-
-                                    print("rect found")
-                                    x, y, width, height = rect
-                                    if height > note_height * 1.5 or width > note_height * 2:
-                                        print("Half note is open")
-                                    #if height / note_height < 1.3 and width / note_height < 1.3:
-                                    rects.append(rect)
-                                    if note.is_on_line == False:
-                                        break_loop = True
-                                #if .5 < height / note_height < 1.3 and .3 < width / note_height < 1.3:
-                                #    break_loop = True
-                                if len(rects) == 2:
-                                    break_loop = True
-                        if break_loop:
-                            break
-                    if break_loop:
-                        break
-                if break_loop:
-                    break
-
-            '''     
-            for y in range(topleft[1], bottomright[1], 1):
-                #todo copy extend half note loop herre
-                # if pixel is white, flood fill
-                if img[y][center[0]] == 0:
-                    start_point = (center[0], y)
-                    floodflags = 8
-                    _, _, mask, rect = cv.floodFill(img, mask, start_point, 1, floodflags)
-                    print(rect)
-                    x, y, width, height = rect
-            '''
-            vertical_line = False
-            horizontal_line = False
-            print(accidental, "accidental")
-            if accidental == "flat":
-                #print("flat")
-                topleft[1] = center[1]
-                horizontal_line = True
-            elif accidental == "sharp":
-                #print("sharp")
-                bottomright[1] = center[1]
-                horizontal_line = True
-            elif accidental == "double_flat":
-                bottomright[0] = center[0]
-                vertical_line = True
-            elif accidental == "double_sharp":
-                topleft[0] = center[0]
-                vertical_line = True
-            #print(sub_mask)
-            print(topleft, bottomright)
-            for y in range(topleft[1], bottomright[1], 1):
-                for x in range(topleft[0], bottomright[0], 1):
-                    if sub_mask[y - topleft[1] + 1][x - topleft[0] + 1] == 1:
-                        #print(y, x)
-                        self.images[page_index][y][x] = color
-                    # self.images[page_index][y][x] = (0,0,0)
-
-
-            #if vertical_line:
-            #    for y in range(topleft[1], bottomright[1], 2):
-            #        self.images[page_index][y][center[0]] = [0, 0, 0]
-            #f horizontal_line:
-            #   for x in range(topleft[0], bottomright[0], 2):
-            #       self.images[page_index][center[1]][x] = [0, 0, 0]
-
-
-
-    def fill_in_feature(self, page_index, topleft, bottomright, color):
-        for i in range(topleft[1], bottomright[1], 1):
-            for j in range(topleft[0], bottomright[0], 1):
-                if self.gray_images[page_index][i][j] < 255 / 2:
-                    self.images[page_index][i][j] = color
-
-    def draw_features(self, features, page_index, draw_rectangle=True):
-        #print("Drawing the features loop")
-        if features[page_index] is not None:
-            for feature in features[page_index]:
-                if feature is not None:
-                    # if it is a note or accidental that has a letter labeled
-                    if feature.letter != "":
-                        color = self.letter_colors[feature.letter.lower()]
-                        #print("note: ", feature)
-                        if feature.accidental != "":
-                            #print("note: ", feature)
-                            accidental = feature.accidental.lower()
-                            if accidental == "flat":
-                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
-                            if accidental == "sharp":
-                                self.fill_in_feature(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color)
-
-                            if accidental == "double_flat":
-                                self.fill_in_feature(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color)
-                            if accidental == "double_sharp":
-                                self.fill_in_feature(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color)
-                            if accidental == "natural":
-                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                        else:  # note with no accidental
-                            self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
-                                                 color)
-                        if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
-                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                            self.fill_in_half_note(page_index, feature, color)
-                        # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
-                    else:
-                        if draw_rectangle == True:
-                            cv.rectangle(self.images[page_index], feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
-
-
-    """
-    Anytime match_template is called or filter is changed
-    """
-    def draw_image(self, filter_list, page_index):
-        #if feature
-        print("start draw image")
-        #print("Filter list", filter_list)
-        if filter_list[0].get() == 1:#staffline
-            self.draw_staff_lines(page_index)
-        if filter_list[1].get() == 1:#implied line
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.implied_lines is not None:
-                        for line in region.implied_lines:
-                            #print("implied line", line.topleft, line.bottomright)
-                            topleft_in_region = [region.topleft[0], line.calculate_y(region.topleft[0])]
-                            bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
-                            cv.line(self.images[page_index], topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
-        if filter_list[2].get() == 1:#bass clef
-            self.draw_features(self.bass_clefs, page_index)
-        if filter_list[3].get() == 1:#treble clef
-            #print("Drawing treble clefs")
-            self.draw_features(self.treble_clefs, page_index)
-        if filter_list[4].get() == 1:#barline
-            self.draw_features(self.barlines, page_index)
-        if filter_list[6].get() == 1: #accidental
-            self.draw_features(self.accidentals, page_index)
-        if filter_list[5].get() == 1:#note
-            self.draw_features(self.notes, page_index)
-        if filter_list[7].get() == 1:#region border
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.clef == "bass_clef" or region.clef == "treble_clef":
-                        cv.rectangle(self.images[page_index], region.topleft, region.bottomright, self.type_colors[region.clef], 1)
-                        #print("Region: ", region.topleft, region.bottomright)
-        print("drawing image")
-        cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-        #clearing the image of drawings
-        self.images[page_index] = cv.imread(self.images_filenames[page_index])
-        print("end draw image")
-
-    def draw_features_sub_image(self, features, page_index, topleft, bottomright, draw_rectangle=True):
-        #print("Drawing the features loop")
-        if features[page_index] is not None:
-            for feature in features[page_index]:
-                if feature is not None:
-                    #TODO if any part of feature lies in topleft or bottomright
-                    if self.is_feature_in_rectange(self, feature, topleft, bottomright):
-                    # if it is a note or accidental that has a letter labeled
-                        if feature.letter != "":
-                            color = self.letter_colors[feature.letter.lower()]
-                            #print("note: ", feature)
-                            if feature.accidental != "":
-                                #print("note: ", feature)
-                                accidental = feature.accidental.lower()
-                                if accidental == "flat":
-                                    self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
-                                if accidental == "sharp":
-                                    self.fill_in_feature(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color)
-
-                                if accidental == "double_flat":
-                                    self.fill_in_feature(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color)
-                                if accidental == "double_sharp":
-                                    self.fill_in_feature(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color)
-                                if accidental == "natural":
-                                    self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                            else:  # note with no accidental
-                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
-                                                     color)
-                            if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
-                                #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                                self.fill_in_half_note(page_index, feature, color)
-                            # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
-                        else:
-                            if draw_rectangle == True:
-                                cv.rectangle(self.images[page_index], feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
-
-
-    def draw_sub_image(self, filter_list, page_index, feature):
-        print("start draw image")
-        # print("Filter list", filter_list)
-        topleft = [max(0, feature.topleft[0] - 1), max(0, feature.topleft[1] - 1)]
-        bottomright = [min(self.image_widths[page_index] - 1, feature.bottomright[0] + 1), min(self.image_heights[page_index] - 1, feature.bottomright[1] + 1)]
-        sub_image = self.images[page_index][topleft[1]:bottomright[1]][topleft[0]:bottomright[0]]
-        if filter_list[0].get() == 1:  # staffline
-            self.draw_staff_lines(page_index)
-        if filter_list[1].get() == 1:  # implied line
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.implied_lines is not None:
-                        for line in region.implied_lines:
-                            # print("implied line", line.topleft, line.bottomright)
-                            topleft_in_region = [region.topleft[0], line.calculate_y(region.topleft[0])]
-                            bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
-                            cv.line(self.images[page_index], topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
-        if filter_list[2].get() == 1:  # bass clef
-            self.draw_features(self.bass_clefs, page_index)
-        if filter_list[3].get() == 1:  # treble clef
-            # print("Drawing treble clefs")
-            self.draw_features(self.treble_clefs, page_index)
-        if filter_list[4].get() == 1:  # barline
-            self.draw_features(self.barlines, page_index)
-        if filter_list[6].get() == 1:  # accidental
-            self.draw_features(self.accidentals, page_index)
-        if filter_list[5].get() == 1:  # note
-            self.draw_features(self.notes, page_index)
-        if filter_list[7].get() == 1:  # region border
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.clef == "bass_clef" or region.clef == "treble_clef":
-                        cv.rectangle(self.images[page_index], region.topleft, region.bottomright, self.type_colors[region.clef], 1)
-                        # print("Region: ", region.topleft, region.bottomright)
-        print("drawing image")
-        cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-        # clearing the image of drawings
-        self.images[page_index] = cv.imread(self.images_filenames[page_index])
-        print("end draw image")
 
     def fill_in_half_note_without_writing(self, page_index, note, color, img):
         #travel from center to top until you hit black. if you dont hit black, dont fill.
@@ -2720,12 +2453,22 @@ class ImageProcessing:
             for line in self.staff_lines[page_index]:
                 cv.line(img, line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
 
-    def draw_features_without_writing(self, features, page_index, img, draw_rectangle=True):
+    def draw_border_and_crosshair(self, img, feature):
+        x_mid = feature.center[0]
+        y_mid = feature.center[1]
+        x0 = feature.topleft[0]
+        y0 = feature.topleft[1]
+        x1 = feature.bottomright[0]
+        y1 = feature.bottomright[1]
+        cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 1)
+        cv.line(img, (x_mid, y0), (x_mid, y1), self.type_colors[feature.type], 1)
+        cv.line(img, (x0, y_mid), (x1, y_mid), self.type_colors[feature.type], 1)
+
+    def draw_features_without_writing(self, features, page_index, img, show_borders_and_crosshairs):
         #print("Drawing the features loop")
         if features[page_index] is not None:
             for feature in features[page_index]:
                 if feature is not None:
-                    #TODO if any part of feature lies in topleft or bottomright
                     # if it is a note or accidental that has a letter labeled
                     if feature.letter != "":
                         color = self.letter_colors[feature.letter.lower()]
@@ -2752,18 +2495,14 @@ class ImageProcessing:
                             self.fill_in_half_note_without_writing(page_index, feature, color, img)
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
                     else:
-                        if draw_rectangle == True:
-                            cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
+                        cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
+                    if show_borders_and_crosshairs == True:
+                        self.draw_border_and_crosshair(img, feature)
 
 
-    def draw_image_without_writing(self, filter_list, page_index):
-        print("start draw image")
+    def draw_image_without_writing(self, filter_list, page_index, show_borders_and_crosshairs, current_feature, scale):
         img = np.copy(self.images[page_index])
-        print("copy image")
-        # print("Filter list", filter_list)
-        #topleft = [max(0, feature.topleft[0] - 1), max(0, feature.topleft[1] - 1)]
-        #bottomright = [min(self.image_widths[page_index] - 1, feature.bottomright[0] + 1), min(self.image_heights[page_index] - 1, feature.bottomright[1] + 1)]
-        #sub_image = self.images[page_index][topleft[1]:bottomright[1]][topleft[0]:bottomright[0]]
+
         if filter_list[0].get() == 1:  # staffline
             self.draw_staff_lines_without_writing(page_index, img)
         if filter_list[1].get() == 1:  # implied line
@@ -2776,108 +2515,28 @@ class ImageProcessing:
                             bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
                             cv.line(img, topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
         if filter_list[2].get() == 1:  # bass clef
-            self.draw_features_without_writing(self.bass_clefs, page_index, img)
+            self.draw_features_without_writing(self.bass_clefs, page_index, img, show_borders_and_crosshairs)
         if filter_list[3].get() == 1:  # treble clef
             # print("Drawing treble clefs")
-            self.draw_features_without_writing(self.treble_clefs, page_index, img)
+            self.draw_features_without_writing(self.treble_clefs, page_index, img, show_borders_and_crosshairs)
         if filter_list[4].get() == 1:  # barline
-            self.draw_features_without_writing(self.barlines, page_index, img)
+            self.draw_features_without_writing(self.barlines, page_index, img, show_borders_and_crosshairs)
         if filter_list[6].get() == 1:  # accidental
-            self.draw_features_without_writing(self.accidentals, page_index, img)
+            self.draw_features_without_writing(self.accidentals, page_index, img, show_borders_and_crosshairs)
         if filter_list[5].get() == 1:  # note
-            self.draw_features_without_writing(self.notes, page_index, img)
+            self.draw_features_without_writing(self.notes, page_index, img, show_borders_and_crosshairs)
         if filter_list[7].get() == 1:  # region border
             if self.regions[page_index] is not None:
                 for region in self.regions[page_index]:
                     if region.clef == "bass_clef" or region.clef == "treble_clef":
                         cv.rectangle(img, region.topleft, region.bottomright, self.type_colors[region.clef], 1)
                         # print("Region: ", region.topleft, region.bottomright)
-        print("drawing image")
-        #cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-        # clearing the image of drawings
-        #self.images[page_index] = cv.imread(self.images_filenames[page_index])
-        return img
-        print("end draw image")
+        if current_feature is not None:
+            cv.rectangle(img, current_feature.topleft, current_feature.bottomright, (0, 0, 0), 1)
+        h, w = img.shape[:2]
+        return cv.resize(img, (int(w * scale), int(h * scale)), interpolation=cv.INTER_NEAREST)
 
-    def fill_in_feature_without_reloading(self, page_index, topleft, bottomright, color, image):
-        for i in range(topleft[1], bottomright[1], 1):
-            for j in range(topleft[0], bottomright[0], 1):
-                if self.gray_images[page_index][i][j] < 255 / 2:
-                    image[i][j] = color
 
-    def draw_features_without_reloading(self, features, page_index, image, draw_rectangle=True):
-        #print("Drawing the features loop")
-        if features[page_index] is not None:
-            for feature in features[page_index]:
-                if feature is not None:
-                    # if it is a note or accidental that has a letter labeled
-                    if feature.letter != "":
-                        color = self.letter_colors[feature.letter.lower()]
-                        #print("note: ", feature)
-                        if feature.accidental != "":
-                            #print("note: ", feature)
-                            accidental = feature.accidental.lower()
-                            if accidental == "flat":
-                                self.fill_in_feature(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color)
-                            if accidental == "sharp":
-                                self.fill_in_feature(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color)
-
-                            if accidental == "double_flat":
-                                self.fill_in_feature(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color)
-                            if accidental == "double_sharp":
-                                self.fill_in_feature(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color)
-                            if accidental == "natural":
-                                self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                        else:  # note with no accidental
-                            self.fill_in_feature(page_index, feature.topleft, feature.bottomright,
-                                                 color)
-                        if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
-                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                            self.fill_in_half_note(page_index, feature, color)
-                        # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
-                    else:
-                        if draw_rectangle == True:
-                            cv.rectangle(image, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
-
-    def draw_staff_lines_without_reloading(self, page_index):
-        if self.staff_lines[page_index] is not None:
-            for line in self.staff_lines[page_index]:
-                cv.line(self.images[page_index], line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
-
-    def draw_image_without_reloading(self, filter_list, page_index, image):
-        # print("Filter list", filter_list)
-        if filter_list[0].get() == 1:  # staffline
-            self.draw_staff_lines(page_index)
-        if filter_list[1].get() == 1:  # implied line
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.implied_lines is not None:
-                        for line in region.implied_lines:
-                            # print("implied line", line.topleft, line.bottomright)
-                            topleft_in_region = [region.topleft[0], line.calculate_y(region.topleft[0])]
-                            bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
-                            cv.line(image, topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
-        if filter_list[2].get() == 1:  # bass clef
-            self.draw_features(self.bass_clefs, page_index)
-        if filter_list[3].get() == 1:  # treble clef
-            # print("Drawing treble clefs")
-            self.draw_features(self.treble_clefs, page_index)
-        if filter_list[4].get() == 1:  # barline
-            self.draw_features(self.barlines, page_index)
-        if filter_list[6].get() == 1:  # accidental
-            self.draw_features(self.accidentals, page_index)
-        if filter_list[5].get() == 1:  # note
-            self.draw_features(self.notes, page_index)
-        if filter_list[7].get() == 1:  # region border
-            if self.regions[page_index] is not None:
-                for region in self.regions[page_index]:
-                    if region.clef == "bass_clef" or region.clef == "treble_clef":
-                        cv.rectangle(image, region.topleft, region.bottomright, self.type_colors[region.clef], 1)
-                        # print("Region: ", region.topleft, region.bottomright)
-        # print("drawing image")
-        #cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-        # clearing the image of drawings
-        #self.images[page_index] = cv.imread(self.images_filenames[page_index])
 
 
 
