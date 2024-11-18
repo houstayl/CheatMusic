@@ -1624,15 +1624,15 @@ class ImageProcessing:
     '''
     usign an image that removes staff lines, extends notes
     '''
-    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, blackness, erode_strength, note=None):
+    def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, erode_strength, note=None):
         print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
         #print(note_height, note_width)
         #gray = cv.bitwise_not(self.gray_images[page_index])
         #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        _, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
-        bw = cv.bitwise_not(bw)
+        #_, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
+        bw = cv.bitwise_not(self.bw_images[page_index])
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
         horizontal_size = round(note_height / 2 * erode_strength)
@@ -1680,6 +1680,30 @@ class ImageProcessing:
             cv.imwrite("avertical.jpg", vertical)
             cv.imwrite("aintersection.jpg", intersection_image)
 
+    def get_intersection_image(self, page_index, erode_strength, show_borders_and_crosshairs, draw_notes=False):
+        note_height = self.get_note_height(page_index)
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        vertical = np.copy(bw)
+        horizontal = np.copy(bw)
+        horizontal_size = round(note_height / 2 * erode_strength)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        verticalsize = round(note_height / 2 * erode_strength)
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        intersection = cv.bitwise_and(horizontal, vertical)
+        if self.is_list_iterable(self.notes[page_index]) and draw_notes == True:
+            for note in self.notes[page_index]:
+                if note.is_half_note == "quarter":
+        return intersection
+    '''
     def split_up_notes_immage(self, page_index, note_height, note_width):
         # print(note_height, note_width)
         gray = cv.bitwise_not(self.gray_images[page_index])
@@ -1736,7 +1760,7 @@ class ImageProcessing:
                             pass
         #cv.imwrite("aperfect.jpg", intersection_lines_removed)
         return intersection_lines_removed
-
+    '''
     def auto_detect_quarter_notes(self, page_index, note_height_width_ratio):
         print("auto detect quarter note")
         note_height = self.get_note_height(page_index)

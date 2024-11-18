@@ -164,7 +164,7 @@ class ImageEditor(tk.Tk):
         #self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode)#, command=self.draw_image_canvas_mode)
         self.show_borders_and_crosshairs = tk.BooleanVar()
         self.show_borders_and_crosshairs.set(False)
-        self.show_borders_and_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.show_borders_and_crosshairs)
+        self.show_borders_and_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Show borders and crosshairs", onvalue=1, offvalue=0, variable=self.show_borders_and_crosshairs)
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
@@ -424,6 +424,12 @@ class ImageEditor(tk.Tk):
         view_menu.add_separator()
         view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
         view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
+        view_menu.add_separator()
+        self.view_mode = tk.StringVar()
+        self.view_mode_values = ["color", "erode"]
+        self.view_mode.set(self.view_mode_values[0])
+        view_menu.add_radiobutton(label="Show color image", variable=self.view_mode, value=self.view_mode_values[0], command=self.draw_image_with_filters)
+        view_menu.add_radiobutton(label="Show eroded intersection image", variable=self.view_mode, value=self.view_mode_values[1], command=self.draw_image_with_filters)
         view_menu.add_separator()
         view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
         view_menu.add_separator()
@@ -797,7 +803,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), self.erode_strength_scale.get() / 100)
+            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100)
         self.draw_image_with_filters()
 
     def clear_combobox(self, event):
@@ -1685,18 +1691,19 @@ class ImageEditor(tk.Tk):
 
     def draw_image_with_filters(self):
         self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
-        self.display_image()
-
-    def reload_image(self):
-        image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders_and_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
-        self.image = Image.fromarray(image)
-        self.photo = ImageTk.PhotoImage(self.image)
-
-    def display_image(self):
         self.reload_image()
         self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
         self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
+    def reload_image(self):
+        if self.view_mode.get() == self.view_mode_values[0]:#color:
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders_and_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+        else:#erode image
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders_and_crosshairs.get(), draw_notes=True)
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
 
     def left_key_press(self, event):
         print("left key pressed")
@@ -2159,7 +2166,7 @@ class ImageEditor(tk.Tk):
                         if self.allow_note_to_be_auto_extended.get() == True:
                             #print("auto extend note single")
                             if self.note_type.get() == "quarter":
-                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.blackness_scale.get(), self.erode_strength_scale.get() / 100, rectangle)
+                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100, rectangle)
                             else:
                                 is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
                                 if is_note_on_space == True:
