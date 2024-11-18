@@ -11,6 +11,7 @@ import cv2 as cv
 import numpy as np
 import pickle
 import copy
+import sys
 from StaffLine import StaffLine
 from Note import Note
 import concurrent.futures
@@ -34,6 +35,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    command line arguments for vertical window
+    for staff line detection: only keep pixels that were vertically eroded
+    fill in half note: check bounds to match topleft and bottomright
+    view erode image
+    take staff line angle into account for note detection
     on key set mode to single
     when changing a feature manually, dont redraw all features, jsut that one
     online detection: find pixels that appear in horizonal erode, but not vertical and are attached from flood fill
@@ -130,8 +136,10 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "top"
         self.frame_location = "side"
+        if len(sys.argv) > 1 and sys.argv[1] == 'v':
+            self.frame_location = "top"
+
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
