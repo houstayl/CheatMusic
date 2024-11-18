@@ -1701,7 +1701,7 @@ class ImageProcessing:
         intersection = cv.bitwise_and(horizontal, vertical)
         if self.is_list_iterable(self.notes[page_index]) and draw_notes == True:
             for note in self.notes[page_index]:
-                if note.is_half_note == "quarter":
+                cv.rectangle(intersection, note.topleft, note.bottomright, 125, 1)
         return intersection
     '''
     def split_up_notes_immage(self, page_index, note_height, note_width):
