@@ -131,7 +131,7 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        #self.frame_location = "side"
+        self.frame_location = "side"
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
         #self.left_frame.pack(side="left", fill="y")
@@ -145,6 +145,7 @@ class ImageEditor(tk.Tk):
         self.selected_label_text = tk.StringVar()
         self.current_feature_type = "treble_clef"
         self.current_feature = None
+        self.current_feature_rectangle = None
         self.selected_label_text.set("Current Feature Selected: \n " + self.current_feature_type)
         #self.feature_mode_add = True  # fasle for remove
         self.selected_label = tk.Label(self.left_frame, textvariable=self.selected_label_text)  # "Current Feature Selected: \n " + self.current_feature_type)
@@ -1549,10 +1550,13 @@ class ImageEditor(tk.Tk):
     def scroll_vertical(self, event):
         self.current_feature = None
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.canvas.delete(self.current_feature_rectangle)
 
     def scroll_horizontal(self, event):
         self.current_feature = None
         self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.canvas.delete(self.current_feature_rectangle)
+
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(title="Open PDF File", initialdir=self.dirname, filetypes=[("PDF Files", "*.pdf")])  # TODO initialdir
@@ -1731,7 +1735,7 @@ class ImageEditor(tk.Tk):
                 f = self.current_feature
                 topleft = [int(f.topleft[0] * self.scale), int(f.topleft[1] * self.scale)]
                 bottomright = [int(f.bottomright[0] * self.scale), int(f.bottomright[1] * self.scale)]
-                self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
+                self.current_feature_rectangle = self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
             print("image displayed")
         else:
             print("Drawing image on canvas")
@@ -2348,6 +2352,7 @@ class ImageEditor(tk.Tk):
                     #self.rect = self.canvas.create_rectangle(topleft[0], topleft[1], bottomright[0], bottomright[1], outline='black')
                     self.draw_image_with_filters()
                 else:
+                    self.canvas.delete(self.current_feature_rectangle)
                     #if self.current_feature_type == "note":
                     #    self.image_processor.add_note_by_center_coordinate(self.image_index, x_img, y_img, self.is_half_note.get(), self.note_width_ratio_scale.get())
                     print("No feature in click area")
@@ -2356,7 +2361,7 @@ class ImageEditor(tk.Tk):
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
-                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get())
+                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get(), self.erode_strength_scale.get() / 100)
                     if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_half_note_single_click(self.image_index, x_img, y_img, self.note_type.get())
                     self.draw_image_with_filters()

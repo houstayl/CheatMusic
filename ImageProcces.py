@@ -1564,7 +1564,7 @@ class ImageProcessing:
             #TODO remove note
 
 
-    def extend_small_note(self, page_index, x, y, blackness):
+    def extend_small_note(self, page_index, x, y, blackness, erode_strength):
         note_height = self.get_note_height(page_index)
         # print(note_height, note_width)
         # gray = cv.bitwise_not(self.gray_images[page_index])
@@ -1573,15 +1573,15 @@ class ImageProcessing:
         bw = cv.bitwise_not(bw)
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
-        horizontal_size = int(note_height / 2)
+        horizontal_size = round(note_height / 2 * erode_strength)
         horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
 
         # Apply morphology operations
         horizontal = cv.erode(horizontal, horizontalStructure)
         horizontal = cv.dilate(horizontal, horizontalStructure)
-        verticalsize = int(note_height / 2)
+        vertical_size = round(note_height / 2 * erode_strength)
         # Create structure element for extracting vertical lines through morphology operations
-        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, vertical_size))
 
         # Apply morphology operations
         vertical = cv.erode(vertical, verticalStructure)
@@ -2696,15 +2696,13 @@ class ImageProcessing:
             #    for x in range(topleft[0], bottomright[0], 1):
             #        if sub_mask[y - topleft[1] + 1][x - topleft[0] + 1] == 1:
             #            img[y][x] = color
-            #sub_image_color = img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
             sub_mask_height, sub_mask_width = bottomright[1] - topleft[1], bottomright[0] - topleft[0]#sub_mask.shape
-            y_start, x_start = note.topleft[1] - topleft[1], note.topleft[0] - topleft[0]
+            y_start, x_start = topleft[1] - note.topleft[1], topleft[0] - note.topleft[0]
+            y_end, x_end = y_start + bottomright[1] - topleft[1], x_start + bottomright[0] - topleft[0]
             # Adjust sub_mask slicing to align with the ROI
-            adjusted_sub_mask = sub_mask[1 + y_start:sub_mask_height-1, 1 + x_start:sub_mask_width-1]
-            #adjusted_sub_mask = sub_mask[1 + topleft[1]:bottomright[1] - 1, 1 + topleft[0]:bottomright[0] - 1]
-            print(adjusted_sub_mask)
-            # Apply the mask to the region of interest
-            #sub_image_color[adjusted_sub_mask == 1] = color
+            adjusted_sub_mask = sub_mask[1 + y_start:y_end + 1, 1 + x_start:x_end + 1]
+            #print(sub_mask)
+            #print(adjusted_sub_mask)
             # Assign the updated ROI back to img
             img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][adjusted_sub_mask == 1] = color
 
