@@ -35,9 +35,10 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    chord letter error detection
+    resize intersection image
     for staff line detection: only keep pixels that were vertically eroded
     fill in half note: check bounds to match topleft and bottomright
-    view erode image
     take staff line angle into account for note detection
     on key set mode to single
     online detection: find pixels that appear in horizonal erode, but not vertical and are attached from flood fill
@@ -465,8 +466,10 @@ class ImageEditor(tk.Tk):
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Barline (y)", command=lambda :self.set_feature_type("barline"))
         set_feature_menu.add_separator()
-        set_feature_menu.add_command(label="Note (n)", command=lambda :self.set_feature_type("note"))
-        set_feature_menu.add_command(label="Half Note (h)", command=lambda :self.set_feature_type("note", is_half_note=True))
+        set_feature_menu.add_command(label="Note (n)", command=lambda :self.set_feature_type("note", "quarter"))
+        set_feature_menu.add_command(label="Half Note (h)", command=lambda :self.set_feature_type("note", "half"))
+        set_feature_menu.add_command(label="Whole Note (w)", command=lambda :self.set_feature_type("note", "whole"))
+
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Double Sharp (1)", command=lambda: self.set_feature_type("double_sharp"))
         set_feature_menu.add_command(label="Sharp (2)", command=lambda: self.set_feature_type("sharp"))
@@ -607,7 +610,8 @@ class ImageEditor(tk.Tk):
         reset_menu.add_command(label="Double Flat", command=lambda: self.clear_accidental_type("double_flat"))
         reset_menu.add_separator()
         reset_menu.add_command(label="Quarter Note", command=lambda: self.clear_note_type("quarter"))
-        reset_menu.add_command(label="Half/Whole Note", command=lambda: self.clear_note_type("half"))
+        reset_menu.add_command(label="Half Note", command=lambda: self.clear_note_type("half"))
+        reset_menu.add_command(label="Whole Note", command=lambda: self.clear_note_type("whole"))
         reset_menu.add_separator()
         reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
@@ -639,6 +643,7 @@ class ImageEditor(tk.Tk):
             loop = [self.image_index]
         for i in loop:
             self.image_processor.determine_if_notes_are_on_line(i)
+        self.draw_image_with_filters()
     def on_closing(self):
         # Ask for confirmation before closing the window
         if messagebox.askokcancel("Quit", "Do you really want to quit?"):
@@ -717,17 +722,17 @@ class ImageEditor(tk.Tk):
 
     @staticmethod
     def fill_in_white_spots_parallel(task):
-        page_index, image, gray_image, filename = task
+        page_index, image, bw_image, filename = task
         print("Fill in white spots on page ", page_index)
         min_size = 10
         # Step 1: Load the image in grayscale mode
-        img = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+       # img = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
         # Step 2: Apply binary thresholding to get a binary image
-        _, binary_img = cv.threshold(img, 190, 255, cv.THRESH_BINARY)
+        #_, binary_img = cv.threshold(img, 190, 255, cv.THRESH_BINARY)
 
         # Step 3: Find connected components (to detect individual white regions)
         # 'connectivity=4' ensures only direct neighbors are considered connected
-        num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(binary_img, connectivity=4)
+        num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(bw_image, connectivity=4)
 
         # Step 4: Loop through the detected components and fill small white regions
         for i in range(1, num_labels):  # Ignore label 0 (background)
@@ -748,20 +753,14 @@ class ImageEditor(tk.Tk):
 
         # Prepare the arguments for each task
         tasks = [
-            (i, self.image_processor.images[i], self.image_processor.gray_images[i], self.image_processor.images_filenames[i])
+            (i, self.image_processor.images[i], self.image_processor.bw_images[i], self.image_processor.images_filenames[i])
             for i in loop
         ]
 
         # Create a pool of worker processes
         with multiprocessing.Pool() as pool:
             results = pool.map(ImageEditor.fill_in_white_spots_parallel, tasks)
-        for i in loop:
-            self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
-            self.image_processor.gray_images[i] = cv.cvtColor(self.image_processor.images[i], cv.COLOR_BGR2GRAY)
-            self.image_processor.bw_images[i] = cv.threshold(self.image_processor.gray_images[i], 200, 255, cv.THRESH_BINARY)[1]
-        #for i in loop:
-            #self.image_processor.fill_in_white_spots(i)
-        #self.image_processor.fill_in_white_spots(self.image_index)
+        self.regenerate_images()
         self.draw_image_with_filters()
 
     def auto_detect_quarter_notes(self):
@@ -1170,7 +1169,7 @@ class ImageEditor(tk.Tk):
 
                 for region in self.image_processor.regions[i]:
                     if len(region.notes) > 0 or len(region.accidentals) > 0:
-                        self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                        self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get(), overwrite)
                 if self.debugging.get() == True:
                     cv.imwrite("anote_calculating.jpg", bw)
         self.draw_image_with_filters()
@@ -1209,7 +1208,7 @@ class ImageEditor(tk.Tk):
                 bw = cv.dilate(bw, horizontalStructure)
 
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get())
+                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get(), overwrite)
                 if self.debugging.get() == True:
                     cv.imwrite("anote_calculating_horizontal.jpg", bw)
         self.draw_image_with_filters()
@@ -1309,11 +1308,13 @@ class ImageEditor(tk.Tk):
 
 
 
-    def set_feature_type(self, feature_name):
+    def set_feature_type(self, feature_name, note_type=None):
         if "staff_line" in feature_name:
             self.staff_line_block_coordinates = []
             self.staff_line_diagonal_coordinates = []
         self.current_feature_type = feature_name
+        if note_type is not None:
+            self.set_note_type(note_type)
         if self.current_feature_type == "note":
             self.selected_label_text.set("Current Feature Selected: \n" + self.note_type.get() + " " + self.current_feature_type)
             print("note set")

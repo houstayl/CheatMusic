@@ -104,56 +104,6 @@ class ImageProcessing:
                     return
 
 
-
-    '''
-    Takes a sub image and finds all occurances of that sub image in the image.
-    Returns a set of Feature objects 
-    Not used. parallelized version in Window.py
-    '''
-    '''
-    def match_template(self, image, template, color, type,
-                       error=10, draw=True):
-        gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
-        gray_template_width, gray_template_height = gray_template.shape[::-1]
-        gray_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        #res = cv.matchTemplate(gray_image, gray_template, cv.TM_CCOEFF_NORMED)
-        res = cv.matchTemplate(gray_image, gray_template, cv.TM_SQDIFF)
-        threshold = 0.8
-        loc = np.where(res >= threshold)
-        features = []
-        # print("start")
-        first_iteration = True
-        point = 0
-        for pt in zip(*loc[::-1]):
-            if first_iteration == True:
-                point = pt
-                first_iteration = False
-                f = Feature(pt, (pt[0] + gray_template_width, pt[1] + gray_template_height), type)
-                features.append(f)
-                if draw == True:
-                    cv.rectangle(image, pt,
-                                 (pt[0] + gray_template_width, pt[1] + gray_template_height), color, 2)
-
-            # if points are too close, skip
-            # print("distance", get_distance(point, pt))
-            if self.get_distance(point, pt) < error:
-                # print("skip")
-                continue
-            else:
-                point = pt
-
-            # print("point", pt)
-            f = Feature(pt, (pt[0] + gray_template_width, pt[1] + gray_template_height), type)
-            features.append(f)
-            if draw == True:
-                cv.rectangle(image, pt, (pt[0] + gray_template_width, pt[1] + gray_template_height),
-                             color, 2)
-
-
-        return features
-        #TODO remove adjacents. error is based on dimensions of template
-    '''
-
     '''
     WHen user clicks mouse, removes feature associated with mouse click
     '''
@@ -229,27 +179,13 @@ class ImageProcessing:
     '''
     Takes a 2d set of features(barlines) and draws them on the image
     '''
-
+    '''
     def draw_staff_lines(self, page_index):
         if self.staff_lines[page_index] is not None:
             for line in self.staff_lines[page_index]:
                 cv.line(self.images[page_index], line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
         #cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-    '''
-    def draw_regions(self, page_index):
-        if self.regions[page_index] != None:
-            for region in self.regions[page_index]:
-                region.draw_region_fill_in_feature(self.images[page_index], self.gray_images[page_index], self.letter_colors, lines=False, borders=True, notes=True, accidentals=True)
-        cv.imwrite(self.annotated_images_filenames[page_index], self.images[page_index])
-    '''
-    '''
-    def draw_barlines(self, image, barlines):
-        for i in range(len(barlines)):
-            for j in range(len(barlines[i])):
-                # topleft = (barlines[i][0], barlines[i][1])
-                # bottomright = (barlines[i][0] + width, barlines[i][1] + height)
-                cv.rectangle(image, barlines[i][j].topleft, barlines[i][j].bottomright, (255, 255, 0), 2)
-    '''
+   '''
 
     def is_list_iterable(self, list):
         if list is not None and len(list) > 0:
@@ -273,14 +209,7 @@ class ImageProcessing:
         feature = Feature(topleft, bottomright, type)
         self.append_features(page_index, type, [feature])
 
-    '''
-    def add_small_note_on_click(self, page_index, x, y):
-        note_height = self.get_note_height(page_index) // 2
-        topleft = [x - note_height, y - note_height]
-        bottomright = [x + note_height, y + note_height]
-        note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
-        self.append_features(page_index, "note", [note])
-    '''
+
     def add_barline_on_click(self, page_index, x, y):
         if self.is_list_iterable(self.staff_lines[page_index]):
             for i in range(0, len(self.staff_lines[page_index]), 10):
@@ -292,6 +221,7 @@ class ImageProcessing:
                         self.append_features(page_index, "barline", [barline])
                         return
             print("staff line error when adding barline")
+
     '''
     If staff lines are note a multiple of 5, then error
     '''
@@ -311,74 +241,9 @@ class ImageProcessing:
                         return True
         return False
 
-
-
-
-    # TODO let user input error size
-    '''
-    Detects horizontal staff lines brute force
-    '''
-    '''
-    Finds horizontal lines in image, then returns set of y-values of staff lines
-
-    First starts off by drawing a vertical line down the center of the page, and selecting black y-values
-    Then checks only these y values for staff lines
-    If you check every y-value for a staff line it is inefficient
-    If page index = -1,  constructor
-    '''
-    '''
-    def get_staff_lines(self, page_index, error=5, blackness_threshold=250):
-        # holds the row that a staff line exists in
-        histogram = []
-
-        # draw a line straight down center of page, only check black indexes
-        # TODO draw 3 lines down the page, and take the intersection of the set
-        check_for_staff_line_indexes = []
-        for i in range(self.bw_images[page_index].shape[0]):
-            midpoint = int(self.bw_images[page_index].shape[1] / 2)
-            if self.bw_images[page_index][i][midpoint] < 250:
-                check_for_staff_line_indexes.append(i)
-                # print(i)
-
-        # checking marked rows for staff lines
-        for i in check_for_staff_line_indexes:
-            count = 0
-            for j in range(self.bw_images[page_index].shape[1]):
-                if self.bw_images[page_index][i][j] < blackness_threshold:
-                    count = count + 1
-                    if count > self.bw_images[page_index].shape[1] / 2:
-                        break
-
-            if count > self.bw_images[page_index].shape[1] / 2:
-                histogram.append(i)
-                continue
-
-        # histogram.sort()
-        # removing adjacent lines
-        i = 0
-        while i < len(histogram):
-            current = i
-            i = i + 1
-            while i < len(histogram) and abs(histogram[i] - histogram[current]) < error:
-                # print(histogram[current], "current")
-                # print(histogram[i], "removed")
-                histogram.remove(histogram[i])
-                # i = i + 1
-
-        # page index = -1 from constructor
-        current_staff_lines = []
-        for y in histogram:
-            current_staff_lines.append(StaffLine([0, y], [self.image_widths[page_index], y], self.image_widths[page_index], self.image_heights[page_index]))
-        #if self.staff_lines[page_index] is None:
-        #    self.staff_lines[page_index] = current_staff_lines
-        #else:
-        #    self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
-        self.staff_lines[page_index] = current_staff_lines
-    '''
-
     #TODO maybe give more params
     '''
-    Used for staff lien detection. Finds first clef in set of staff lines. Then finds white points(inverted image) along vertical line
+    Used for staff line detection. Finds first clef in set of staff lines. Then finds white points(inverted image) along vertical line
     '''
     def get_staff_line_candidates(self, page_index, img):
         staff_line_areas = []
@@ -404,31 +269,6 @@ class ImageProcessing:
         return True
 
 
-    '''
-    def recursive_vertical(self, vertical_bw_img, x, y, width, height):
-        # Base case: if out of bounds or the current pixel is not white, return current coordinates
-        best_x, max_y = x, y
-
-        # Explore down
-        if self.in_bounds(x, y + 1, width, height) and vertical_bw_img[y + 1][x] > 0:
-            temp_x, temp_y = self.recursive_vertical(vertical_bw_img, x, y + 1, width, height)
-            if temp_y > max_y:  # Compare y-coordinates to find the furthest downward movement
-                best_x, max_y = temp_x, temp_y
-
-        # Explore left-down diagonal
-        if self.in_bounds(x - 1, y + 1, width, height) and vertical_bw_img[y + 1][x - 1] > 0:
-            temp_x, temp_y = self.recursive_vertical(vertical_bw_img, x - 1, y + 1, width, height)
-            if temp_y > max_y:  # Compare y-coordinates to find the furthest downward movement
-                best_x, max_y = temp_x, temp_y
-
-        # Explore right-down diagonal
-        if self.in_bounds(x + 1, y + 1, width, height) and vertical_bw_img[y + 1][x + 1] > 0:
-            temp_x, temp_y = self.recursive_vertical(vertical_bw_img, x + 1, y + 1, width, height)
-            if temp_y > max_y:  # Compare y-coordinates to find the furthest downward movement
-                best_x, max_y = temp_x, temp_y
-
-        return [best_x, max_y]
-    '''
     '''
     Gets barlines by finding vertical lines that start at upper top staff line and end at lower bottom staff line
     '''
@@ -597,137 +437,6 @@ class ImageProcessing:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
         self.sort_staff_lines(page_index)
 
-
-    '''
-    def recursive(self, img, x, y, width, height, was_previous_iteration_diagonal):
-        # Base case: if out of bounds or no further movement possible, return current x and y values
-        max_x, best_y = x, y
-
-        # Explore right
-        if self.in_bounds(x + 1, y, width, height) and img[y][x + 1] > 0:
-            temp_x, temp_y = self.recursive(img, x + 1, y, width, height, False)
-            if temp_x > max_x:
-                max_x, best_y = temp_x, temp_y
-
-        # Explore right-down diagonal
-        elif was_previous_iteration_diagonal != True:
-            if self.in_bounds(x + 1, y + 1, width, height) and img[y + 1][x + 1] > 0:
-                temp_x, temp_y = self.recursive(img, x + 1, y + 1, width, height, True)
-                if temp_x > max_x:
-                    max_x, best_y = temp_x, temp_y
-
-            # Explore right-up diagonal
-            elif self.in_bounds(x + 1, y - 1, width, height) and img[y - 1][x + 1] > 0:
-                temp_x, temp_y = self.recursive(img, x + 1, y - 1, width, height, True)
-                if temp_x > max_x:
-                    max_x, best_y = temp_x, temp_y
-
-        #to the right two pixels
-        elif self.in_bounds(x + 3, y, width, height) and img[y][x + 2] > 0:
-            temp_x, temp_y = self.recursive(img, x + 2, y, width, height, False)
-            if temp_x > max_x:
-                max_x, best_y = temp_x, temp_y
-
-        #to right 10 pixels
-        elif self.in_bounds(x + 10, y, width, height) and img[y][x + 10] > 0:
-            temp_x, temp_y = self.recursive(img, x + 10, y, width, height, False)
-            if temp_x > max_x:
-                max_x, best_y = temp_x, temp_y
-
-        elif self.in_bounds(x + 50, y, width, height) and img[y][x + 50] > 0:
-            temp_x, temp_y = self.recursive(img, x + 50, y, width, height, False)
-            if temp_x > max_x:
-                max_x, best_y = temp_x, temp_y
-
-        return [max_x, best_y]
-
-    '''
-    '''
-    Tries to draw a line from left to right side
-    '''
-    '''
-    def get_staff_lines_diagonal_recursive(self, page_index, error=5, use_union_image=False, vertical_size=20, horizontal_size=20):
-        self.sort_clefs(page_index)
-        self.staff_lines[page_index] = []
-        img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
-        # Check if image is loaded fine
-        if img is None:
-            print('Error opening image: ')
-            return -1
-
-        # Transform source image to gray if it is not already
-        if len(img.shape) != 2:
-            gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        else:
-            gray = img
-
-        # Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
-        gray = cv.bitwise_not(gray)
-        #horizontal = cv.bitwise_not(gray)
-        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-
-        # [init]
-        # Create the images that will use to extract the horizontal and vertical lines
-        horizontal = np.copy(bw)
-
-        # Create structure element for extracting horizontal lines through morphology operations
-        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
-
-        # Apply morphology operations
-        horizontal = cv.erode(horizontal, horizontalStructure)
-        horizontal = cv.dilate(horizontal, horizontalStructure)
-        #cv.imwrite("horizontal" + str(page_index) +".jpg", horizontal)
-        height, width = horizontal.shape[:2]
-        img = None
-        if use_union_image == True:
-            vertical = np.copy(bw)
-            verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, vertical_size))
-
-            # Apply morphology operations
-            vertical = cv.erode(vertical, verticalStructure)
-            vertical = cv.dilate(vertical, verticalStructure)
-            img = cv.bitwise_or(vertical, horizontal)
-            #cv.imwrite("aunionstaffline.jpg", img)
-        else:
-            img = horizontal
-
-
-        candidates = self.get_staff_line_candidates(page_index, img)#(x, y)
-        results = []
-        sys.setrecursionlimit(width * 2)
-        for candidate in candidates:  # For every white pixel found
-            x_start = candidate[0]
-            y_start = candidate[1]
-            result = self.recursive(img, x_start, y_start, width, height, False)
-            if result[0] > width * 3 / 4:
-                results.append([x_start, y_start, result[0], result[1]])
-
-        results.sort(key=lambda x: (x[1]))
-        #print(results)
-
-        #Removing adjacent lines
-        results_filtered = []
-        i = 0
-        while i < len(results):
-            current = i
-            i = i + 1
-            results_filtered.append(results[current])
-
-            while i < len(results) and abs(results[current][1] - results[i][1]) < error:
-                #print(error, "removed")
-                #results.remove(results[i])
-                i = i + 1
-
-
-        current_staff_lines = []
-        for result in results_filtered:
-            current_staff_lines.append(StaffLine([result[0], result[1]], [result[2], result[3]], self.image_widths[page_index], self.image_heights[page_index]))
-        if self.staff_lines[page_index] is None:
-            self.staff_lines[page_index] = current_staff_lines
-        else:
-            self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
-
-    '''
 
     def detect_staff_line_group(self, page_index, img, x, top_y, bottom_y, staff_line_thickness=5):
         points = []
@@ -925,12 +634,7 @@ class ImageProcessing:
                                 accidental.letter = closest_note.letter
 
 
-
-
-
-
-
-    def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error):
+    def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error, overwrite):
         #TODO
         print("calculating notes and accidentals for distorted staff lines on page", page_index)
         notes = region.notes
@@ -981,7 +685,7 @@ class ImageProcessing:
                     closest_group = group
                     min_distance = abs(x - note.center[0])
             if closest_group is not None:
-                self.calculate_note_or_accidental(note, closest_group, region.clef)
+                self.calculate_note_or_accidental(note, closest_group, region.clef, overwrite)
             else:
                 print("couldnt find any groups for region", region.topleft, region.bottomright)
 
@@ -1022,6 +726,7 @@ class ImageProcessing:
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
                 if self.is_feature_in_rectange(note, topleft, bottomright) == True:
+                    #todo dont override captal accidental
                     note.accidental = ""
     '''
     Finds notes in the rectangle drawn on the screen and sets the accidental as long as the current note doesnt have an accidental
@@ -1042,7 +747,7 @@ class ImageProcessing:
         else:
             print("need more staff lines to auto resize notes")
         return note_height + 2
-
+    '''
     def detect_note_type(self, page_index, note):
         white_count = 0
         for y in range(note.topleft[1], note.bottomright[1]):
@@ -1053,14 +758,16 @@ class ImageProcessing:
             return "quarter"
         else:
             return "half"
-
+    '''
+    '''
     def auto_detect_half_or_quarter_note(self, page_index):
         for note in self.notes[page_index]:
             if self.detect_note_type(page_index, note) == "half":
                 note.is_half_note = "half"
             else:
                 note.is_half_note = "quarter"
-
+    '''
+    '''
     def remove_small_notes(self, page_index):
         note_height = self.get_note_height(page_index)
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
@@ -1069,18 +776,20 @@ class ImageProcessing:
                 self.notes[page_index].pop(i)
             if note.get_width() / note_height > 2:
                 self.notes[page_index].pop(i)
+    '''
 
     def remove_unautosnapped_notes(self, page_index):
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
              if self.notes[page_index][i].auto_extended == False:
                 self.notes[page_index].pop(i)
 
-
+    '''
     def detect_unautosnapped_half_notes(self, page_index):
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
             note = self.notes[page_index][i]
             if note.auto_extended == False and note.is_half_note == "half" or note.is_half_note == "whole":
                 print("Half note not auto extended on page ", page_index, ": ", note.center)
+    '''
     def do_features_overlap(self, one, two):
         #if one feature is to the left
         if one.bottomright[0] <= two.topleft[0] or two.bottomright[0] <= one.topleft[0]:
@@ -1218,7 +927,7 @@ class ImageProcessing:
                                 note.bottomright[1] -= down
                                 break
 
-
+    '''
     def add_note_by_center_coordinate(self, page_index, x, y, note_type, note_height_width_ratio):
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
@@ -1227,12 +936,15 @@ class ImageProcessing:
         note = Note(topleft, bottomright, is_half_note=note_type, auto_extended=False)
         #TODO
     '''
+    '''
     Tries to autosnap notes by assuming that implied lines will pass through center of note, and adjacent implied lines travel through top and bottom of note
+    '''
     '''
     def autosnap_notes_to_implied_line(self, page_index):
         if self.regions[page_index] is not None and len(self.regions[page_index]) > 0:
             for region in self.regions[page_index]:
                 region.autosnap_notes_to_implied_line()
+    '''
 
     '''
     Extends half notes using flood fill. Cases for when staff line runs through the note or not
@@ -1703,118 +1415,8 @@ class ImageProcessing:
             for note in self.notes[page_index]:
                 cv.rectangle(intersection, note.topleft, note.bottomright, 125, 1)
         return intersection
-    '''
-    def split_up_notes_immage(self, page_index, note_height, note_width):
-        # print(note_height, note_width)
-        gray = cv.bitwise_not(self.gray_images[page_index])
-        bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        vertical = np.copy(bw)
-        horizontal = np.copy(bw)
-        horizontal_size = int(note_height / 2)
-        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
-
-        # Apply morphology operations
-        horizontal = cv.erode(horizontal, horizontalStructure)
-        horizontal = cv.dilate(horizontal, horizontalStructure)
-        verticalsize = int(note_height / 2)
-        # Create structure element for extracting vertical lines through morphology operations
-        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
-
-        # Apply morphology operations
-        vertical = cv.erode(vertical, verticalStructure)
-        vertical = cv.dilate(vertical, verticalStructure)
-        intersection = cv.bitwise_and(horizontal, vertical)
-        intersection_lines_removed = np.copy(intersection)
-        intersection_height, intersection_width = intersection.shape[:2]
-        mask = np.zeros((intersection_height + 2, intersection_width + 2), np.uint8)
-        #print(intersection_height, intersection_width)
-        candidates = []
-        #TODO find rects bigger than note and split symetrically. add candidates array
-        for y_traverse in range(0, intersection_height, 1):
-            for x_traverse in range(0, intersection_width, 1):
-                #print(intersection[y_traverse][x_traverse])
-                if intersection[y_traverse][x_traverse] > 0 and mask[y_traverse + 1][x_traverse + 1] == 0:
-                    _, _, _, rect = cv.floodFill(intersection, mask, (x_traverse, y_traverse), 0)
-                    if rect == (0, 0, 0, 0):
-                        pass
-                    else:
-                        #print(rect)
-                        x, y, width, height = rect
-                        if .7 < width / note_width < 1.3:
-                            height_ratio = round(height / note_height)
-
-                            if 1.5 < height_ratio < 5.5:
-                                spacing = height / height_ratio
-                                for i in range(height_ratio - 1):
-                                    bottom = y + round((i + 1) * spacing)
-                                    for x_traverse_2 in range(x, x + width + 1, 1):
-                                        intersection_lines_removed[bottom][x_traverse_2] = 0
-
-                        elif .7 < width / note_width / 2 < 1.3:
-                            # Making a border on the center line
-                            for y_traverse_2 in range(y, y + height + 1, 1):
-                                intersection_lines_removed[y_traverse_2][x + int(width / 2)] = 0
-
-                        else:
-                            #Rect found that isnt a note
-                            pass
-        #cv.imwrite("aperfect.jpg", intersection_lines_removed)
-        return intersection_lines_removed
-    '''
-    def auto_detect_quarter_notes(self, page_index, note_height_width_ratio):
-        print("auto detect quarter note")
-        note_height = self.get_note_height(page_index)
-        note_width = int(note_height * note_height_width_ratio / 100)
-        intersection = self.split_up_notes_image(page_index, note_height, note_width)
-        h, w = intersection.shape[:2]
-        mask = np.zeros((h + 2, w + 2), np.uint8)
-        #TODO get candidate rects to loop through
-        for y_traverse in range(0, h, 1):
-            for x_traverse in range(0, w, 1):
-                if intersection[y_traverse][x_traverse] == 255 and mask[y_traverse + 1][x_traverse + 1] == 0:
-                    _, _, _, rect = cv.floodFill(intersection, mask, (x_traverse, y_traverse), 255)
-                    if rect == (0, 0, 0, 0):
-                        pass
-                    else:
-                        # print(rect)
-
-                        x, y, width, height = rect
-                        if .7 < width / note_width < 1.3:
-                            height_ratio = round(height / note_height)
-                            if .5 < height_ratio < 1.5:
-                                topleft = [x - 1, y - 1]
-                                bottomright = [x + width + 1, y + height + 1]
-                                note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
-                                self.append_features(page_index, "note", [note])
 
     def fill_in_white_spots(self, page_index, image, gray_image, filename):
-        '''
-        img = cv.adaptiveThreshold(self.gray_images[page_index], 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        h, w = img.shape[:2]
-        mask = np.zeros((h + 2, w + 2), np.uint8)
-        cv.imwrite("before.jpg", self.images[page_index])
-
-        for y in range(h):
-            for x in range(w):
-                if img[y][x] > 0:# and mask[y - 1][x - 1] == 0:#if white
-                    _, _, _, rect = cv.floodFill(img, mask, (x, y), 0)
-                    if rect == (0, 0, 0, 0):
-                        pass
-                    else:
-                        x, y, width, height = rect
-                        if width <= 3 and height <= 3:
-                            for y_traverse in range(y, y + height + 1, 1):
-                                for x_traverse in range(x, x + width + 1, 1):
-                                    if mask[y_traverse + 1][x_traverse + 1] != 0:#if floodFill accessed this pixel
-                                        #print("changing pixel to black")
-                                        self.images[page_index][y_traverse][x_traverse] = [0, 0, 0]
-                                        #print(self.images[page_index][y_traverse][x_traverse])
-        cv.imwrite("aimg.jpg", img)
-        cv.imwrite("aafter.jpg", self.images[page_index])
-        cv.imwrite(self.images_filenames[page_index] + ".jpg", self.images[page_index])
-        #TODO resave bw and gray images
-        #self.bw_images[page_index] = cv.COLOR_BGR2GRAY()
-        '''
         print("Fill in white spots on page ", page_index)
         min_size = 10
         # Step 1: Load the image in grayscale mode
@@ -1836,12 +1438,6 @@ class ImageProcessing:
                 #binary_img[labels == i] = 0  # Set pixels of this label to black
                 image[page_index][labels == i] = [0, 0, 0]
 
-        #cv.imwrite("aimg.jpg", img)
-        #cv.imwrite("aafter.jpg", self.images[page_index])
-        #TODO reload bw and gray images
-        #cv.imwrite(filename, image)
-        #self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
-        #self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], 200, 255, cv.THRESH_BINARY)[1]
         return image
 
     def reduce_image_size(self, page_index):
@@ -1871,6 +1467,7 @@ class ImageProcessing:
         self.regenerate_images(page_index)
 
     def regenerate_images(self, page_index, blackness):
+        print("regenerating images ", page_index)
         self.images[page_index] = cv.imread(self.images_filenames[page_index])
         self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
         self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)[1]
@@ -2246,44 +1843,95 @@ class ImageProcessing:
                                 self.notes[page_index].append(n)
 
     def determine_if_notes_are_on_line(self, page_index):
-        #todo detect if note is on line or on space. if there are notes adjacent, only check one side
-        #todo use intersection image to flood fill notes. if width is greater, only take one side
-        img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
-        # Check if image is loaded fine
-        if img is None:
-            print('Error opening image: ')
-            return -1
+        print("determine if notes are on line ", page_index)
+        #note_height = self.get_note_height(page_index)
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        line_length = 4
+        if self.is_list_iterable(self.notes[page_index]):
+            for note in self.notes[page_index]:
+                if note.is_on_line == None:
+                    if note.is_half_note == "quarter":
+                        #online detection: find pixels that appear in horizontal erode, but not in vertical erode and are attached from flood fill
+                        w, h = self.image_widths[page_index], self.image_heights[page_index]
+                        topleft = [max(0, note.topleft[0] - note.get_width() // 2), note.center[1] - 2]
+                        bottomright = [min(w - 1, note.bottomright[0] + note.get_width() // 2), note.center[1] + 2]
+                        sub_image = bw[topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
+                        note_sub_image = bw[note.topleft[1]:note.bottomright[1], note.topleft[0]:note.bottomright[0]]
+                        note_height = min(note.get_height(), note.get_width())
+                        horizontal_size = round(note_height / 2)
+                        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+                        #verticalsize = round(note_height / 2)
+                        #verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+                        horizontal = np.copy(sub_image)
+                        #vertical = np.copy(sub_image)
+                        horizontal = cv.erode(horizontal, horizontalStructure)
+                        horizontal = cv.dilate(horizontal, horizontalStructure)
+                        '''
+                        vertical = cv.erode(vertical, verticalStructure)
+                        vertical = cv.dilate(vertical, verticalStructure)
+                        not_vertical = cv.bitwise_not(vertical)
+                        intersection = cv.bitwise_and(horizontal, not_vertical)
+                        #todo patch in note sub image into intersection image
+                        tl = [max(0, note.topleft[0] - topleft[0]),max(0, note.topleft[1] - topleft[1])]
+                        br = [min(intersection.shape[1], tl[0] + note_sub_image.shape[1]),min(intersection.shape[0], tl[1] + note_sub_image.shape[0])]
+                        # Insert note_sub_image into the intersection where note_sub_image > 0
+                        intersection[tl[1]:br[1], tl[0]:br[0]] = np.where(
+                            note_sub_image[:br[1] - tl[1], :br[0] - tl[0]] > 0,
+                            note_sub_image[:br[1] - tl[1], :br[0] - tl[0]],
+                            intersection[tl[1]:br[1], tl[0]:br[0]]
+                        )
+                        '''
+                        h, w = sub_image.shape[:2]
+                        sub_mask = np.zeros((h + 2, w + 2), np.uint8)
+                        start_point = [note.center[0] - topleft[0], note.center[1] - topleft[1]]
+                        _, _, _, rect = cv.floodFill(horizontal, sub_mask, start_point, 255)
+                        if rect != (0,0,0,0):
+                            x, y, w, h = rect
+                            x += topleft[0]
+                            y += topleft[1]
+                            #self.append_features(page_index, "note", [Note([x, y], [x + w, y + h], False, True, None)])
+                            #todo ignore small notes
+                            #todo find if there are notes directly left or right of current note
+                            #if there is point that is removed in vertical erode, but attached in horizontal flood fill
+                            #if horizontal flood fill size is greater than note size
+                            is_note_to_right = self.is_note_to_the_right(page_index, note) == False
+                            is_note_to_left = self.is_note_to_the_left(page_index, note) == False
+                            if is_note_to_left == False and is_note_to_right == False:
+                                if note.topleft[0] - x > line_length or x + w - note.bottomright[0] > line_length:
+                                    note.is_on_line = True
+                            elif is_note_to_right == False:
+                                if note.topleft[0] - x > line_length:
+                                    note.is_on_line = True
+                            elif is_note_to_left == False:
+                                if x + w - note.bottomright[0] > line_length:
+                                    note.is_on_line = True
+                            else:
+                                note.is_on_line = False
+                    else:#if half or whole note
+                        if self.bw_images[page_index][note.center[1]][note.center[0]] == 0:
+                            note.is_on_line = True
+                        else:
+                            note.is_on_line = False
 
-        # Transform source image to gray if it is not already
-        if len(img.shape) != 2:
-            gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        else:
-            gray = img
+    def is_note_to_the_right(self, page_index, note):
+        if self.is_list_iterable(self.notes[page_index]):
+            for n in self.notes[page_index]:
+                if self.does_vertical_line_intersect_feature(note.get_topright(), note.bottomright, n) == True:
+                    return True
+        return False
 
-        # Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
-        gray = cv.bitwise_not(gray)
-        '''
-        horizontal = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        #horizontal = np.copy(bw)
-        note_height = self.get_note_height(page_index)
-        horizontal_size = note_height + 2
-        # Create structure element for extracting horizontal lines through morphology operations
-        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+    def is_note_to_the_left(self, page_index, note):
+        if self.is_list_iterable(self.notes[page_index]):
+            for n in self.notes[page_index]:
+                if self.does_vertical_line_intersect_feature(note.topleft, note.get_bottomleft(), n) == True:
+                    return True
+        return False
 
-        # Apply morphology operations
-        horizontal = cv.erode(horizontal, horizontalStructure)
-        horizontal = cv.dilate(horizontal, horizontalStructure)
-        cv.imwrite("ahorizontalonline.jpg", horizontal)
-        '''
-        for note in self.notes[page_index]:
-            if note.is_half_note == "quarter":
-                histogram = []
-                for y in range(note.topleft[1], note.bottomright[1], 1):
-                    if gray[y][note.center[0]] == 255:
-                        pass
-                        #width = get_width()
-                        #TODO get horizontal histograms and see if one line is bigger than others. Make sure no notes beside current note
-
+    def chord_error_detection(self, page_index):
+        self.find_note_perfectly_overlapping_above()
+        self.find_note_perfectly_overlapping_below()
+        self.detect_adjacent_notes_to_left()
+        self.detect_adjacent_note_to_right()
 
     def find_notes_and_accidentals_in_region(self, page_index):
         if self.regions[page_index] is not None:#TODO is not None for all loops
@@ -2337,41 +1985,6 @@ class ImageProcessing:
         else:
             self.array_types_dict[type][page_index] = new_features
         self.sort_features(self.array_types_dict[type][page_index])
-
-    '''
-    def find_closest_line(self, implied_lines, point):
-        min = 10000
-        closest_line = 0
-        for line in implied_lines:
-            if abs(point[1] - line.y) < min:
-                min = abs(point[1] - line[0])
-                closest_line = line
-        return closest_line
-    '''
-
-    '''
-    def fill_implied_lines(self):
-        for i in range(self.num_pages):
-            for region in self.regions[i]:
-                region.fill_implied_lines()
-    '''
-    '''
-
-    def is_half_note(self, page_index, note):
-        c = note.center
-        distance_from_center = 3
-        percent_white = .5
-        topleft = [c[0] - distance_from_center, c[1] - distance_from_center]
-        bottomright = [c[0] + distance_from_center, c[1] + distance_from_center]
-        white_count = 0
-        for y in range(topleft[1], bottomright[1] + 1, 1):
-            for x in range(topleft[0], bottomright[0] + 1, 1):
-                if self.gray_images[page_index][y][x] > 255 / 2:
-                    white_count += 1
-        if white_count / distance_from_center /distance_from_center > percent_white:
-            return True
-        return False
-    '''
 
     def fill_in_half_note_without_writing(self, page_index, note, color, img):
         #travel from center to top until you hit black. if you dont hit black, dont fill.
@@ -2558,7 +2171,7 @@ class ImageProcessing:
         if current_feature is not None:
             cv.rectangle(img, current_feature.topleft, current_feature.bottomright, (0, 0, 0), 1)
         h, w = img.shape[:2]
-        return cv.resize(img, (int(w * scale), int(h * scale)), interpolation=cv.INTER_NEAREST)
+        return cv.resize(img, (int(w * scale), int(h * scale)))#, interpolation=cv.INTER_NEAREST)
 
 
 
