@@ -35,6 +35,14 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    look at note letters and display notes that have letters that are on line!!!
+    for staff lines: fill in white space and find rects of evenly sized heights
+    only display notes on line or notes not on line
+    detect is on line for half and whole notes if is_on_line is none when opening annotations
+    to change where the region border is: intentionally mess up staff lines: or just allow editing of regions 
+    zoom in and out scroll bar
+    drop down tab for editing current feature: set letter, accidental
+    flood fill vertical image: find all notes whose center lies in the bounding rect for cord checking
     chord letter error detection
     resize intersection image
     for staff line detection: only keep pixels that were vertically eroded

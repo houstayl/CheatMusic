@@ -740,7 +740,7 @@ class ImageProcessing:
 
     def get_note_height(self, page_index):
         note_height = 5
-        if len(self.staff_lines[page_index]) > 4:
+        if self.is_list_iterable(self.staff_lines[page_index]) and len(self.staff_lines[page_index]) > 4:
             mid = int(self.image_widths[page_index] / 2)
             note_height = int(abs(self.staff_lines[page_index][4].calculate_y(mid) - self.staff_lines[page_index][0].calculate_y(mid)) / 4)
             #print(note_size)
@@ -779,6 +779,7 @@ class ImageProcessing:
     '''
 
     def remove_unautosnapped_notes(self, page_index):
+        print("remove unautosnapped notes", page_index)
         for i in range(len(self.notes[page_index]) - 1, -1, -1):
              if self.notes[page_index][i].auto_extended == False:
                 self.notes[page_index].pop(i)
@@ -1642,11 +1643,14 @@ class ImageProcessing:
     def get_clef_regions(self, page_index):
         # finding top and bottom of regions
         region_lines = [0]  # Start of first region will always be from top of page
-        for i in range(4, len(self.staff_lines[page_index]), 5):
-            # find midpoint between staff lines
-            if i + 1 < len(self.staff_lines[page_index]):
-                midpoint = self.image_widths[page_index] / 2
-                region_lines.append(int((self.staff_lines[page_index][i].calculate_y(midpoint) + self.staff_lines[page_index][i + 1].calculate_y(midpoint)) / 2))
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            for i in range(4, len(self.staff_lines[page_index]), 5):
+                # find midpoint between staff lines
+                if i + 1 < len(self.staff_lines[page_index]):
+                    midpoint = self.image_widths[page_index] / 2
+                    region_lines.append(int((self.staff_lines[page_index][i].calculate_y(midpoint) + self.staff_lines[page_index][i + 1].calculate_y(midpoint)) / 2))
+        else:
+            print("no staff lines on page", page_index, "cannot generate clef regions")
         region_lines.append(self.image_heights[page_index])
         #print("Image height: ", self.image_heights[page_index])
 
