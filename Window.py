@@ -35,6 +35,17 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    option to only show crosshairs
+    for note checking: show only one color at a time
+    selecting multiple features at same time
+    on single click to add: dont let rect be out of bounds
+    saving pdf
+    make sure rect is in bounds in fill in feature
+    draw crosshairs in different color for red note
+    dont allow template matching for accidentals next to start clef
+    allow accidentals of different types to be edited
+    on quarter half note overlap, get color for moved note
+    amethyst, bubblegum, red c, suddy d, yEllow, frog f, g
     look at note letters and display notes that have letters that are on line!!!
     for staff lines: fill in white space and find rects of evenly sized heights
     only display notes on line or notes not on line
