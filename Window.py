@@ -227,11 +227,11 @@ class ImageEditor(tk.Tk):
         self.threshold_scale = tk.Scale(self.left_frame, from_=0, to=99, orient="horizontal", label="Threshold")
         self.threshold_scale.set(80)
 
-        self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale")
+        self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale", command=self.on_blackness_scale_change)
         self.blackness_scale.set(210)
 
         #Erode stregth scale
-        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=10, orient="horizontal", label="Erode strength")
+        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=10, orient="horizontal", label="Erode strength", command=self.on_erode_scale_change)
         self.erode_strength_scale.set(100)
 
         #Used for three click staff line addition
@@ -1747,6 +1747,24 @@ class ImageEditor(tk.Tk):
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
+
+    def on_blackness_scale_change(self, value):
+        print("blackness scale change")
+        if self.view_mode.get() == self.view_mode_values[2]:#bw image
+            self.draw_image_with_filters()
+
+    def on_erode_scale_change(self, value):
+        print("erode scale change")
+        if self.view_mode.get() in [self.view_mode_values[1], self.view_mode_values[3], self.view_mode_values[4]]:
+            self.draw_image_with_filters()
+        if self.view_mode.get() == self.view_mode_values[0] and self.image_processor is not None:
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+            self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
+            self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
     def left_key_press(self, event):
         print("left key pressed")
