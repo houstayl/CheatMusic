@@ -1393,7 +1393,7 @@ class ImageProcessing:
             cv.imwrite("avertical.jpg", vertical)
             cv.imwrite("aintersection.jpg", intersection_image)
 
-    def get_intersection_image(self, page_index, erode_strength, show_borders_and_crosshairs, draw_notes=False):
+    def get_intersection_image(self, page_index, erode_strength, draw_notes=False):
         note_height = self.get_note_height(page_index)
         bw = cv.bitwise_not(self.bw_images[page_index])
         vertical = np.copy(bw)
@@ -1416,6 +1416,38 @@ class ImageProcessing:
             for note in self.notes[page_index]:
                 cv.rectangle(intersection, note.topleft, note.bottomright, 125, 1)
         return intersection
+
+    def get_horizontal_image(self, page_index, erode_strength, draw_notes=False):
+        note_height = self.get_note_height(page_index)
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        horizontal = np.copy(bw)
+        horizontal_size = round(note_height / 2 * erode_strength)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        if self.is_list_iterable(self.notes[page_index]) and draw_notes == True:
+            for note in self.notes[page_index]:
+                cv.rectangle(horizontal, note.topleft, note.bottomright, 125, 1)
+        return horizontal
+
+    def get_vertical_image(self, page_index, erode_strength, draw_notes=False):
+        note_height = self.get_note_height(page_index)
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        vertical = np.copy(bw)
+        verticalsize = round(note_height / 2 * erode_strength)
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        if self.is_list_iterable(self.notes[page_index]) and draw_notes == True:
+            for note in self.notes[page_index]:
+                cv.rectangle(vertical, note.topleft, note.bottomright, 125, 1)
+        return vertical
+
 
     def fill_in_white_spots(self, page_index, image, gray_image, filename):
         print("Fill in white spots on page ", page_index)

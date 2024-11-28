@@ -35,10 +35,11 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    change color of text in set feautre menu to match colors of feature borders
+    change current feature text color to match color as well
     for note checking: show only one color at a time
     selecting multiple features at same time
     on single click to add: dont let rect be out of bounds
-    saving pdf
     make sure rect is in bounds in fill in feature
     draw crosshairs in different color for red note
     dont allow template matching for accidentals next to start clef
@@ -1605,35 +1606,6 @@ class ImageEditor(tk.Tk):
 
 
     def save_pdf(self):
-        '''
-        folder = os.path.join(self.dirname, "SheetsMusic\\Annotated")#annotated0.png")
-        filename = os.path.join(folder, "annotated0.png")
-        #directory = os.path.join(self.directory, "Annotated")
-        #directory = os.path.join(directory, "page0.jpg")
-        print(folder)
-        #draw all notes and accidentals
-
-        if os.path.isfile(filename):
-            print("file exists")
-            images = []
-            for i in range(self.num_pages):
-                self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
-                self.image_processor.draw_features(self.image_processor.notes, i, draw_rectangle=False)
-                self.image_processor.draw_features(self.image_processor.accidentals, i, draw_rectangle=False)
-                cv.imwrite(self.image_processor.annotated_images_filenames[i], self.image_processor.images[i])
-
-                print("test", folder + "\\annotated" + str(i) + ".png")
-                images.append(Image.open(folder + "\\annotated" + str(i) + ".png"))
-            # go through all the images in the folder
-            print("test", folder + "\\annotated" + str(0) + ".png")
-            pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name+"_cheatmusic.pdf")
-            if pdf_path == "":
-                print("no pdf selected")
-                return
-            images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
-        else:
-            print("cant save")
-        '''
         pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name + "_cheatmusic.pdf")
         if pdf_path == "":
             print("no pdf selected")
@@ -1751,20 +1723,28 @@ class ImageEditor(tk.Tk):
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[1]:#erode image
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[2]:#black and white image
             #todo get bw image and below images
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            image = self.image_processor.bw_images[self.image_index]
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[3]:#horizontal image
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            image = self.image_processor.get_horizontal_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[4]:#vertical image
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            image = self.image_processor.get_vertical_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
 
