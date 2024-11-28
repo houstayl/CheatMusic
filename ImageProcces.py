@@ -2094,7 +2094,7 @@ class ImageProcessing:
             for line in self.staff_lines[page_index]:
                 cv.line(img, line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
 
-    def draw_border_and_crosshair(self, img, feature):
+    def draw_border(self, img, feature):
         x_mid = feature.center[0]
         y_mid = feature.center[1]
         x0 = feature.topleft[0]
@@ -2102,10 +2102,19 @@ class ImageProcessing:
         x1 = feature.bottomright[0]
         y1 = feature.bottomright[1]
         cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 1)
+
+    def draw_crosshair(self, img, feature):
+        x_mid = feature.center[0]
+        y_mid = feature.center[1]
+        x0 = feature.topleft[0]
+        y0 = feature.topleft[1]
+        x1 = feature.bottomright[0]
+        y1 = feature.bottomright[1]
         cv.line(img, (x_mid, y0), (x_mid, y1), self.type_colors[feature.type], 1)
         cv.line(img, (x0, y_mid), (x1, y_mid), self.type_colors[feature.type], 1)
 
-    def draw_features_without_writing(self, features, page_index, img, show_borders_and_crosshairs):
+
+    def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs):
         #print("Drawing the features loop")
         if features[page_index] is not None:
             for feature in features[page_index]:
@@ -2137,11 +2146,13 @@ class ImageProcessing:
                         # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
                     else:
                         cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
-                    if show_borders_and_crosshairs == True:
-                        self.draw_border_and_crosshair(img, feature)
+                    if show_borders == True:
+                        self.draw_border(img, feature)
+                    if show_crosshairs == True:
+                        self.draw_crosshair(img, feature)
 
 
-    def draw_image_without_writing(self, filter_list, page_index, show_borders_and_crosshairs, current_feature, scale):
+    def draw_image_without_writing(self, filter_list, page_index, show_borders, show_crosshairs, current_feature, scale):
         img = np.copy(self.images[page_index])
 
         if filter_list[0].get() == 1:  # staffline
@@ -2156,16 +2167,16 @@ class ImageProcessing:
                             bottomright_in_region = [region.bottomright[0], line.calculate_y(region.bottomright[0])]
                             cv.line(img, topleft_in_region, bottomright_in_region, self.letter_colors[line.letter.lower()], 1)
         if filter_list[2].get() == 1:  # bass clef
-            self.draw_features_without_writing(self.bass_clefs, page_index, img, show_borders_and_crosshairs)
+            self.draw_features_without_writing(self.bass_clefs, page_index, img, show_borders, show_crosshairs)
         if filter_list[3].get() == 1:  # treble clef
             # print("Drawing treble clefs")
-            self.draw_features_without_writing(self.treble_clefs, page_index, img, show_borders_and_crosshairs)
+            self.draw_features_without_writing(self.treble_clefs, page_index, img, show_borders, show_crosshairs)
         if filter_list[4].get() == 1:  # barline
-            self.draw_features_without_writing(self.barlines, page_index, img, show_borders_and_crosshairs)
+            self.draw_features_without_writing(self.barlines, page_index, img, show_borders, show_crosshairs)
         if filter_list[6].get() == 1:  # accidental
-            self.draw_features_without_writing(self.accidentals, page_index, img, show_borders_and_crosshairs)
+            self.draw_features_without_writing(self.accidentals, page_index, img, show_borders, show_crosshairs)
         if filter_list[5].get() == 1:  # note
-            self.draw_features_without_writing(self.notes, page_index, img, show_borders_and_crosshairs)
+            self.draw_features_without_writing(self.notes, page_index, img, show_borders, show_crosshairs)
         if filter_list[7].get() == 1:  # region border
             if self.regions[page_index] is not None:
                 for region in self.regions[page_index]:

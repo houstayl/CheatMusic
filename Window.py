@@ -35,7 +35,6 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    option to only show crosshairs
     for note checking: show only one color at a time
     selecting multiple features at same time
     on single click to add: dont let rect be out of bounds
@@ -182,9 +181,6 @@ class ImageEditor(tk.Tk):
         #self.fast_editing_mode = tk.BooleanVar()
         #self.fast_editing_mode.set(False)
         #self.fast_editing_mode_checkbutton = tk.Checkbutton(self.left_frame, text="Fast editing mode", onvalue=1, offvalue=0, variable=self.fast_editing_mode)#, command=self.draw_image_canvas_mode)
-        self.show_borders_and_crosshairs = tk.BooleanVar()
-        self.show_borders_and_crosshairs.set(False)
-        self.show_borders_and_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Show borders and crosshairs", onvalue=1, offvalue=0, variable=self.show_borders_and_crosshairs)
 
         self.allow_note_to_be_auto_extended = tk.BooleanVar()
         self.allow_note_to_be_auto_extended.set(True)
@@ -276,7 +272,7 @@ class ImageEditor(tk.Tk):
             self.add_mode_label.grid(row=2, column=0)
             self.add_mode_combobox.grid(row=3, column=0)
             #self.fast_editing_mode_checkbutton.grid(row=4, column=0)
-            self.show_borders_and_crosshairs_checkbutton.grid(row=4, column=0)
+            #self.show_borders_and_crosshairs_checkbutton.grid(row=4, column=0)
             self.allow_note_to_be_auto_extended_check_button.grid(row=5, column=0)
             #self.note_type_radio_button_quarter.grid(row=6, column=0)
             #self.note_type_radio_button_half.grid(row=7, column=0)
@@ -316,7 +312,7 @@ class ImageEditor(tk.Tk):
             self.add_mode_label.pack()
             self.add_mode_combobox.pack()
             #self.fast_editing_mode_checkbutton.pack()
-            self.show_borders_and_crosshairs_checkbutton.pack()
+            #self.show_borders_and_crosshairs_checkbutton.pack()
             self.allow_note_to_be_auto_extended_check_button.pack()
             #self.note_type_radio_button_quarter.pack()
             #self.note_type_radio_button_half.pack()
@@ -442,17 +438,30 @@ class ImageEditor(tk.Tk):
         view_menu.add_command(label="Zoom In", command=self.zoom_in)
         view_menu.add_command(label="Zoom Out", command=self.zoom_out)
         view_menu.add_separator()
-        view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
-        view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
+        self.show_borders = tk.BooleanVar()
+        self.show_borders.set(False)
+        self.show_borders_checkbutton = tk.Checkbutton(self.left_frame, text="Show borders", onvalue=1, offvalue=0, variable=self.show_borders)
+        self.show_crosshairs = tk.BooleanVar()
+        self.show_crosshairs.set(False)
+        self.show_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Show crosshairs", onvalue=1, offvalue=0, variable=self.show_crosshairs)
+        view_menu.add_checkbutton(label="Show borders(Checkbutton)", onvalue=True, offvalue=False, variable=self.show_borders, command=self.draw_image_with_filters)
+        view_menu.add_checkbutton(label="Show crosshairs(Checkbutton)", onvalue=True, offvalue=False, variable=self.show_crosshairs, command=self.draw_image_with_filters)
+
+        #view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
+        #view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
         view_menu.add_separator()
         self.view_mode = tk.StringVar()
-        self.view_mode_values = ["color", "erode"]
+        self.view_mode_values = ["color", "erode", "bw", "horizontal", "vertical"]
         self.view_mode.set(self.view_mode_values[0])
         view_menu.add_radiobutton(label="Show color image", variable=self.view_mode, value=self.view_mode_values[0], command=self.draw_image_with_filters)
         view_menu.add_radiobutton(label="Show eroded intersection image", variable=self.view_mode, value=self.view_mode_values[1], command=self.draw_image_with_filters)
+        view_menu.add_radiobutton(label="Show black and white image", variable=self.view_mode, value=self.view_mode_values[2], command=self.draw_image_with_filters)
+        view_menu.add_radiobutton(label="Show horizontal image", variable=self.view_mode, value=self.view_mode_values[3], command=self.draw_image_with_filters)
+        view_menu.add_radiobutton(label="Show vertical image", variable=self.view_mode, value=self.view_mode_values[4], command=self.draw_image_with_filters)
+
         view_menu.add_separator()
-        view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
-        view_menu.add_separator()
+        #view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
+        #view_menu.add_separator()
         #view_menu.add_command(label="Fast editing mode", command=self.switch_fast_editing_mode)
         #view_menu.add_separator()
         view_menu.add_command(label="Fill in white spots", command=self.fill_in_white_spots)
@@ -1410,8 +1419,9 @@ class ImageEditor(tk.Tk):
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
-            self.show_borders_and_crosshairs.set(not self.show_borders_and_crosshairs.get())
-            self.draw_image_with_filters()
+            #self.show_borders_and_crosshairs.set(not self.show_borders_and_crosshairs.get())
+            #self.draw_image_with_filters()
+            pass
         if c == ',':
             self.allow_note_to_be_auto_extended.set(not self.allow_note_to_be_auto_extended.get())
         if c == "[":
@@ -1595,7 +1605,7 @@ class ImageEditor(tk.Tk):
 
 
     def save_pdf(self):
-
+        '''
         folder = os.path.join(self.dirname, "SheetsMusic\\Annotated")#annotated0.png")
         filename = os.path.join(folder, "annotated0.png")
         #directory = os.path.join(self.directory, "Annotated")
@@ -1623,6 +1633,26 @@ class ImageEditor(tk.Tk):
             images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         else:
             print("cant save")
+        '''
+        pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name + "_cheatmusic.pdf")
+        if pdf_path == "":
+            print("no pdf selected")
+            return
+        images = []
+        filter_list = []
+        for i in range(8):
+            filter_list.append(tk.IntVar())
+            if i == 5 or i == 6:
+                filter_list[i].set(1)
+            else:
+                filter_list[i].set(0)
+        for i in range(self.num_pages):
+            print("save pdf page", i)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, None, 1), cv.COLOR_BGR2RGB)
+            images.append(Image.fromarray(image))
+        images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
+        print("pdf saved", pdf_path)
+
 
     def save_binary(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
@@ -1717,11 +1747,24 @@ class ImageEditor(tk.Tk):
 
     def reload_image(self):
         if self.view_mode.get() == self.view_mode_values[0]:#color:
-            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders_and_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders.get(), self.show_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
-        else:#erode image
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders_and_crosshairs.get(), draw_notes=True)
+        elif self.view_mode.get() == self.view_mode_values[1]:#erode image
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+        elif self.view_mode.get() == self.view_mode_values[2]:#black and white image
+            #todo get bw image and below images
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+        elif self.view_mode.get() == self.view_mode_values[3]:#horizontal image
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+        elif self.view_mode.get() == self.view_mode_values[4]:#vertical image
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, self.show_borders.get(), self.show_crosshairs.get(), draw_notes=True)
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
 
