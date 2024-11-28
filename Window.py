@@ -520,7 +520,7 @@ class ImageEditor(tk.Tk):
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
         #staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
-        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
+        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs) Warning: Will overwrite manual changes", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
         #staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
         staff_line_menu.add_separator()
         staff_line_menu.add_command(label="Generate staff lines override(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line(override=True))
@@ -529,7 +529,7 @@ class ImageEditor(tk.Tk):
         # Barline menu
         barline_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Barline", menu=barline_menu)
-        barline_menu.add_command(label="Generate barlines  (Prerequisite: Staff lines)", command=self.get_barlines)
+        barline_menu.add_command(label="Generate barlines  (Prerequisite: Staff lines) Warning: Will overwrite manual changes", command=self.get_barlines)
         # barline_menu.add_command(label="Barline", command=lambda :self.set_feature_type("barline"))
 
 

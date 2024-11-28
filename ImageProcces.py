@@ -273,6 +273,7 @@ class ImageProcessing:
     Gets barlines by finding vertical lines that start at upper top staff line and end at lower bottom staff line
     '''
     def get_barlines(self, page_index):
+        self.barlines[page_index] = []
         print("getting barlines page", page_index)
         start_and_end_staff_lines = []
         #0 and 9th staff lines
