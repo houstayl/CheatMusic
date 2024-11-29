@@ -2113,11 +2113,18 @@ class ImageProcessing:
             # Assign the updated ROI back to img
             img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][adjusted_sub_mask == 1] = color
 
-    def fill_in_feature_without_writing(self, page_index, topleft, bottomright, color, img):
-        #for i in range(topleft[1], bottomright[1], 1):
-        #    for j in range(topleft[0], bottomright[0], 1):
-        #        if self.gray_images[page_index][i][j] > 0:
-        #            img[i][j] = color
+    def fill_in_feature_without_writing(self, page_index, feature, color, img):
+        accidental = feature.accidental
+        topleft = feature.topleft
+        bottomright = feature.bottomright
+        if accidental == "flat":
+            topleft = (feature.topleft[0], feature.center[1])
+        if accidental == "sharp":
+            bottomright = (feature.bottomright[0], feature.center[1])
+        if accidental == "double_flat":
+            bottomright = (feature.center[0], feature.bottomright[1])
+        if accidental == "double_sharp":
+            topleft = (feature.center[0], feature.topleft[1])
         sub_image = self.bw_images[page_index][topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
         mask = sub_image == 0
         img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][mask] = color
@@ -2146,46 +2153,48 @@ class ImageProcessing:
         cv.line(img, (x_mid, y0), (x_mid, y1), self.type_colors[feature.type], 1)
         cv.line(img, (x0, y_mid), (x1, y_mid), self.type_colors[feature.type], 1)
 
-
-    def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs):
-        #print("Drawing the features loop")
-        if features[page_index] is not None:
-            for feature in features[page_index]:
-                if feature is not None:
-                    # if it is a note or accidental that has a letter labeled
-                    if feature.letter != "":
-                        color = self.letter_colors[feature.letter.lower()]
-                        #print("note: ", feature)
-                        if feature.accidental != "":
-                            #print("note: ", feature)
-                            accidental = feature.accidental.lower()
-                            if accidental == "flat":
-                                self.fill_in_feature_without_writing(page_index, (feature.topleft[0], feature.center[1]), feature.bottomright, color, img)
-                            if accidental == "sharp":
-                                self.fill_in_feature_without_writing(page_index, feature.topleft,(feature.bottomright[0], feature.center[1]), color, img)
-
-                            if accidental == "double_flat":
-                                self.fill_in_feature_without_writing(page_index, feature.topleft,(feature.center[0], feature.bottomright[1]), color, img)
-                            if accidental == "double_sharp":
-                                self.fill_in_feature_without_writing(page_index,(feature.center[0], feature.topleft[1]), feature.bottomright, color, img)
-                            if accidental == "natural":
-                                self.fill_in_feature_without_writing(page_index, feature.topleft, feature.bottomright, color, img)
-                        else:  # note with no accidental
-                            self.fill_in_feature_without_writing(page_index, feature.topleft, feature.bottomright,
-                                                 color, img)
-                        if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
-                            #self.fill_in_feature(page_index, feature.topleft, feature.bottomright, color)
-                            self.fill_in_half_note_without_writing(page_index, feature, color, img)
-                        # self.fill_in_feature(page_index, f.topleft, f.bottomright, self.letter_colors[f.letter])
+    def does_note_match_only_show_this_note_type(self, feature, only_show_this_note_type):
+        if only_show_this_note_type == None or only_show_this_note_type == "none":
+            return True
+        if only_show_this_note_type is not None:
+            if len(only_show_this_note_type) == 1:  # if only showing a letter color
+                if feature.letter.lower() != only_show_this_note_type:
+                    return False
+                else:
+                    return True
+            else:  # only show notes on line of not on line
+                if only_show_this_note_type == "on_line":
+                    if isinstance(feature, Note) and feature.is_on_line != True:
+                        return False
                     else:
-                        cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
-                    if show_borders == True:
-                        self.draw_border(img, feature)
-                    if show_crosshairs == True:
-                        self.draw_crosshair(img, feature)
+                        return True
+                elif only_show_this_note_type == "not_on_line":
+                    if isinstance(feature, Note) and feature.is_on_line != False:
+                        return False
+                    else:
+                        return True
+    def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs, only_show_this_note_type=None):
+        #print("Drawing the features loop")
+        if self.is_list_iterable(features[page_index]):
+            for feature in features[page_index]:
+                # if it is a note or accidental that has a letter labeled
+                if feature.letter != "":
+                    if self.does_note_match_only_show_this_note_type(feature, only_show_this_note_type) is False:
+                        continue
+                    color = self.letter_colors[feature.letter.lower()]
+                    self.fill_in_feature_without_writing(page_index, feature, color, img)
+                    if isinstance(feature, Note) and (feature.is_half_note == "half" or feature.is_half_note == "whole"):
+                        self.fill_in_half_note_without_writing(page_index, feature, color, img)
+                #if feature does note have a letter
+                else:
+                    cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 2)
+                if show_borders == True:
+                    self.draw_border(img, feature)
+                if show_crosshairs == True:
+                    self.draw_crosshair(img, feature)
 
 
-    def draw_image_without_writing(self, filter_list, page_index, show_borders, show_crosshairs, current_feature, scale):
+    def draw_image_without_writing(self, filter_list, page_index, show_borders, show_crosshairs, current_feature, scale, only_show_this_note_type=None):
         img = np.copy(self.images[page_index])
 
         if filter_list[0].get() == 1:  # staffline
@@ -2207,9 +2216,9 @@ class ImageProcessing:
         if filter_list[4].get() == 1:  # barline
             self.draw_features_without_writing(self.barlines, page_index, img, show_borders, show_crosshairs)
         if filter_list[6].get() == 1:  # accidental
-            self.draw_features_without_writing(self.accidentals, page_index, img, show_borders, show_crosshairs)
+            self.draw_features_without_writing(self.accidentals, page_index, img, show_borders, show_crosshairs, only_show_this_note_type)
         if filter_list[5].get() == 1:  # note
-            self.draw_features_without_writing(self.notes, page_index, img, show_borders, show_crosshairs)
+            self.draw_features_without_writing(self.notes, page_index, img, show_borders, show_crosshairs, only_show_this_note_type)
         if filter_list[7].get() == 1:  # region border
             if self.regions[page_index] is not None:
                 for region in self.regions[page_index]:

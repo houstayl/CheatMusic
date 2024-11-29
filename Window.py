@@ -35,6 +35,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    2 horizontal images. one for noes the other for staff lines and detecting notes on line
     change color of text in set feautre menu to match colors of feature borders
     change current feature text color to match color as well
     for note checking: show only one color at a time
@@ -227,7 +228,7 @@ class ImageEditor(tk.Tk):
         self.threshold_scale = tk.Scale(self.left_frame, from_=0, to=99, orient="horizontal", label="Threshold")
         self.threshold_scale.set(80)
 
-        self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, orient="horizontal", label="Blackness scale", command=self.on_blackness_scale_change)
+        self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, resolution=5, orient="horizontal", label="Blackness scale", command=self.on_blackness_scale_change)
         self.blackness_scale.set(210)
 
         #Erode stregth scale
@@ -268,43 +269,35 @@ class ImageEditor(tk.Tk):
 
         if self.frame_location == "top":
             self.left_frame.pack(side="top", fill="y", anchor="w")
+            '''
             self.page_indicator_label.grid(row=0, column=0)
             self.selected_label.grid(row=1, column=0)
             self.add_mode_label.grid(row=2, column=0)
             self.add_mode_combobox.grid(row=3, column=0)
-            #self.fast_editing_mode_checkbutton.grid(row=4, column=0)
-            #self.show_borders_and_crosshairs_checkbutton.grid(row=4, column=0)
             self.allow_note_to_be_auto_extended_check_button.grid(row=5, column=0)
-            #self.note_type_radio_button_quarter.grid(row=6, column=0)
-            #self.note_type_radio_button_half.grid(row=7, column=0)
-            #self.note_type_radio_button_whole.grid(row=8, column=0)
             self.staff_line_error_scale.grid(row=0, column=1)
             self.note_width_ratio_scale.grid(row=1, column=1)
             self.threshold_scale.grid(row=2, column=1)
             self.blackness_scale.grid(row=3, column=1)
             self.erode_strength_scale.grid(row=4, column=1)
-            #self.key_label.grid(row=4, column=1)
-            #self.key_combobox.grid(row=5, column=1)
             self.num_notes_label.grid(row=5, column=1)
             self.num_notes_combobox.grid(row=6, column=1)
             '''
-            self.page_indicator_label.pack()
-            self.selected_label.pack()
-            self.add_mode_label.pack()
-            self.add_mode_combobox.pack()
-            self.draw_image_on_jpg_check_button.pack()
-            self.allow_note_to_be_auto_extended_check_button.pack()
-            self.note_type_radio_button_quarter.pack()
-            self.note_type_radio_button_half.pack()
-            self.note_type_radio_button_whole.pack()
-            self.staff_line_error_scale.pack()
-            self.note_width_ratio_scale.pack()
-            self.threshold_scale.pack()
-            self.blackness_scale.pack()
-            self.key_label.pack()
-            self.key_combobox.pack()
-            self.num_notes_label.pack()
-            self.num_notes_combobox.pack()'''
+
+            self.left_frame.pack(side="top", fill="y", anchor="w")
+            self.page_indicator_label.grid(row=0, column=0)
+            self.selected_label.grid(row=1, column=0)
+            self.add_mode_label.grid(row=0, column=1)
+            self.add_mode_combobox.grid(row=1, column=1)
+            self.allow_note_to_be_auto_extended_check_button.grid(row=0, column=2)
+            self.staff_line_error_scale.grid(row=1, column=2)
+            self.note_width_ratio_scale.grid(row=0, column=3)
+            self.threshold_scale.grid(row=1, column=3)
+            self.blackness_scale.grid(row=0, column=4)
+            self.erode_strength_scale.grid(row=1, column=4)
+            self.num_notes_label.grid(row=0, column=5)
+            self.num_notes_combobox.grid(row=1, column=5)
+
 
         else:
             self.left_frame.pack(side="left", fill="y")
@@ -454,12 +447,14 @@ class ImageEditor(tk.Tk):
         self.view_mode = tk.StringVar()
         self.view_mode_values = ["color", "erode", "bw", "horizontal", "vertical"]
         self.view_mode.set(self.view_mode_values[0])
-        view_menu.add_radiobutton(label="Show color image", variable=self.view_mode, value=self.view_mode_values[0], command=self.draw_image_with_filters)
-        view_menu.add_radiobutton(label="Show eroded intersection image", variable=self.view_mode, value=self.view_mode_values[1], command=self.draw_image_with_filters)
-        view_menu.add_radiobutton(label="Show black and white image", variable=self.view_mode, value=self.view_mode_values[2], command=self.draw_image_with_filters)
-        view_menu.add_radiobutton(label="Show horizontal image", variable=self.view_mode, value=self.view_mode_values[3], command=self.draw_image_with_filters)
-        view_menu.add_radiobutton(label="Show vertical image", variable=self.view_mode, value=self.view_mode_values[4], command=self.draw_image_with_filters)
+        view_mode_sub_menu = tk.Menu(view_menu, tearoff=0)
 
+        view_mode_sub_menu.add_radiobutton(label="Show color image", variable=self.view_mode, value=self.view_mode_values[0], command=self.draw_image_with_filters)
+        view_mode_sub_menu.add_radiobutton(label="Show eroded intersection image", variable=self.view_mode, value=self.view_mode_values[1], command=self.draw_image_with_filters)
+        view_mode_sub_menu.add_radiobutton(label="Show black and white image", variable=self.view_mode, value=self.view_mode_values[2], command=self.draw_image_with_filters)
+        view_mode_sub_menu.add_radiobutton(label="Show horizontal image", variable=self.view_mode, value=self.view_mode_values[3], command=self.draw_image_with_filters)
+        view_mode_sub_menu.add_radiobutton(label="Show vertical image", variable=self.view_mode, value=self.view_mode_values[4], command=self.draw_image_with_filters)
+        view_menu.add_cascade(label="Select image to view", menu=view_mode_sub_menu)
         view_menu.add_separator()
         #view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
         #view_menu.add_separator()
@@ -467,14 +462,37 @@ class ImageEditor(tk.Tk):
         #view_menu.add_separator()
         view_menu.add_command(label="Fill in white spots", command=self.fill_in_white_spots)
         view_menu.add_separator()
-        view_menu.add_checkbutton(label="Staff Lines", onvalue=1, offvalue=0, variable=self.filter_list[0], command=self.set_filter)
-        view_menu.add_checkbutton(label="Implied Lines", onvalue=1, offvalue=0, variable=self.filter_list[1], command=self.set_filter)
-        view_menu.add_checkbutton(label="Treble Clefs", onvalue=1, offvalue=0, variable=self.filter_list[2], command=self.set_filter)
-        view_menu.add_checkbutton(label="Bass Clefs", onvalue=1, offvalue=0, variable=self.filter_list[3], command=self.set_filter)
-        view_menu.add_checkbutton(label="Barlines", onvalue=1, offvalue=0, variable=self.filter_list[4], command=self.set_filter)
-        view_menu.add_checkbutton(label="Notes", onvalue=1, offvalue=0, variable=self.filter_list[5], command=self.set_filter)
-        view_menu.add_checkbutton(label="Accidentals", onvalue=1, offvalue=0, variable=self.filter_list[6], command=self.set_filter)
-        view_menu.add_checkbutton(label="Region Borders", onvalue=1, offvalue=0, variable=self.filter_list[7], command=self.set_filter)
+
+        select_features_to_view_sub_menu = tk.Menu(view_menu, tearoff=0)
+        select_features_to_view_sub_menu.add_checkbutton(label="Staff Lines", onvalue=1, offvalue=0, variable=self.filter_list[0], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Implied Lines", onvalue=1, offvalue=0, variable=self.filter_list[1], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Treble Clefs", onvalue=1, offvalue=0, variable=self.filter_list[2], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Bass Clefs", onvalue=1, offvalue=0, variable=self.filter_list[3], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Barlines", onvalue=1, offvalue=0, variable=self.filter_list[4], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Notes", onvalue=1, offvalue=0, variable=self.filter_list[5], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Accidentals", onvalue=1, offvalue=0, variable=self.filter_list[6], command=self.set_filter)
+        select_features_to_view_sub_menu.add_checkbutton(label="Region Borders", onvalue=1, offvalue=0, variable=self.filter_list[7], command=self.set_filter)
+        view_menu.add_cascade(label="Select which features to show", menu=select_features_to_view_sub_menu)
+
+        self.only_show_this_note_type = tk.StringVar()
+        self.only_show_this_note_type.set("none")
+        select_color_to_view_sub_menu = tk.Menu(view_menu, tearoff=0)
+        select_color_to_view_sub_menu.add_radiobutton(label="None", variable=self.only_show_this_note_type, value='none', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_separator()
+        select_color_to_view_sub_menu.add_radiobutton(label="A", variable=self.only_show_this_note_type, value='a', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="B", variable=self.only_show_this_note_type, value='b', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="C", variable=self.only_show_this_note_type, value='c', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="D", variable=self.only_show_this_note_type, value='d', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="E", variable=self.only_show_this_note_type, value='e', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="F", variable=self.only_show_this_note_type, value='f', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="G", variable=self.only_show_this_note_type, value='g', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_separator()
+        select_color_to_view_sub_menu.add_radiobutton(label="Notes that are on line", variable=self.only_show_this_note_type, value='on_line', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="Notes that are note on line", variable=self.only_show_this_note_type, value='not_on_line', command=self.draw_image_with_filters)
+        view_menu.add_cascade(label="Only show notes of a single type for making letter corrections easily", menu=select_color_to_view_sub_menu)
+
+
+
 
 
         #filter_menu = tk.Menu(self.menu, tearoff=0)
@@ -540,10 +558,10 @@ class ImageEditor(tk.Tk):
         self.menu.add_cascade(label="Notes", menu=note_menu)
         # note_menu.add_command(label="Note", command=lambda :self.set_feature_type("note"))
         #note_menu.add_checkbutton(label="(Checkbox)Half note", variable=self.is_half_note)
-        note_menu.add_radiobutton(label="Quarter Note", variable=self.note_type, value=self.note_types[0])
-        note_menu.add_radiobutton(label="Half Note", variable=self.note_type, value=self.note_types[1])
-        note_menu.add_radiobutton(label="Whole Note", variable=self.note_type, value=self.note_types[2])
-        note_menu.add_separator()
+        #note_menu.add_radiobutton(label="Quarter Note", variable=self.note_type, value=self.note_types[0])
+        #note_menu.add_radiobutton(label="Half Note", variable=self.note_type, value=self.note_types[1])
+        #note_menu.add_radiobutton(label="Whole Note", variable=self.note_type, value=self.note_types[2])
+        #note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines)", command=self.auto_extend_notes)
         note_menu.add_separator()
@@ -551,13 +569,15 @@ class ImageEditor(tk.Tk):
         #note_menu.add_separator()
         #note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
         #note_menu.add_separator()
-        note_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
-        note_menu.add_separator()
-        note_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
-        note_menu.add_command(label="Extend notes up", command=lambda: self.extend_notes(1, 0, 0, 0))
-        note_menu.add_separator()
-        note_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
-        note_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
+        extend_notes_sub_menu = tk.Menu(note_menu, tearoff=0)
+        extend_notes_sub_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
+        extend_notes_sub_menu.add_separator()
+        extend_notes_sub_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
+        extend_notes_sub_menu.add_command(label="Extend notes up", command=lambda: self.extend_notes(1, 0, 0, 0))
+        extend_notes_sub_menu.add_separator()
+        extend_notes_sub_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
+        extend_notes_sub_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
+        note_menu.add_cascade(label="Extend notes in direction by 1 pixel", menu=extend_notes_sub_menu)
         note_menu.add_separator()
         note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
         note_menu.add_separator()
@@ -1719,7 +1739,7 @@ class ImageEditor(tk.Tk):
 
     def reload_image(self):
         if self.view_mode.get() == self.view_mode_values[0]:#color:
-            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders.get(), self.show_crosshairs.get(), self.current_feature, self.scale), cv.COLOR_BGR2RGB)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders.get(), self.show_crosshairs.get(), self.current_feature, self.scale, self.only_show_this_note_type.get()), cv.COLOR_BGR2RGB)
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[1]:#erode image
@@ -1750,8 +1770,8 @@ class ImageEditor(tk.Tk):
 
     def on_blackness_scale_change(self, value):
         print("blackness scale change")
-        if self.view_mode.get() == self.view_mode_values[2]:#bw image
-            self.draw_image_with_filters()
+        #if self.view_mode.get() == self.view_mode_values[2]:#bw image
+        #    self.draw_image_with_filters()
 
     def on_erode_scale_change(self, value):
         print("erode scale change")
