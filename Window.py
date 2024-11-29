@@ -35,8 +35,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    setting accidentals using number keys
     show staff line groups from distorted staff line calculation in image.
-    
+    on distorted staff lines: set overwrite to false
     2 horizontal images. one for noes the other for staff lines and detecting notes on line
     change current feature text color to match color as well
     for note checking: show only one color at a time
@@ -422,7 +423,7 @@ class ImageEditor(tk.Tk):
         select_features_to_view_sub_menu.add_checkbutton(label="Accidentals", onvalue=1, offvalue=0, variable=self.filter_list[6], command=self.set_filter)
         select_features_to_view_sub_menu.add_checkbutton(label="Region Borders", onvalue=1, offvalue=0, variable=self.filter_list[7], command=self.set_filter)
         view_menu.add_cascade(label="Select which features to show", menu=select_features_to_view_sub_menu)
-
+        view_menu.add_separator()
         self.only_show_this_note_type = tk.StringVar()
         self.only_show_this_note_type.set("none")
         select_color_to_view_sub_menu = tk.Menu(view_menu, tearoff=0)
@@ -1351,7 +1352,7 @@ class ImageEditor(tk.Tk):
 
 
     def keypress(self, event):
-        print("char: ", event)
+        print("keypress: ", event.char)
         c = event.char
         #if self.editing_mode.get() == self.editing_modes[0]:#add mode
         if c == 'i' or c == 'I':

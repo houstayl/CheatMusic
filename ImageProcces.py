@@ -1889,7 +1889,7 @@ class ImageProcessing:
                     if note.is_half_note != "quarter":
                         half_note_count += 1
                     if note.is_on_line == None:
-                        if note.is_half_note == "quarter":
+                        if note.is_half_note != "quarter":
                             if self.bw_images[page_index][note.center[1]][note.center[0]] == 0:
                                 note.is_on_line = True
                             else:
@@ -2160,17 +2160,18 @@ class ImageProcessing:
             img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][adjusted_sub_mask == 1] = color
 
     def fill_in_feature_without_writing(self, page_index, feature, color, img):
-        accidental = feature.accidental
+        accidental = feature.accidental.lower()
         topleft = feature.topleft
         bottomright = feature.bottomright
         if accidental == "flat":
-            topleft = (feature.topleft[0], feature.center[1])
+            topleft = [feature.topleft[0], feature.center[1]]
         if accidental == "sharp":
-            bottomright = (feature.bottomright[0], feature.center[1])
+            bottomright = [feature.bottomright[0], feature.center[1]]
         if accidental == "double_flat":
-            bottomright = (feature.center[0], feature.bottomright[1])
+            bottomright = [feature.center[0], feature.bottomright[1]]
         if accidental == "double_sharp":
-            topleft = (feature.center[0], feature.topleft[1])
+            topleft = [feature.center[0], feature.topleft[1]]
+        #print(topleft, bottomright, feature.topleft, feature.bottomright)
         sub_image = self.bw_images[page_index][topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
         mask = sub_image == 0
         img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][mask] = color
@@ -2181,12 +2182,6 @@ class ImageProcessing:
                 cv.line(img, line.topleft, line.bottomright, self.type_colors["staff_line"], 1)
 
     def draw_border(self, img, feature):
-        x_mid = feature.center[0]
-        y_mid = feature.center[1]
-        x0 = feature.topleft[0]
-        y0 = feature.topleft[1]
-        x1 = feature.bottomright[0]
-        y1 = feature.bottomright[1]
         cv.rectangle(img, feature.topleft, feature.bottomright, self.type_colors[feature.type], 1)
 
     def draw_crosshair(self, img, feature):
@@ -2219,6 +2214,7 @@ class ImageProcessing:
                         return False
                     else:
                         return True
+
     def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs, only_show_this_note_type=None):
         #print("Drawing the features loop")
         if self.is_list_iterable(features[page_index]):
