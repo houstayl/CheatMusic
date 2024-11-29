@@ -1879,7 +1879,29 @@ class ImageProcessing:
                                 n.accidental = notes[k].accidental
                                 self.notes[page_index].append(n)
 
-    def determine_if_notes_are_on_line(self, page_index):
+    def determine_if_notes_are_on_line(self, page_index, erode_strength):
+        print("determine if notes are on line", page_index)
+        horizontal = self.get_horizontal_image(page_index, erode_strength)
+        if self.is_list_iterable(self.notes[page_index]):
+            for note in self.notes[page_index]:
+                if note.is_on_line == None:
+                    if note.is_half_note == "quarter":
+                        if horizontal[note.center[1] - 1][note.center[0]] == 255:
+                            note.is_on_line = True
+                        elif horizontal[note.center[1]][note.center[0]] == 255:
+                            note.is_on_line = True
+                        elif horizontal[note.center[1] + 1][note.center[0]] == 255:
+                            note.is_on_line = True
+                        else:
+                            note.is_on_line = False
+
+                    else:# half or whole note
+                        if self.bw_images[page_index][note.center[1]][note.center[0]] == 0:
+                            note.is_on_line = True
+                        else:
+                            note.is_on_line = False
+
+    def alternative_determine_if_notes_are_on_line(self, page_index):
         print("determine if notes are on line ", page_index)
         #note_height = self.get_note_height(page_index)
         bw = cv.bitwise_not(self.bw_images[page_index])
@@ -1903,6 +1925,9 @@ class ImageProcessing:
                         #vertical = np.copy(sub_image)
                         horizontal = cv.erode(horizontal, horizontalStructure)
                         horizontal = cv.dilate(horizontal, horizontalStructure)
+
+
+
                         '''
                         vertical = cv.erode(vertical, verticalStructure)
                         vertical = cv.dilate(vertical, verticalStructure)
@@ -1918,6 +1943,9 @@ class ImageProcessing:
                             intersection[tl[1]:br[1], tl[0]:br[0]]
                         )
                         '''
+
+
+
                         h, w = sub_image.shape[:2]
                         sub_mask = np.zeros((h + 2, w + 2), np.uint8)
                         start_point = [note.center[0] - topleft[0], note.center[1] - topleft[1]]

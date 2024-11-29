@@ -501,30 +501,56 @@ class ImageEditor(tk.Tk):
 
 
 
-        #Set Feature Menu
+        '''
+        "bass_clef": (255, 0, 0),
+        "treble_clef": (0, 125, 0),
+        "note": (0, 0, 255),
+        "barline": (0, 255, 255),
+        "double_flat": (63, 0, 127),
+        "flat": (127, 0, 0),
+        "natural": (255, 255, 86),
+        "sharp": (0, 127, 255),
+        "double_sharp": (255, 0, 255),
+        "staff_line": (0, 255, 0)
+        '''
         set_feature_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Set Feature Type", menu=set_feature_menu)
         set_feature_menu.add_command(label="Staff line(1 click)", command=lambda: self.set_feature_type("staff_line"))
         set_feature_menu.add_command(label="Diagonal Staff Line(2 clicks)", command=lambda: self.set_feature_type("staff_line_diagonal"))
         set_feature_menu.add_command(label="Staff line region(3 clicks)", command=lambda: self.set_feature_type("staff_line_block"))
+        set_feature_menu.entryconfig(0, foreground=self.bgr_to_hex((0, 255, 0)))
+        set_feature_menu.entryconfig(1, foreground=self.bgr_to_hex((0, 255, 0)))
+        set_feature_menu.entryconfig(2, foreground=self.bgr_to_hex((0, 255, 0)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Bass Clef (r)", command=lambda :self.set_feature_type("bass_clef"))
         set_feature_menu.add_command(label="Treble Clef (t)", command=lambda :self.set_feature_type("treble_clef"))
+        set_feature_menu.entryconfig(4, foreground=self.bgr_to_hex((0, 125, 0)))
+        set_feature_menu.entryconfig(5, foreground=self.bgr_to_hex((255, 0, 0)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Barline (y)", command=lambda :self.set_feature_type("barline"))
+        set_feature_menu.entryconfig(7, foreground=self.bgr_to_hex((0, 255, 255)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Note (n)", command=lambda :self.set_feature_type("note", "quarter"))
         set_feature_menu.add_command(label="Half Note (h)", command=lambda :self.set_feature_type("note", "half"))
         set_feature_menu.add_command(label="Whole Note (w)", command=lambda :self.set_feature_type("note", "whole"))
-
+        set_feature_menu.entryconfig(9, foreground=self.bgr_to_hex((0, 0, 255)))
+        set_feature_menu.entryconfig(10, foreground=self.bgr_to_hex((0, 0, 255)))
+        set_feature_menu.entryconfig(11, foreground=self.bgr_to_hex((0, 0, 255)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Double Sharp (1)", command=lambda: self.set_feature_type("double_sharp"))
         set_feature_menu.add_command(label="Sharp (2)", command=lambda: self.set_feature_type("sharp"))
         set_feature_menu.add_command(label="Natural (3)", command=lambda: self.set_feature_type("natural"))
         set_feature_menu.add_command(label="Flat (4)", command=lambda: self.set_feature_type("flat"))
         set_feature_menu.add_command(label="Double Flat (5)", command=lambda: self.set_feature_type("double_flat"))
+        set_feature_menu.entryconfig(13, foreground=self.bgr_to_hex((255, 0, 255)))
+        set_feature_menu.entryconfig(14, foreground=self.bgr_to_hex((0, 127, 255)))
+        set_feature_menu.entryconfig(15, foreground=self.bgr_to_hex((255, 255, 86)))
+        set_feature_menu.entryconfig(16, foreground=self.bgr_to_hex((127, 0, 0)))
+        set_feature_menu.entryconfig(17, foreground=self.bgr_to_hex((63, 0, 127)))
+
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Key (k)", command=lambda :self.set_feature_type("key"))
+
 
 
 
@@ -691,7 +717,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.determine_if_notes_are_on_line(i)
+            self.image_processor.determine_if_notes_are_on_line(i, self.erode_strength_scale.get() / 100)
         self.draw_image_with_filters()
     def on_closing(self):
         # Ask for confirmation before closing the window
@@ -1730,6 +1756,10 @@ class ImageEditor(tk.Tk):
             #for i in range(self.num_pages):
             #    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
             self.draw_image_with_filters()
+
+    def bgr_to_hex(self, bgr):
+        """Convert a BGR color tuple to a hex color string."""
+        return "#{:02x}{:02x}{:02x}".format(bgr[2], bgr[1], bgr[0])
 
     def draw_image_with_filters(self):
         self.page_indicator.set(str(self.image_index) + "/" + str(self.num_pages))
