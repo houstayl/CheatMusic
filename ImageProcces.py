@@ -637,7 +637,6 @@ class ImageProcessing:
 
     def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error, overwrite):
         #TODO
-        print("calculating notes and accidentals for distorted staff lines on page", page_index)
         notes = region.notes
         height, width = img.shape[:2]
         lines_in_region = []
@@ -661,6 +660,7 @@ class ImageProcessing:
         current_group = []
         x = region.topleft[0]
         consecutive_times_without_finding_group = 0
+        printed = False
         while x < region.bottomright[0]:
         #for x in range(region.topleft[0], region.bottomright[0], 1):
             group = self.detect_staff_line_group(page_index, img, x, top_y, bottom_y)
@@ -673,11 +673,13 @@ class ImageProcessing:
                 cv.line(img, [x, coordinates_2d[0][1]], [x, coordinates_2d[4][1]], 255, 1)
                 x += 20
                 consecutive_times_without_finding_group = 0
+                printed = False
             else:
                 consecutive_times_without_finding_group += 1
                 x += 1
-            if consecutive_times_without_finding_group > 20:
-                print("went 20 pixels without detecting staff lines", region.topleft, region.bottomright)
+            if consecutive_times_without_finding_group > self.image_widths[page_index] / 10 and printed == False:
+                print("went 10 percent of page width without detecting staff lines", region.topleft, region.bottomright)
+                printed = True
         for note in notes:
             closest_group = None
             min_distance = 100000
@@ -1878,7 +1880,23 @@ class ImageProcessing:
                                 n.letter = notes[k].letter
                                 n.accidental = notes[k].accidental
                                 self.notes[page_index].append(n)
-
+    def determine_if_half_notes_are_on_line(self):
+        print("converting half notes")
+        half_note_count = 0
+        for page_index in range(self.num_pages):
+            if self.is_list_iterable(self.notes[page_index]):
+                for note in self.notes[page_index]:
+                    if note.is_half_note != "quarter":
+                        half_note_count += 1
+                    if note.is_on_line == None:
+                        if note.is_half_note == "quarter":
+                            if self.bw_images[page_index][note.center[1]][note.center[0]] == 0:
+                                note.is_on_line = True
+                            else:
+                                note.is_on_line = False
+        print("half notes", half_note_count)
+        if half_note_count == 0:
+            print("WARNING REDO HALF NOTES")
     def determine_if_notes_are_on_line(self, page_index, erode_strength):
         print("determine if notes are on line", page_index)
         horizontal = self.get_horizontal_image(page_index, erode_strength)

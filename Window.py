@@ -35,8 +35,9 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    show staff line groups from distorted staff line calculation in image.
+    
     2 horizontal images. one for noes the other for staff lines and detecting notes on line
-    change color of text in set feautre menu to match colors of feature borders
     change current feature text color to match color as well
     for note checking: show only one color at a time
     selecting multiple features at same time
@@ -44,7 +45,6 @@ Big TODOn
     make sure rect is in bounds in fill in feature
     draw crosshairs in different color for red note
     dont allow template matching for accidentals next to start clef
-    allow accidentals of different types to be edited
     on quarter half note overlap, get color for moved note
     amethyst, bubblegum, red c, suddy d, yEllow, frog f, g
     look at note letters and display notes that have letters that are on line!!!
@@ -56,8 +56,6 @@ Big TODOn
     drop down tab for editing current feature: set letter, accidental
     flood fill vertical image: find all notes whose center lies in the bounding rect for cord checking
     chord letter error detection
-    resize intersection image
-    for staff line detection: only keep pixels that were vertically eroded
     fill in half note: check bounds to match topleft and bottomright
     take staff line angle into account for note detection
     on key set mode to single
@@ -66,66 +64,17 @@ Big TODOn
     detect anomalies: widest notes, tallest notes, notes with wierdest dimension rations. for notes that are accidentals: notes with smallest and largest amount of pixels changes
     make sure to undo convert half notes.
     staff line error bar for staff line pixel length
-    for detecting center line: compare horizonta image ti ntersection image
-    detect anomalies: find largest and smallest notes
-    if half note center is black then is on line
-    get rid of note types radio buttons and pute note tupe ito currentfeautretype
-    get rid of note types radio buttons and pute note tupe ito currentfeautretype
-    single click to add clef
-    for half note, if rect really skinny
-    detect if note is on line
-    load etude info from old memory
-    match template quarter note using intersection image
-    change where buttons are packed on resizeing window
-    calculate single note on on_button_release
-    calculate notes using staff lines dont use implied lines
-    calculate notes: flood fill note, then find closest staff line, then calculate note. no regions
-    an autosnap half note, dont allow center to not be in new rect
-    on half note: set allow note to be auto extended
-    default note hieght to 120
-    remove overlapping notes: if notes have same topleft and bottomright
-    find overlapping vertical half/whole and quarter note.
     detect unused accidental, or accidental that is used far away
-    small notes button
     transpsose notes
     find un autosnapped half note
-    get barlines, dont allow overlap
-    detect non alternating clef
-    draw half notes over quarter notes
-    use staff line error bar
-    calculate note color on add. dont have to press button
-    center of naturals: autosnapping center?
-    convert chopin pkls
-    cv.threshold value
     xmltodict: go measure by measure
-    remove small notes, by area
-    for quarter note, match template with bw image
-    blackness bar
     write shorcut keys 
     chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
-    parallelize note calculating
-    in extend quarter note, draw a blank line horizontally as well
     use both note detection and compare to find differences
-    show self.dirname in info tab
-    calculate note not using staff lines. draw line from top to bottom of region
     mxl parser: get all notes in measure, and there alteration, compare with
-    jump to page
     extract notes and compare with mxml
-    dotted white line down center for quarter note accidetnal, black line for half note accidental
-    auto extend note only applies to half/whole notes
-    detect if note is on line or space for letter detection
-    if note goes past region border: flood fill to find which clef. find vertical line closest to note. flood fill.
-    add way to draw black to close half/whole notes
-    image rotation based on slope of staff lines found
-    when extending half notes, make height = note_height
-    auto detect half/quarter note
     save pdf for printing order
-    sort clefs
-    parrallelize staff line detection
     converts all notes into sharps or all notes into flats, display double flats as fully filled
-    draw notes over the accidentals
-    remove overlaping squares loop "single"
-    find name.pkl and name.pdf
     watermark
 
 
@@ -1230,18 +1179,8 @@ class ImageEditor(tk.Tk):
             # self.image_processor.are_notes_on_line(i)
             self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
-                img = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
-                if img is None:
-                    print('Error opening image: ')
-                    return -1
-                if len(img.shape) != 2:
-                    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-                else:
-                    gray = img
-                gray = cv.bitwise_not(gray)
-                #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-                _, bw = cv.threshold(gray, self.blackness_scale.get(), 255, cv.THRESH_BINARY)
-
+                bw = self.image_processor.bw_images[i]
+                print("calculating notes and accidentals for distorted staff lines on page", i)
                 for region in self.image_processor.regions[i]:
                     if len(region.notes) > 0 or len(region.accidentals) > 0:
                         self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get(), overwrite)
@@ -1266,26 +1205,12 @@ class ImageEditor(tk.Tk):
             # self.image_processor.are_notes_on_line(i)
             self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
-                img = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
-                if img is None:
-                    print('Error opening image: ')
-                    return -1
-                if len(img.shape) != 2:
-                    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-                else:
-                    gray = img
-                gray = cv.bitwise_not(gray)
-                #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-                _, bw = cv.threshold(gray, self.blackness_scale.get(), 255, cv.THRESH_BINARY)
-                horizontal_size = self.image_processor.get_note_height(i) + 5
-                horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
-                bw = cv.erode(bw, horizontalStructure)
-                bw = cv.dilate(bw, horizontalStructure)
-
+                horizontal = self.image_processor.get_horizontal_image(i, self.erode_strength_scale.get() / 100)
+                print("calculating notes and accidentals for distorted staff lines using horizontal erode on page", i)
                 for region in self.image_processor.regions[i]:
-                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get(), overwrite)
+                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, horizontal, self.staff_line_error_scale.get(), overwrite)
                 if self.debugging.get() == True:
-                    cv.imwrite("anote_calculating_horizontal.jpg", bw)
+                    cv.imwrite("anote_calculating_horizontal.jpg", horizontal)
         self.draw_image_with_filters()
 
     def calculate_accidental_letter_by_finding_closest_note(self, overwrite):
@@ -1703,8 +1628,10 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
                 self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
                 cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
+            self.image_processor.determine_if_half_notes_are_on_line()
             #self.convert_is_half_note()
             self.draw_image_with_filters()
+
 
     def save_binary_memory(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
