@@ -35,6 +35,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    cntl plus feature or color letter to toggle view. 
     piano tape
     save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
     setting accidentals using number keys
@@ -323,6 +324,25 @@ class ImageEditor(tk.Tk):
         self.bind("<Alt-Right>", self.alt_right_key_press)
         self.bind("<Alt-Up>", self.alt_up_key_press)
         self.bind("<Alt-Down>", self.alt_down_key_press)
+
+        self.bind("<Control-a>", self.ctrl_a_key_press)
+        self.bind("<Control-b>", self.ctrl_b_key_press)
+        self.bind("<Control-c>", self.ctrl_c_key_press)
+        self.bind("<Control-d>", self.ctrl_d_key_press)
+        self.bind("<Control-e>", self.ctrl_e_key_press)
+        self.bind("<Control-f>", self.ctrl_f_key_press)
+        self.bind("<Control-g>", self.ctrl_g_key_press)
+        self.bind("<Control-r>", self.ctrl_r_key_press)
+        self.bind("<Control-t>", self.ctrl_t_key_press)
+        self.bind("<Control-y>", self.ctrl_y_key_press)
+        self.bind("<Control-s>", self.ctrl_s_key_press)
+        self.bind("<Control-n>", self.ctrl_n_key_press)
+        self.bind("<Control-1>", self.ctrl_1_key_press)
+        self.bind("<Control-2>", self.ctrl_2_key_press)
+        self.bind("<Control-3>", self.ctrl_3_key_press)
+        self.bind("<Control-4>", self.ctrl_4_key_press)
+        self.bind("<Control-5>", self.ctrl_5_key_press)
+
 
 
         self.bind("<Key>", self.keypress)
@@ -1521,6 +1541,94 @@ class ImageEditor(tk.Tk):
                 self.set_feature_type("flat")
             if c == '5':
                 self.set_feature_type("double_flat")
+
+    '''
+    self.bind("<Control-r>", self.ctrl_t_key_press)
+    self.bind("<Control-t>", self.ctrl_a_key_press)
+    self.bind("<Control-y>", self.ctrl_y_key_press)
+    self.bind("<Control-n>", self.ctrl_n_key_press)
+    self.bind("<Control-1>", self.ctrl_1_key_press)
+    self.bind("<Control-2>", self.ctrl_2_key_press)
+    self.bind("<Control-3>", self.ctrl_3_key_press)
+    self.bind("<Control-4>", self.ctrl_4_key_press)
+    self.bind("<Control-5>", self.ctrl_5_key_press)
+    '''
+    def ctrl_a_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'a':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('a')
+        self.draw_image_with_filters()
+    def ctrl_b_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'b':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('b')
+        self.draw_image_with_filters()
+    def ctrl_c_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'c':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('c')
+        self.draw_image_with_filters()
+    def ctrl_d_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'd':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('d')
+        self.draw_image_with_filters()
+    def ctrl_e_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'e':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('e')
+        self.draw_image_with_filters()
+    def ctrl_f_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'f':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('f')
+        self.draw_image_with_filters()
+    def ctrl_g_key_press(self, event):
+        if self.only_show_this_note_type.get() == 'g':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('g')
+        self.draw_image_with_filters()
+
+    #staffline, implied line, bass, treble, barline, note, accidental, region border
+    def ctrl_r_key_press(self, event):
+        self.filter_list[2].set(not self.filter_list[2].get())
+        self.draw_image_with_filters()
+    def ctrl_t_key_press(self, event):
+        self.filter_list[3].set(not self.filter_list[3].get())
+        self.draw_image_with_filters()
+    def ctrl_y_key_press(self, event):
+        self.filter_list[4].set(not self.filter_list[4].get())
+        self.draw_image_with_filters()
+    def ctrl_s_key_press(self, event):
+        self.filter_list[0].set(not self.filter_list[0].get())
+        self.draw_image_with_filters()
+    def ctrl_n_key_press(self, event):
+        self.filter_list[5].set(not self.filter_list[5].get())
+        self.draw_image_with_filters()
+    def ctrl_1_key_press(self, event):
+        self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+    def ctrl_2_key_press(self, event):
+        self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+
+    def ctrl_3_key_press(self, event):
+        self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+    def ctrl_4_key_press(self, event):
+        self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+    def ctrl_5_key_press(self, event):
+        self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+
 
     def on_f1_press(self, event):
         self.generate_staff_lines_diagonal_by_traversing_vertical_line()
