@@ -568,8 +568,11 @@ class ImageProcessing:
         if is_on_line != note.is_on_line:
             pass
         letter_index = (letter_index - note_shift) % len(letters)
-        if note.letter.islower():
+        if note.letter() == "":
             note.letter = letters[letter_index]
+        elif note.letter.islower() and overwrite == True:
+            note.letter = letters[letter_index]
+
 
     def calculate_note_or_accidental_using_staff_lines(self, note, staff_lines_in_region, clef, overwrite):
         spacing = abs(staff_lines_in_region[4].calculate_y(note.center[0]) - staff_lines_in_region[0].calculate_y(note.center[0])) / 8
@@ -587,7 +590,9 @@ class ImageProcessing:
             else:
                 note_shift -= 1
         letter_index = (letter_index - note_shift) % len(letters)
-        if note.letter.islower() or note.letter == "":
+        if note.letter() == "":
+            note.letter = letters[letter_index]
+        elif note.letter.islower() and overwrite == True:
             note.letter = letters[letter_index]
 
     def calculate_notes_using_staff_lines(self, page_index, region, overwrite):

@@ -35,10 +35,8 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    cntl plus feature or color letter to toggle view. 
     piano tape
     save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
-    setting accidentals using number keys
     show staff line groups from distorted staff line calculation in image.
     on distorted staff lines: set overwrite to false
     2 horizontal images. one for noes the other for staff lines and detecting notes on line
@@ -185,7 +183,7 @@ class ImageEditor(tk.Tk):
         self.blackness_scale.set(210)
 
         #Erode stregth scale
-        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=10, orient="horizontal", label="Erode strength", command=self.on_erode_scale_change)
+        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=250, resolution=10, orient="horizontal", label="Erode strength", command=self.on_erode_scale_change)
         self.erode_strength_scale.set(100)
 
         #Used for three click staff line addition
@@ -394,19 +392,21 @@ class ImageEditor(tk.Tk):
         file_menu.add_command(label="Open pdf", command=self.open_pdf)
         file_menu.add_command(label="Save pdf", command=self.save_pdf)
         file_menu.add_separator()
-        file_menu.add_command(label="Open annotations with pdf", command=self.load_binary)
-        file_menu.add_command(label="Save annotations with pdf", command=self.save_binary)
+        file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
+        file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
         #file_menu.add_separator()
-        #file_menu.add_command(label="Open annotations without pdf", command=self.load_annotations)
-        #file_menu.add_command(label="Save annotations memory", command=self.save_binary_memory)
+        file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
+        file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compessed)
         file_menu.add_separator()
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
         file_menu.add_separator()
         # file_menu.add_separator()
-        file_menu.add_command(label="Regenerate images", command=self.regenerate_images)
+        file_menu.add_command(label="Regenerate images(F5)", command=self.regenerate_images)
         file_menu.add_separator()
-        file_menu.add_command(label="Reduce pixels by half", command=self.reduce_image_size)
+        file_menu.add_command(label="Open current image in system's default .jpg editor(F6)", command=self.open_paint)
+        file_menu.add_separator()
+        file_menu.add_command(label="Reduce pixels by half(For pdfs that have unnecessarily high resolution)", command=self.reduce_image_size)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
@@ -548,7 +548,7 @@ class ImageEditor(tk.Tk):
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
         #staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
-        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs) Warning: Will overwrite manual changes", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
+        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs) Warning: Will overwrite manual changes (F1)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
         #staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
         staff_line_menu.add_separator()
         staff_line_menu.add_command(label="Generate staff lines override(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line(override=True))
@@ -573,12 +573,8 @@ class ImageEditor(tk.Tk):
         #note_menu.add_radiobutton(label="Whole Note", variable=self.note_type, value=self.note_types[2])
         #note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
-        note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines)", command=self.auto_extend_notes)
+        note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines) (F2)", command=self.auto_extend_notes)
         note_menu.add_separator()
-        #note_menu.add_command(label="Auto detect quarter notes (Prerequisite: Staff lines)",command=self.auto_detect_quarter_notes)
-        #note_menu.add_separator()
-        #note_menu.add_command(label="Autosnap notes using implied lines  (Prerequisite: Staff lines)", command=self.autosnap_notes)
-        #note_menu.add_separator()
         extend_notes_sub_menu = tk.Menu(note_menu, tearoff=0)
         extend_notes_sub_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
         extend_notes_sub_menu.add_separator()
@@ -591,22 +587,9 @@ class ImageEditor(tk.Tk):
         note_menu.add_separator()
         note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
         note_menu.add_separator()
-        #note_menu.add_command(label="Detect unautosnapped half note", command=self.detect_unautosnapped_half_notes)
-        #note_menu.add_command(label="Auto remove small erroneous notes", command=self.remove_small_notes)
-        #note_menu.add_separator()
-        #note_menu.add_command(label="Auto detect half and quarter note", command=self.auto_detect_half_or_quarter_note)
-        #note_menu.add_separator()
-        #note_menu.add_command(label="Auto detect note letter irregularities", command=self.auto_detect_note_letter_irregularities)
-        #note_menu.add_separator()
-        #note_menu.add_command(label="Convert notes", command=self.convert_is_half_note)
         note_menu.add_command(label="Detect if notes are on line or on space", command=self.determine_if_notes_are_on_line)
         note_menu.add_separator()
-        note_menu.add_command(label="Handle half/whole note vertical overlap with quarter note", command=self.handle_half_and_quarter_note_overlap)
-
-        #note_menu.add_command(label="Are notes on line", command=self.are_notes_on_line)
-
-        #note_menu.add_separator()
-        #note_menu.add_command(label="Make all notes same size", command=self.make_all_notes_same_size)
+        note_menu.add_command(label="Handle half/whole note vertical overlap with quarter note (F7)", command=self.handle_half_and_quarter_note_overlap)
 
 
 
@@ -637,17 +620,17 @@ class ImageEditor(tk.Tk):
 
         #Region menu
         self.overwrite_regions = tk.BooleanVar()
-        self.overwrite_regions.set(True)
+        self.overwrite_regions.set(False)
         region_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Region", menu=region_menu)
-        region_menu.add_checkbutton(label="(Checkbox)Overwrite manual note and accidental changes", variable=self.overwrite_regions)
+        region_menu.add_checkbutton(label="(Checkbox)Overwrite notes and accidentals that already are assigned letters", variable=self.overwrite_regions)
         #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate note letters(Give notes color)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note letters(Give notes color)(F3)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
         region_menu.add_command(label="Calculate note letters for distorted image", command=lambda: self.calculate_notes_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
         region_menu.add_command(label="Calculate note letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
-        region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)(F4)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
         region_menu.add_command(label="Calculate note accidentals(Shade notes)", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
 
@@ -1426,9 +1409,9 @@ class ImageEditor(tk.Tk):
         if c == 'k' or c == "K":
             self.set_feature_type("key")
         if c == 'm' or c == 'M':
-            #self.show_borders_and_crosshairs.set(not self.show_borders_and_crosshairs.get())
-            #self.draw_image_with_filters()
-            pass
+            self.show_borders.set(not self.show_borders.get())
+            self.show_crosshairs.set(not self.show_crosshairs.get())
+            self.draw_image_with_filters()
         if c == ',':
             self.allow_note_to_be_auto_extended.set(not self.allow_note_to_be_auto_extended.get())
         if c == "[":
@@ -1859,12 +1842,13 @@ class ImageEditor(tk.Tk):
             self.photo = ImageTk.PhotoImage(self.image)
 
     def on_blackness_scale_change(self, value):
-        print("blackness scale change")
+        #print("blackness scale change")
         #if self.view_mode.get() == self.view_mode_values[2]:#bw image
         #    self.draw_image_with_filters()
+        pass
 
     def on_erode_scale_change(self, value):
-        print("erode scale change")
+        #print("erode scale change")
         if self.view_mode.get() in [self.view_mode_values[1], self.view_mode_values[3], self.view_mode_values[4]]:
             self.draw_image_with_filters()
         if self.view_mode.get() == self.view_mode_values[0] and self.image_processor is not None:
