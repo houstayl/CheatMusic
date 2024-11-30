@@ -35,6 +35,8 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    piano tape
+    save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
     setting accidentals using number keys
     show staff line groups from distorted staff line calculation in image.
     on distorted staff lines: set overwrite to false
