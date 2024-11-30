@@ -325,6 +325,7 @@ class ImageEditor(tk.Tk):
         self.bind("<Alt-Up>", self.alt_up_key_press)
         self.bind("<Alt-Down>", self.alt_down_key_press)
 
+        #filtering which letters to show
         self.bind("<Control-a>", self.ctrl_a_key_press)
         self.bind("<Control-b>", self.ctrl_b_key_press)
         self.bind("<Control-c>", self.ctrl_c_key_press)
@@ -332,6 +333,8 @@ class ImageEditor(tk.Tk):
         self.bind("<Control-e>", self.ctrl_e_key_press)
         self.bind("<Control-f>", self.ctrl_f_key_press)
         self.bind("<Control-g>", self.ctrl_g_key_press)
+
+        #filtering which features to show
         self.bind("<Control-r>", self.ctrl_r_key_press)
         self.bind("<Control-t>", self.ctrl_t_key_press)
         self.bind("<Control-y>", self.ctrl_y_key_press)
@@ -342,6 +345,15 @@ class ImageEditor(tk.Tk):
         self.bind("<Control-3>", self.ctrl_3_key_press)
         self.bind("<Control-4>", self.ctrl_4_key_press)
         self.bind("<Control-5>", self.ctrl_5_key_press)
+
+        #filtering which images to show
+        self.bind("<Control-h>", self.ctrl_h_key_press)
+        self.bind("<Control-j>", self.ctrl_j_key_press)
+        self.bind("<Control-k>", self.ctrl_k_key_press)
+        self.bind("<Control-l>", self.ctrl_l_key_press)
+        self.bind("<Control-;>", self.ctrl_semi_colon_key_press)
+
+
 
 
 
@@ -1542,17 +1554,6 @@ class ImageEditor(tk.Tk):
             if c == '5':
                 self.set_feature_type("double_flat")
 
-    '''
-    self.bind("<Control-r>", self.ctrl_t_key_press)
-    self.bind("<Control-t>", self.ctrl_a_key_press)
-    self.bind("<Control-y>", self.ctrl_y_key_press)
-    self.bind("<Control-n>", self.ctrl_n_key_press)
-    self.bind("<Control-1>", self.ctrl_1_key_press)
-    self.bind("<Control-2>", self.ctrl_2_key_press)
-    self.bind("<Control-3>", self.ctrl_3_key_press)
-    self.bind("<Control-4>", self.ctrl_4_key_press)
-    self.bind("<Control-5>", self.ctrl_5_key_press)
-    '''
     def ctrl_a_key_press(self, event):
         if self.only_show_this_note_type.get() == 'a':
             self.only_show_this_note_type.set("none")
@@ -1627,6 +1628,27 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
     def ctrl_5_key_press(self, event):
         self.filter_list[6].set(not self.filter_list[6].get())
+        self.draw_image_with_filters()
+
+    def ctrl_h_key_press(self, event):
+        #show color image
+        self.view_mode.set(self.view_mode_values[0])
+        self.draw_image_with_filters()
+    def ctrl_j_key_press(self, event):
+        #show intersection iamge
+        self.view_mode.set(self.view_mode_values[1])
+        self.draw_image_with_filters()
+    def ctrl_k_key_press(self, event):
+        #show bw image
+        self.view_mode.set(self.view_mode_values[2])
+        self.draw_image_with_filters()
+    def ctrl_l_key_press(self, event):
+        #show horizontal image
+        self.view_mode.set(self.view_mode_values[3])
+        self.draw_image_with_filters()
+    def ctrl_semi_colon_key_press(self, event):
+        #show vertical image
+        self.view_mode.set(self.view_mode_values[4])
         self.draw_image_with_filters()
 
 
