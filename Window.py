@@ -396,7 +396,7 @@ class ImageEditor(tk.Tk):
         file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
         #file_menu.add_separator()
         file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
-        file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compessed)
+        file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
         file_menu.add_separator()
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
@@ -1745,17 +1745,48 @@ class ImageEditor(tk.Tk):
             #self.convert_is_half_note()
             self.draw_image_with_filters()
 
+    def modify_filepath(self, filepath):
+        # Split the path into directory and filename
+        dir_path, file_name = os.path.split(filepath)
 
-    def save_binary_memory(self):
-        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
+        # Extract the file name without the extension
+        file_stem, file_ext = os.path.splitext(file_name)
+
+        # Create the new directory path by appending the file_stem
+        new_dir_path = os.path.join(dir_path, file_stem)
+        print("new dir path", new_dir_path.replace("\\", '/'))
+        # Create the new full file path
+        try:
+            os.makedirs(new_dir_path.replace("\\", '/'), exist_ok=True)  # Creates all intermediate directories if needed
+            print(f"Folder created: {path}")
+        except Exception as e:
+            print(f"Error: {e}")
+        new_filepath = os.path.join(new_dir_path, file_name)
+        new_filepath = new_filepath.replace("\\", "/")
+
+        return new_filepath
+
+    def save_binary_compressed(self):
+        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
+                                            initialfile=self.file_name)
         if path == "":
             print("no filename")
             return
+        #todo save pdf of images and all other image processor info
+        #print(path)
+        path = self.modify_filepath(path)
+        #print(path)
+        print(path[:-4] + ".pdf")
         with open(path, "wb") as file:
+            #todo create folder: inset /filename/filename.pkl, save pdf and annotations in folder
+            images = []
             for i in range(self.num_pages):
-                self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i])
+                #print("save pdf page", i)
+                image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, None, 1),cv.COLOR_BGR2RGB)
+                images.append(Image.fromarray(self.image_processor))
+            images[0].save(path[:-4] + ".pdf", "PDF", resolution=100.0, save_all=True, append_images=images[1:])
             pickle.dump(self.file_name, file)
-            #pickle.dump(self.image_processor.images, file)
+            # pickle.dump(self.image_processor.images, file)
             pickle.dump(self.image_processor.staff_lines, file)
             pickle.dump(self.image_processor.treble_clefs, file)
             pickle.dump(self.image_processor.bass_clefs, file)
@@ -1766,7 +1797,10 @@ class ImageEditor(tk.Tk):
             pickle.dump(self.image_processor.image_heights, file)
             pickle.dump(self.image_processor.image_widths, file)
             pickle.dump(self.image_processor.all_clefs, file)
-
+    def load_binary_compressed(self):
+        #todo open pdf, convert to image, get bw , grayscale. load rest of image processor
+        pass
+    '''
     def save_annotations(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
                                             initialfile=self.file_name)
@@ -1796,7 +1830,7 @@ class ImageEditor(tk.Tk):
             #for i in range(self.num_pages):
             #    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
             self.draw_image_with_filters()
-
+    '''
     def bgr_to_hex(self, bgr):
         """Convert a BGR color tuple to a hex color string."""
         return "#{:02x}{:02x}{:02x}".format(bgr[2], bgr[1], bgr[0])
