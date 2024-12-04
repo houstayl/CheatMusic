@@ -35,6 +35,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    for distorted staff lines: only keep pixels that are removed from vertical erode
     piano tape
     save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
     show staff line groups from distorted staff line calculation in image.
@@ -168,22 +169,22 @@ class ImageEditor(tk.Tk):
         self.is_undo_mode = True
 
         #Staff line error scale
-        self.staff_line_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Staff line error")
+        self.staff_line_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Staff line error(pxls)")
         self.staff_line_error_scale.set(5)
 
-        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=5, orient="horizontal", label="Note height/width ratio (Percentage)")
+        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=5, orient="horizontal", label="Note height/width ratio %")
         self.note_width_ratio_scale.set(145)
 
 
         #threshold scale
-        self.threshold_scale = tk.Scale(self.left_frame, from_=0, to=99, orient="horizontal", label="Threshold")
+        self.threshold_scale = tk.Scale(self.left_frame, from_=0, to=99, orient="horizontal", label="Threshold %")
         self.threshold_scale.set(80)
 
         self.blackness_scale = tk.Scale(self.left_frame,from_=0, to=255, resolution=5, orient="horizontal", label="Blackness scale", command=self.on_blackness_scale_change)
         self.blackness_scale.set(210)
 
         #Erode stregth scale
-        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=250, resolution=10, orient="horizontal", label="Erode strength", command=self.on_erode_scale_change)
+        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=250, resolution=10, orient="horizontal", label="Erode strength %", command=self.on_erode_scale_change)
         self.erode_strength_scale.set(100)
 
         #Used for three click staff line addition
@@ -350,6 +351,7 @@ class ImageEditor(tk.Tk):
         self.bind("<Control-k>", self.ctrl_k_key_press)
         self.bind("<Control-l>", self.ctrl_l_key_press)
         self.bind("<Control-;>", self.ctrl_semi_colon_key_press)
+        self.bind("<Control-'>", self.ctrl_single_quote_key_press)
 
 
 
@@ -394,7 +396,7 @@ class ImageEditor(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
         file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
-        #file_menu.add_separator()
+        file_menu.add_separator()
         file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
         file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
         file_menu.add_separator()
@@ -429,7 +431,7 @@ class ImageEditor(tk.Tk):
         #view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
         view_menu.add_separator()
         self.view_mode = tk.StringVar()
-        self.view_mode_values = ["color", "erode", "bw", "horizontal", "vertical"]
+        self.view_mode_values = ["color", "erode", "bw", "horizontal", "vertical", "only_vertical_erode"]
         self.view_mode.set(self.view_mode_values[0])
         view_mode_sub_menu = tk.Menu(view_menu, tearoff=0)
 
@@ -438,6 +440,7 @@ class ImageEditor(tk.Tk):
         view_mode_sub_menu.add_radiobutton(label="Show black and white image(CTRL k)", variable=self.view_mode, value=self.view_mode_values[2], command=self.draw_image_with_filters)
         view_mode_sub_menu.add_radiobutton(label="Show horizontal image(CTRL l)", variable=self.view_mode, value=self.view_mode_values[3], command=self.draw_image_with_filters)
         view_mode_sub_menu.add_radiobutton(label="Show vertical image(CTRL ;", variable=self.view_mode, value=self.view_mode_values[4], command=self.draw_image_with_filters)
+        view_mode_sub_menu.add_radiobutton(label="Show only vertically eroded image(CTRL '", variable=self.view_mode, value=self.view_mode_values[5], command=self.draw_image_with_filters)
         view_menu.add_cascade(label="Select image to view", menu=view_mode_sub_menu)
         view_menu.add_separator()
         #view_menu.add_command(label="Auto rotate based off of staff lines", command=self.rotate_based_off_staff_lines)
@@ -626,6 +629,7 @@ class ImageEditor(tk.Tk):
         region_menu.add_command(label="Calculate note letters(Give notes color)(F3)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
         region_menu.add_command(label="Calculate note letters for distorted image", command=lambda: self.calculate_notes_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
         region_menu.add_command(label="Calculate note letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
+        region_menu.add_command(label="Calculate note letters for distorted image by only keeping pixels that are removed on vertical erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_by_only_keeping_pixels_that_are_removed_in_vertical_erode(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
         region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)(F4)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
         region_menu.add_separator()
@@ -1195,7 +1199,7 @@ class ImageEditor(tk.Tk):
             self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
                 bw = self.image_processor.bw_images[i]
-                print("calculating notes and accidentals for distorted staff lines on page", i)
+                print("calculating note letters for distorted staff lines on page", i, "staff line error:", self.staff_line_error_scale.get(), "pxls")
                 for region in self.image_processor.regions[i]:
                     if len(region.notes) > 0 or len(region.accidentals) > 0:
                         self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, bw, self.staff_line_error_scale.get(), overwrite)
@@ -1221,7 +1225,32 @@ class ImageEditor(tk.Tk):
             self.image_processor.find_notes_and_accidentals_in_region(i)
             if self.image_processor.regions[i] is not None:
                 horizontal = self.image_processor.get_horizontal_image(i, self.erode_strength_scale.get() / 100)
-                print("calculating notes and accidentals for distorted staff lines using horizontal erode on page", i)
+                print("calculating notesletters for distorted staff lines using horizontal erode on page", i, "staff line error:", self.staff_line_error_scale.get(), "pxls")
+                for region in self.image_processor.regions[i]:
+                    self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, horizontal, self.staff_line_error_scale.get(), overwrite)
+                if self.debugging.get() == True:
+                    cv.imwrite("anote_calculating_horizontal.jpg", horizontal)
+        self.draw_image_with_filters()
+
+    def calculate_notes_for_distorted_staff_lines_by_only_keeping_pixels_that_are_removed_in_vertical_erode(self, overwrite):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.all_clefs[i] is not None:
+                self.image_processor.all_clefs[i].clear()
+            if self.image_processor.regions[i] is not None:
+                self.image_processor.regions[i].clear()
+            self.image_processor.sort_clefs(i)
+            self.image_processor.get_clef_regions(i)
+            # self.image_processor.remove_adjacent_matches(self.image_processor.barlines[i], error=30)
+            self.image_processor.sort_barlines(i, error=30)
+            self.image_processor.split_regions_by_bar(i)
+            # self.image_processor.are_notes_on_line(i)
+            self.image_processor.find_notes_and_accidentals_in_region(i)
+            if self.image_processor.regions[i] is not None:
+                horizontal = self.image_processor.get_keep_only_vertical_erode_image(i, 5)
+                print("calculating note letters for distorted staff lines using pixels that arent removed from vertical erode", i, "staff line error:", self.staff_line_error_scale.get(), "pxls")
                 for region in self.image_processor.regions[i]:
                     self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, horizontal, self.staff_line_error_scale.get(), overwrite)
                 if self.debugging.get() == True:
@@ -1366,7 +1395,8 @@ class ImageEditor(tk.Tk):
 
 
     def keypress(self, event):
-        print("keypress: ", event.char)
+        if event.char != "":
+            print("keypress: ", event.char)
         c = event.char
         #if self.editing_mode.get() == self.editing_modes[0]:#add mode
         if c == 'i' or c == 'I':
@@ -1535,42 +1565,49 @@ class ImageEditor(tk.Tk):
                 self.set_feature_type("double_flat")
 
     def ctrl_a_key_press(self, event):
+        print("keypress: ctrl a")
         if self.only_show_this_note_type.get() == 'a':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('a')
         self.draw_image_with_filters()
     def ctrl_b_key_press(self, event):
+        print("keypress: ctrl b")
         if self.only_show_this_note_type.get() == 'b':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('b')
         self.draw_image_with_filters()
     def ctrl_c_key_press(self, event):
+        print("keypress: ctrl c")
         if self.only_show_this_note_type.get() == 'c':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('c')
         self.draw_image_with_filters()
     def ctrl_d_key_press(self, event):
+        print("keypress: ctrl d")
         if self.only_show_this_note_type.get() == 'd':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('d')
         self.draw_image_with_filters()
     def ctrl_e_key_press(self, event):
+        print("keypress: ctrl e")
         if self.only_show_this_note_type.get() == 'e':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('e')
         self.draw_image_with_filters()
     def ctrl_f_key_press(self, event):
+        print("keypress: ctrl f")
         if self.only_show_this_note_type.get() == 'f':
             self.only_show_this_note_type.set("none")
         else:
             self.only_show_this_note_type.set('f')
         self.draw_image_with_filters()
     def ctrl_g_key_press(self, event):
+        print("keypress: ctrl g")
         if self.only_show_this_note_type.get() == 'g':
             self.only_show_this_note_type.set("none")
         else:
@@ -1579,86 +1616,116 @@ class ImageEditor(tk.Tk):
 
     #staffline, implied line, bass, treble, barline, note, accidental, region border
     def ctrl_r_key_press(self, event):
+        print("keypress: ctrl r toggle bass clefs")
         self.filter_list[2].set(not self.filter_list[2].get())
         self.draw_image_with_filters()
     def ctrl_t_key_press(self, event):
+        print("keypress: ctrl t toggle treble clefs")
         self.filter_list[3].set(not self.filter_list[3].get())
         self.draw_image_with_filters()
     def ctrl_y_key_press(self, event):
+        print("keypress: ctrl y toggle barlines")
         self.filter_list[4].set(not self.filter_list[4].get())
         self.draw_image_with_filters()
     def ctrl_s_key_press(self, event):
+        print("keypress: ctrl s toggle staff lines")
         self.filter_list[0].set(not self.filter_list[0].get())
         self.draw_image_with_filters()
     def ctrl_n_key_press(self, event):
+        print("keypress: ctrl n toggle notes")
         self.filter_list[5].set(not self.filter_list[5].get())
         self.draw_image_with_filters()
     def ctrl_1_key_press(self, event):
+        print("keypress: ctrl 1 toggle accidentals")
         self.filter_list[6].set(not self.filter_list[6].get())
         self.draw_image_with_filters()
     def ctrl_2_key_press(self, event):
+        print("keypress: ctrl 2 toggle accidentals")
         self.filter_list[6].set(not self.filter_list[6].get())
         self.draw_image_with_filters()
 
     def ctrl_3_key_press(self, event):
+        print("keypress: ctrl 3 toggle accidentals")
         self.filter_list[6].set(not self.filter_list[6].get())
         self.draw_image_with_filters()
     def ctrl_4_key_press(self, event):
+        print("keypress: ctrl 4 toggle accidentals")
         self.filter_list[6].set(not self.filter_list[6].get())
         self.draw_image_with_filters()
     def ctrl_5_key_press(self, event):
+        print("keypress: ctrl 5 toggle accidentals")
         self.filter_list[6].set(not self.filter_list[6].get())
         self.draw_image_with_filters()
 
     def ctrl_h_key_press(self, event):
         #show color image
+        print("keypress: ctrl h show color image")
         self.view_mode.set(self.view_mode_values[0])
         self.draw_image_with_filters()
     def ctrl_j_key_press(self, event):
         #show intersection iamge
+        print("keypress: ctrl j show intersection image")
         self.view_mode.set(self.view_mode_values[1])
         self.draw_image_with_filters()
     def ctrl_k_key_press(self, event):
         #show bw image
+        print("keypress: ctrl k show black and white image")
         self.view_mode.set(self.view_mode_values[2])
         self.draw_image_with_filters()
     def ctrl_l_key_press(self, event):
         #show horizontal image
+        print("keypress: ctrl l show horizontal image")
         self.view_mode.set(self.view_mode_values[3])
         self.draw_image_with_filters()
     def ctrl_semi_colon_key_press(self, event):
         #show vertical image
+        print("keypress: ctrl ; show vertical image")
         self.view_mode.set(self.view_mode_values[4])
+        self.draw_image_with_filters()
+    def ctrl_single_quote_key_press(self, event):
+        print("keypress: ctrl ' show only keep pixels that are vertically eroded image")
+        self.view_mode.set(self.view_mode_values[5])
         self.draw_image_with_filters()
 
 
     def on_f1_press(self, event):
+        print("keypress: f1 generate staff lines")
         self.generate_staff_lines_diagonal_by_traversing_vertical_line()
     def on_f2_press(self, event):
+        print("keypress: f2 extend notes")
         self.auto_extend_notes()
     def on_f3_press(self, event):
+        print("keypress: f3 calculate note letters")
         self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
     def on_f4_press(self, event):
+        print("keypress: f4 calculate accidental letters")
         self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
     def on_f5_press(self, event):
+        print("keypress: f5 regenerate image")
         self.regenerate_images()
         #if self.fast_editing_mode.get() == True:
         #    self.regenerate_images()
 
     def on_f6_press(self, event):
+        print("keypress: f6 open image in paint")
         self.open_paint()
     def on_f7_press(self, event):
+        print("keypress: f7 handle halg and quarter note overlap")
         self.handle_half_and_quarter_note_overlap()
     def on_f9_press(self, event):
+        print("keypress: f9 set add mode to \"Current page and next\"")
         self.add_mode_combobox.set(self.add_mode_combobox_values[0])
         self.set_cursor()
     def on_f10_press(self, event):
+        print("keypress: f10 set add mode to \"Current page\"")
         self.add_mode_combobox.set(self.add_mode_combobox_values[1])
         self.set_cursor()
     def on_f11_press(self, event):
+        print("keypress: f11 set add mode to \"All pages\"")
         self.add_mode_combobox.set(self.add_mode_combobox_values[2])
         self.set_cursor()
     def on_f12_press(self, event):
+        print("keypress: f12 set add mode to \"Single\"")
         self.add_mode_combobox.set(self.add_mode_combobox_values[3])
         self.set_cursor()
 
@@ -1867,6 +1934,12 @@ class ImageEditor(tk.Tk):
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[4]:#vertical image
             image = self.image_processor.get_vertical_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            h, w = image.shape[:2]
+            image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
+            self.image = Image.fromarray(image)
+            self.photo = ImageTk.PhotoImage(self.image)
+        elif self.view_mode.get() == self.view_mode_values[5]:#only keep vertical eroded pixels
+            image = self.image_processor.get_keep_only_vertical_erode_image(self.image_index, 5)
             h, w = image.shape[:2]
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
@@ -2207,10 +2280,10 @@ class ImageEditor(tk.Tk):
             self.rect = self.canvas.create_rectangle(self.rect_start[0], self.rect_start[1], curX, curY, outline='red')
 
     def on_button_release(self, event):
-        print("released")
+        #print("released")
 
         if self.rect:
-            print("rect started")
+            print("click and drag")
             curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
             x0, y0 = self.rect_start
             x1, y1 = curX, curY
@@ -2371,7 +2444,7 @@ class ImageEditor(tk.Tk):
                 self.draw_image_with_filters()
 
         else:#if rect wasnt started
-            print("rect wasnt started")
+            print("click with no drag")
             curX, curY = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
             x, y = curX, curY
 
@@ -2431,7 +2504,7 @@ class ImageEditor(tk.Tk):
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
-                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.blackness_scale.get(), self.erode_strength_scale.get() / 100)
+                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.erode_strength_scale.get() / 100)
                         self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
                     if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_half_note_single_click(self.image_index, x_img, y_img, self.note_type.get())

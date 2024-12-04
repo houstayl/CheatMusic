@@ -206,6 +206,8 @@ class ImageProcessing:
         elif "double_sharp" == type:
             topleft = [x - note_height // 2, y - note_height // 2]
             bottomright = [x + note_height // 2, y + note_height // 2]
+        topleft = [max(0, topleft[0]), max(0, topleft[1])]
+        bottomleft = [min(self.image_widths[page_index] - 1, bottomright[0]), min(self.image_heights[page_index] - 1, bottomright[1])]
         feature = Feature(topleft, bottomright, type)
         self.append_features(page_index, type, [feature])
 
@@ -438,30 +440,42 @@ class ImageProcessing:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
         self.sort_staff_lines(page_index)
 
-
     def detect_staff_line_group(self, page_index, img, x, top_y, bottom_y, staff_line_thickness=5):
         points = []
 
         # Iterate through the y-axis in the column (x)
-        y = top_y
-        while y < bottom_y:
-            if self.in_bounds(x, y, self.image_widths[page_index], self.image_heights[page_index]):
-                if img[y][x] == 255:
-                    y_start = y
 
-                    # Continue until the end of the white pixel region
-                    while y < bottom_y and img[y][x] == 255:
-                        y += 1
+        # Extract the column slice for the given x-coordinate
+        column_slice = img[top_y:bottom_y, x]
+        # Check in-bounds for the entire column (boolean array)
+        in_bounds_mask = np.array([
+            self.in_bounds(x, y, self.image_widths[page_index], self.image_heights[page_index])
+            for y in range(top_y, bottom_y)
+        ])
 
-                    # Check if the detected white region is too thick
-                    if (y - y_start) > staff_line_thickness:
-                        return False
+        # Identify white pixels (255) and apply the in-bounds mask
+        white_pixels_mask = (column_slice == 255) & in_bounds_mask
 
-                    # Store the midpoint of the white region
-                    midpoint = y_start + (y - y_start) // 2
-                    points.append(midpoint)
+        # Find indices where white pixels start and end (by diffing the mask)
+        diff = np.diff(np.concatenate(([0], white_pixels_mask.astype(int), [0])))
 
-            y += 1
+        # Indices where white regions start and end
+        starts = np.where(diff == 1)[0]
+        ends = np.where(diff == -1)[0]
+
+        # Iterate over each detected white region
+        for start, end in zip(starts, ends):
+            y_start = start + top_y  # Adjust relative start index to absolute coordinate
+            y_end = end + top_y  # Adjust relative end index to absolute coordinate
+
+            # Check if the detected white region is too thick
+            thickness = y_end - y_start
+            if thickness > staff_line_thickness:
+                return False
+
+            # Store the midpoint of the valid white region
+            midpoint = y_start + thickness // 2
+            points.append(midpoint)
 
         # Ensure exactly 5 points were detected
         if len(points) != 5:
@@ -480,6 +494,53 @@ class ImageProcessing:
         return points
 
     '''
+    def detect_staff_line_group(self, column_slice, y, staff_line_thickness=5):
+        #output = np.array([np.min(column_slice), np.max(column_slice), np.mean(column_slice)])  # Always return length 3
+        #return output
+        #print(column_slice)
+        points = []#np.array()
+        # Identify white pixels (255) and apply the in-bounds mask
+        white_pixels_mask = (column_slice == 255)
+
+        # Find indices where white pixels start and end (by diffing the mask)
+        diff = np.diff(np.concatenate(([0], white_pixels_mask.astype(int), [0])))
+
+        # Indices where white regions start and end
+        starts = np.where(diff == 1)[0]
+        ends = np.where(diff == -1)[0]
+
+        # Iterate over each detected white region
+        for start, end in zip(starts, ends):
+            y_start = start + y  # Adjust relative start index to absolute coordinate
+            y_end = end + y  # Adjust relative end index to absolute coordinate
+            # Check if the detected white region is too thick
+            thickness = y_end - y_start
+            if thickness > staff_line_thickness:
+                return [-1, -1, -1, -1, -1]
+
+            # Store the midpoint of the valid white region
+            midpoint = y_start + thickness // 2
+            points.append(midpoint)
+
+        # Ensure exactly 5 points were detected
+        if len(points) != 5:
+            return [-1, -1, -1, -1, -1]
+
+        # Calculate the expected spacing between points
+        spacing = points[1] - points[0]
+
+        # Check that the spacing between points is consistent
+        for i in range(1, len(points) - 1):
+            if abs((points[i + 1] - points[i]) - spacing) > 2:
+                return [-1, -1, -1, -1, -1]
+
+        # Return the detected points if all conditions are met
+        #print(points)
+        #print(points)
+        return points#np.array(points)
+    '''
+
+    '''
     Todo: draws vertical lines, finds if vertical line intersects staff line exactly 5 times
     '''
     def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index, check_num_clefs_and_staff_lines):
@@ -488,9 +549,6 @@ class ImageProcessing:
         num_lines = 0
         if self.is_list_iterable(self.staff_lines[page_index]):
             num_lines = len(self.staff_lines[page_index])
-
-        #cv.imwrite("aimg.jpg", img)
-        #TODO calculate all groups, then find closest group for note
         staff_line_areas = []
         # findind first clef in line
         if not self.is_list_iterable(self.all_clefs[page_index]):
@@ -503,6 +561,8 @@ class ImageProcessing:
                 adjustment = 0
             top = [clef.topleft[0], clef.topleft[1] - adjustment]
             bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
+            top = [max(0, top[0]), max(0, top[1])]
+            bottom = [min(self.image_widths[page_index] - 1, bottom[0]), min(self.image_heights[page_index] - 1, bottom[1])]
             staff_line_areas.append([top, bottom])
         if check_num_clefs_and_staff_lines and len(staff_line_areas) * 5 == num_lines:
             #print(len(staff_line_areas), num_lines, " clegs and num nlines")
@@ -514,6 +574,44 @@ class ImageProcessing:
         height, width = bw.shape[:2]
         img = bw
 
+        '''
+        for area in staff_line_areas:
+            top, bottom = area
+            roi = img[top[1]:bottom[1], top[0]:width]
+            np.set_printoptions(threshold=np.inf)
+            #print(roi.shape)
+            staff_line_groups = np.apply_along_axis(self.detect_staff_line_group, axis=0, arr=roi, y=top[1], staff_line_thickness=5)
+            staff_line_groups = np.transpose(staff_line_groups)
+            left_group = []
+            left_x = 0
+            right_group = []
+            right_x = 0
+            #print(staff_line_groups.shape)
+            #print(staff_line_groups)
+            for x, group in enumerate(staff_line_groups):
+                #print("group", group)
+                if np.array_equal(group, [-1,-1,-1,-1,-1]):
+                    pass
+                else:
+                    left_group = group
+                    left_x = x + top[0]
+                    break
+            if np.array_equal(group, [-1,-1,-1,-1,-1]):
+                print("couldnt find left group")
+                continue
+            for x, group in enumerate(reversed(staff_line_groups)):
+                if np.array_equal(group, [-1,-1,-1,-1,-1]):
+                    pass
+                else:
+                    right_group = group
+                    right_x = (width - x) + top[0]
+                    break
+            if np.array_equal(left_group, [-1,-1,-1,-1,-1]) or np.array_equal(right_group, [-1,-1,-1,-1,-1]):
+                print("Unable to generate staff lines on page " + str(page_index))
+            else:
+                for i in range(5):
+                    current_staff_lines.append(StaffLine([left_x, left_group[i]], [right_x, right_group[i]], width, height))
+        '''
         for area in staff_line_areas:
             top, bottom = area
             current_group = []
@@ -549,7 +647,6 @@ class ImageProcessing:
             else:
                 print("Unable to generate staff lines on page " + str(page_index))
 
-
         if self.staff_lines[page_index] is None:
             self.staff_lines[page_index] = current_staff_lines
         else:
@@ -568,7 +665,7 @@ class ImageProcessing:
         if is_on_line != note.is_on_line:
             pass
         letter_index = (letter_index - note_shift) % len(letters)
-        if note.letter() == "":
+        if note.letter == "":
             note.letter = letters[letter_index]
         elif note.letter.islower() and overwrite == True:
             note.letter = letters[letter_index]
@@ -590,7 +687,7 @@ class ImageProcessing:
             else:
                 note_shift -= 1
         letter_index = (letter_index - note_shift) % len(letters)
-        if note.letter() == "":
+        if note.letter == "":
             note.letter = letters[letter_index]
         elif note.letter.islower() and overwrite == True:
             note.letter = letters[letter_index]
@@ -641,7 +738,6 @@ class ImageProcessing:
 
 
     def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error, overwrite):
-        #TODO
         notes = region.notes
         height, width = img.shape[:2]
         lines_in_region = []
@@ -662,6 +758,8 @@ class ImageProcessing:
         bottomright = lines_in_region[4].calculate_y(region.bottomright[0])
         top_y = min(topleft, topright) - staff_line_error
         bottom_y = max(bottomleft, bottomright) + staff_line_error
+        top_y = max(0, top_y)
+        bottom_y = min(self.image_heights[page_index] - 1, bottom_y)
         current_group = []
         x = region.topleft[0]
         consecutive_times_without_finding_group = 0
@@ -1298,13 +1396,14 @@ class ImageProcessing:
             #TODO remove note
 
 
-    def extend_small_note(self, page_index, x, y, blackness, erode_strength):
+    def extend_small_note(self, page_index, x, y, erode_strength):
+        print("extend quarter note without checking dimensions. erode strength: ", erode_strength)
         note_height = self.get_note_height(page_index)
         # print(note_height, note_width)
         # gray = cv.bitwise_not(self.gray_images[page_index])
         # bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
-        _, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
-        bw = cv.bitwise_not(bw)
+        #_, bw = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)
+        bw = cv.bitwise_not(self.bw_images[page_index])
         vertical = np.copy(bw)
         horizontal = np.copy(bw)
         horizontal_size = round(note_height / 2 * erode_strength)
@@ -1346,9 +1445,10 @@ class ImageProcessing:
     usign an image that removes staff lines, extends notes
     '''
     def auto_extend_notes(self, page_index, note_height_width_ratio, debugging, erode_strength, note=None):
-        print("auto extend page", page_index)
         note_height = self.get_note_height(page_index)
         note_width = int(note_height * note_height_width_ratio / 100)
+        print("auto extend page", page_index, "note height: ", note_height, "note width based off of note height width ratio: ", note_width, "erode strength: ", erode_strength)
+
         #print(note_height, note_width)
         #gray = cv.bitwise_not(self.gray_images[page_index])
         #bw = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
@@ -1456,6 +1556,20 @@ class ImageProcessing:
                 cv.rectangle(vertical, note.topleft, note.bottomright, 125, 1)
         return vertical
 
+    def get_keep_only_vertical_erode_image(self, page_index, erode_strength):
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        vertical = np.copy(bw)
+        verticalsize = erode_strength
+        # Create structure element for extracting vertical lines through morphology operations
+        verticalStructure = cv.getStructuringElement(cv.MORPH_RECT, (1, verticalsize))
+
+        # Apply morphology operations
+        vertical = cv.erode(vertical, verticalStructure)
+        vertical = cv.dilate(vertical, verticalStructure)
+        vertical = cv.bitwise_not(vertical)
+        #only keep pixels that are white in bw, but black in vertical
+        intersection = cv.bitwise_and(bw, vertical)
+        return intersection
 
     def fill_in_white_spots(self, page_index, image, gray_image, filename):
         print("Fill in white spots on page ", page_index)
@@ -1508,7 +1622,7 @@ class ImageProcessing:
         self.regenerate_images(page_index)
 
     def regenerate_images(self, page_index, blackness):
-        print("regenerating images ", page_index)
+        print("regenerating images ", page_index, "blackness: ", blackness)
         self.images[page_index] = cv.imread(self.images_filenames[page_index])
         self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
         self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)[1]
@@ -1903,7 +2017,7 @@ class ImageProcessing:
         if half_note_count == 0:
             print("WARNING REDO HALF NOTES")
     def determine_if_notes_are_on_line(self, page_index, erode_strength):
-        print("determine if notes are on line", page_index)
+        print("determine if notes are on line", page_index, "erode_strength: ", erode_strength)
         horizontal = self.get_horizontal_image(page_index, erode_strength)
         if self.is_list_iterable(self.notes[page_index]):
             for note in self.notes[page_index]:
