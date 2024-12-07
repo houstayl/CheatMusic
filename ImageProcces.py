@@ -92,6 +92,74 @@ class ImageProcessing:
             "note": self.notes,
             "staff_line": self.staff_lines
         }
+
+    def __init__(self, num_pages):
+        # TODO add stack for states
+        self.dirname = ""
+        self.filename = ""
+        self.num_pages = num_pages
+        self.regions = [None] * self.num_pages
+        self.images_filenames = []
+        self.annotated_images_filenames = []
+        self.images = []
+        self.gray_images = []
+        self.bw_images = []
+        #self.lines_removed_images = []
+
+        #BGR
+        self.letter_colors = {
+            'a': (182, 58, 103),
+            'b': (160, 66, 216),
+            'c': (62, 47, 246),
+            'd': (41, 152, 254),
+            'e': (1, 224, 255),
+            'f': (52, 202, 119),
+            'g': (136, 151, 1)
+        }
+
+        self.type_colors = {
+            "bass_clef": (255, 0, 0),
+            "treble_clef": (0, 125, 0),
+            "note": (0, 0, 255),
+            "barline": (0, 255, 255),
+            "double_flat": (63, 0, 127),
+            "flat": (127, 0, 0),
+            "natural": (255, 255, 86),
+            "sharp": (0, 127, 255),
+            "double_sharp": (255, 0, 255),
+            "staff_line": (0, 255, 0)
+
+        }
+
+        # features objects:
+        # each index represents a page
+        self.staff_lines = [None] * self.num_pages
+        self.treble_clefs = [None] * self.num_pages
+        self.bass_clefs = [None] * self.num_pages
+        self.barlines = [None] * self.num_pages
+        self.barlines_2d = [None] * self.num_pages
+
+        self.accidentals = [None] * self.num_pages
+
+        self.notes = [None] * self.num_pages
+        self.image_heights = []
+        self.image_widths = []
+        self.all_clefs = [None] * self.num_pages
+
+        # Used to instantly convert from type to array for that type
+
+        self.array_types_dict = {
+            "treble_clef": self.treble_clefs,
+            "bass_clef": self.bass_clefs,
+            "barline": self.barlines,
+            "double_flat": self.accidentals,
+            "flat": self.accidentals,
+            "natural": self.accidentals,
+            "sharp": self.accidentals,
+            "double_sharp": self.accidentals,
+            "note": self.notes,
+            "staff_line": self.staff_lines
+        }
     '''
     def __reduce__(self):
         pass
@@ -448,13 +516,13 @@ class ImageProcessing:
         # Extract the column slice for the given x-coordinate
         column_slice = img[top_y:bottom_y, x]
         # Check in-bounds for the entire column (boolean array)
-        in_bounds_mask = np.array([
-            self.in_bounds(x, y, self.image_widths[page_index], self.image_heights[page_index])
-            for y in range(top_y, bottom_y)
-        ])
+        #in_bounds_mask = np.array([
+        #    self.in_bounds(x, y, self.image_widths[page_index], self.image_heights[page_index])
+        #    for y in range(top_y, bottom_y)
+        #])
 
         # Identify white pixels (255) and apply the in-bounds mask
-        white_pixels_mask = (column_slice == 255) & in_bounds_mask
+        white_pixels_mask = (column_slice == 255)# & in_bounds_mask
 
         # Find indices where white pixels start and end (by diffing the mask)
         diff = np.diff(np.concatenate(([0], white_pixels_mask.astype(int), [0])))
@@ -652,7 +720,82 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
 
+    def get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(self, page_index, check_num_clefs_and_staff_lines):
+        print("getting staff lines using horizontal erode on page", page_index)
+        self.sort_clefs(page_index)
+        num_lines = 0
+        if self.is_list_iterable(self.staff_lines[page_index]):
+            num_lines = len(self.staff_lines[page_index])
+        staff_line_areas = []
+        # findind first clef in line
+        if not self.is_list_iterable(self.all_clefs[page_index]):
+            print("Need to add clefs")
+            return
+        for row in self.all_clefs[page_index]:
+            clef = row[0]
+            adjustment = 20
+            if clef.type == "treble_clef":
+                adjustment = 0
+            top = [clef.topleft[0], clef.topleft[1] - adjustment]
+            bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
+            top = [max(0, top[0]), max(0, top[1])]
+            bottom = [min(self.image_widths[page_index] - 1, bottom[0]), min(self.image_heights[page_index] - 1, bottom[1])]
+            staff_line_areas.append([top, bottom])
+        if check_num_clefs_and_staff_lines and len(staff_line_areas) * 5 == num_lines:
+            #print(len(staff_line_areas), num_lines, " clegs and num nlines")
+            print("no new clefs")
+            return
+        self.staff_lines[page_index] = []
+        current_staff_lines = []
+        bw = cv.bitwise_not(self.bw_images[page_index])
+        horizontal = np.copy(bw)
+        horizontal_size = round(5)
+        horizontalStructure = cv.getStructuringElement(cv.MORPH_RECT, (horizontal_size, 1))
+        # Apply morphology operations
+        horizontal = cv.erode(horizontal, horizontalStructure)
+        horizontal = cv.dilate(horizontal, horizontalStructure)
+        img = horizontal
+        height, width = img.shape[:2]
 
+        for area in staff_line_areas:
+            top, bottom = area
+            current_group = []
+            left_x = 0
+            left_group = []
+            right_x = 0
+            right_group = []
+            count = 0
+            #find group on left side
+            for x in range(top[0], width, 1):
+                group = self.detect_staff_line_group(page_index, img, x, top[1], bottom[1])
+                if group:
+                    left_x = x
+                    left_group = group
+                    count += 1
+                    break
+            if left_group == []:
+                print("couldnt find left group")
+                continue
+            #find group on right side with similiar height to other group
+            for x in range(self.image_widths[page_index] - 1, top[0], -1):
+                group = self.detect_staff_line_group(page_index, img, x, top[1], bottom[1])
+                if group:
+                    #print(abs((group[4] - group[0]) / (left_group[4] - left_group[0])))
+                    if .7 < abs((group[4] - group[0]) / (left_group[4] - left_group[0])) < 1.3:
+                        right_x = x
+                        right_group = group
+                        count += 1
+                        break
+            if count == 2:
+                for i in range(5):
+                    current_staff_lines.append(StaffLine([left_x,left_group[i]],[right_x, right_group[i]],width, height))
+            else:
+                print("Unable to generate staff lines on page " + str(page_index))
+
+        if self.staff_lines[page_index] is None:
+            self.staff_lines[page_index] = current_staff_lines
+        else:
+            self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
     def calculate_note_or_accidental(self, note, group, clef, overwrite):
         spacing = abs(group[4][1] - group[0][1]) / 8
         distance = note.center[1] - group[0][1]
@@ -662,8 +805,11 @@ class ImageProcessing:
             letter_index = 5
         note_shift = round(distance / spacing)
         is_on_line = note_shift % 2 == 0
-        if is_on_line != note.is_on_line:
-            pass
+        if note.is_on_line != None and is_on_line != note.is_on_line:
+            if distance / spacing > note_shift:
+                note_shift += 1
+            else:
+                note_shift -= 1
         letter_index = (letter_index - note_shift) % len(letters)
         if note.letter == "":
             note.letter = letters[letter_index]
@@ -1006,13 +1152,62 @@ class ImageProcessing:
     '''
     Manually extending notes in a direction. If notes overlap, wont extend
     '''
-    def extend_notes(self, page_index, up, down, left, right, note_type, include_auto_extended_notes):
+    def extend_notes_vertical(self, page_index, up, down, notes):
+        if self.is_list_iterable(self.notes[page_index]):
+            for i in range(0, len(notes) - 1, 1):
+                note = notes[i]
+                note.topleft = [note.topleft[0], note.topleft[1] - up]
+                note.bottomright = [note.bottomright[0], note.bottomright[1] + down]
+                for j in range(len(self.notes[page_index])):
+                        if up != 0:  # Extending vertically
+                            if self.does_horizontal_line_intersect_feature(note.topleft, note.get_topright(), notes[j]) == True:
+                                note.topleft[1] += up
+                                break
+                        if down != 0:
+                            if self.does_horizontal_line_intersect_feature(note.get_bottomleft(), note.bottomright, notes[j]) == True:
+                                note.bottomright[1] -= down
+                                break
+    def extend_notes_horizontal(self, page_index, left, right, notes):
+        if self.is_list_iterable(self.notes[page_index]):
+            for i in range(0, len(notes) - 1, 1):
+                note = notes[i]
+                note.topleft = [note.topleft[0] - left, note.topleft[1]]
+                note.bottomright = [note.bottomright[0] + right, note.bottomright[1]]
+                for j in range(i, len(notes), 1):
+                    if left != 0:  # extending horizontally
+                        if self.does_vertical_line_intersect_feature(note.topleft, note.get_bottomleft(), notes[j]) == True:
+                            note.topleft[0] += left
+                            break
+                    if right != 0:
+                        if self.does_vertical_line_intersect_feature(note.get_topright(), note.bottomright, notes[j]) == True:
+                            note.bottomright[0] -= right
+                            break
+
+    def extend_notes(self, page_index, up, down, left, right, note_type=None):
+        #todo put notes into bucket, maybe sort features by top to bottom for up and down, and left to right for left to right
+        sorted_vertical = []
+        sorted_horizontal = []
+        if left == 1 or right == 1:
+            sorted_horizontal = sorted(self.notes[page_index], key=lambda x: x.center[0])
+        if left == 1:
+            self.extend_notes_horizontal(page_index, 1, 0, sorted_horizontal)
+        if right == 1:
+            self.extend_notes_horizontal(page_index, 0, 1, sorted_horizontal)
+        if up == 1 or down == 1:
+            sorted_vertical = sorted(self.notes[page_index], key=lambda x: x.center[0])
+        if up == 1:
+            self.extend_notes_vertical(page_index, 0, 1, sorted_vertical)
+        if down == 1:
+            self.extend_notes_vertical(page_index, 1, 0, sorted_vertical)
+
+
+        '''
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for i in range(len(self.notes[page_index])):
 
                 note = self.notes[page_index][i]
-                if note.is_half_note != note_type or note.is_auto_extended() != include_auto_extended_notes:
-                    continue
+                #if note.is_half_note != note_type:
+                #    continue
                 note.topleft = [note.topleft[0] - left, note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1] + down]
                 for j in range(len(self.notes[page_index])):
@@ -1033,6 +1228,7 @@ class ImageProcessing:
                             if self.does_horizontal_line_intersect_feature(note.get_bottomleft(), note.bottomright, self.notes[page_index][j]) == True:
                                 note.bottomright[1] -= down
                                 break
+        '''
 
     '''
     def add_note_by_center_coordinate(self, page_index, x, y, note_type, note_height_width_ratio):
@@ -1733,21 +1929,25 @@ class ImageProcessing:
 
         temp = []
         i = 0
-        while i < len(self.all_clefs[page_index]) - 1:
-            current_row = [self.all_clefs[page_index][i]]
+        if self.is_list_iterable(self.all_clefs[page_index]):
+            while i < len(self.all_clefs[page_index]) - 1:
+                current_row = [self.all_clefs[page_index][i]]
 
-            # Check if the next clefs are in the same row
-            while (i + 1 < len(self.all_clefs[page_index]) and
-                   abs(self.all_clefs[page_index][i].topleft[1] - self.all_clefs[page_index][i + 1].topleft[1]) < clef_error):
+                # Check if the next clefs are in the same row
+                while (i + 1 < len(self.all_clefs[page_index]) and
+                       abs(self.all_clefs[page_index][i].topleft[1] - self.all_clefs[page_index][i + 1].topleft[1]) < clef_error):
+                    i += 1
+                    current_row.append(self.all_clefs[page_index][i])
+
+                # Sort current row from left to right
+                current_row.sort(key=lambda x: x.topleft[0])
+                temp.append(current_row)
+
+                # Move to the next clef
                 i += 1
-                current_row.append(self.all_clefs[page_index][i])
-
-            # Sort current row from left to right
-            current_row.sort(key=lambda x: x.topleft[0])
-            temp.append(current_row)
-
-            # Move to the next clef
-            i += 1
+        else:
+            print("Unable to sort clefs")
+            return
 
         # Handle the last clef if it wasn't processed
         if i == len(self.all_clefs[page_index]) - 1:
@@ -2016,20 +2216,47 @@ class ImageProcessing:
         print("half notes", half_note_count)
         if half_note_count == 0:
             print("WARNING REDO HALF NOTES")
+            return True
+
+    def get_height_of_line(self, x, y, img):
+        y_start = y
+        count = 0
+        height = img.shape[0]
+        while y > 0 and img[y][x] == 255:
+            y -= 1
+            count += 1
+        y = y_start
+        while y < height and img[y][x] == 255:
+            y += 1
+            count += 1
+        #print("line height", count)
+        return count
+
     def determine_if_notes_are_on_line(self, page_index, erode_strength):
-        print("determine if notes are on line", page_index, "erode_strength: ", erode_strength)
         horizontal = self.get_horizontal_image(page_index, erode_strength)
+        num_notes_on_line = 0
+        num_notes_not_on_line = 0
+        num_notes_skipped = 0
         if self.is_list_iterable(self.notes[page_index]):
             for note in self.notes[page_index]:
                 if note.is_on_line == None:
                     if note.is_half_note == "quarter":
-                        if horizontal[note.center[1] - 1][note.center[0]] == 255:
-                            note.is_on_line = True
-                        elif horizontal[note.center[1]][note.center[0]] == 255:
-                            note.is_on_line = True
-                        elif horizontal[note.center[1] + 1][note.center[0]] == 255:
-                            note.is_on_line = True
-                        else:
+                        spacing = 2#int(note.get_height() / 4)
+                        white_pixel_found = False
+                        for y in range(note.center[1] - spacing, note.center[1] + spacing, 1):
+                            if y < self.image_heights[page_index]:
+                                if horizontal[y][note.center[0]] == 255:
+                                    line_height = self.get_height_of_line(note.center[0], y, horizontal)
+                                    if line_height > note.get_height() / 2:
+                                        #print("note center is white, but line has height greater than the note height / 2:", line_height, "pxls")
+                                        note.is_on_line = None
+                                        num_notes_skipped += 1
+                                    else:
+                                        note.is_on_line = True
+                                        num_notes_on_line += 1
+                                    white_pixel_found = True
+                        if white_pixel_found == False:
+                            num_notes_not_on_line += 1
                             note.is_on_line = False
 
                     else:# half or whole note
@@ -2037,6 +2264,7 @@ class ImageProcessing:
                             note.is_on_line = True
                         else:
                             note.is_on_line = False
+        print("determine if notes are on line", page_index, "erode_strength: ", erode_strength, "notes on line:", num_notes_on_line, "not on line", num_notes_not_on_line, "undetermined", num_notes_skipped)
 
     def alternative_determine_if_notes_are_on_line(self, page_index):
         print("determine if notes are on line ", page_index)

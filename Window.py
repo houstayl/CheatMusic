@@ -14,6 +14,7 @@ import copy
 import sys
 from StaffLine import StaffLine
 from Note import Note
+import blosc
 import concurrent.futures
 import subprocess
 
@@ -35,7 +36,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    for distorted staff lines: only keep pixels that are removed from vertical erode
+    compress image
     piano tape
     save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
     show staff line groups from distorted staff line calculation in image.
@@ -184,7 +185,7 @@ class ImageEditor(tk.Tk):
         self.blackness_scale.set(210)
 
         #Erode stregth scale
-        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=250, resolution=10, orient="horizontal", label="Erode strength %", command=self.on_erode_scale_change)
+        self.erode_strength_scale = tk.Scale(self.left_frame, from_=50, to=300, resolution=10, orient="horizontal", label="Erode strength %", command=self.on_erode_scale_change)
         self.erode_strength_scale.set(100)
 
         #Used for three click staff line addition
@@ -397,9 +398,9 @@ class ImageEditor(tk.Tk):
         file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
         file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
         file_menu.add_separator()
-        file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
-        file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
-        file_menu.add_separator()
+        #file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
+        #file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
+        #file_menu.add_separator()
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
         file_menu.add_separator()
@@ -552,6 +553,8 @@ class ImageEditor(tk.Tk):
         #staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
         staff_line_menu.add_separator()
         staff_line_menu.add_command(label="Generate staff lines override(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line(override=True))
+        staff_line_menu.add_separator()
+        staff_line_menu.add_command(label="Generate staff lines using horizontal erode(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(override=True))
         #staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
 
         # Barline menu
@@ -576,10 +579,12 @@ class ImageEditor(tk.Tk):
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines) (F2)", command=self.auto_extend_notes)
         note_menu.add_separator()
         extend_notes_sub_menu = tk.Menu(note_menu, tearoff=0)
-        extend_notes_sub_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
+        #extend_notes_sub_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
+        #extend_notes_sub_menu.add_separator()
+        extend_notes_sub_menu.add_command(label="Extend notes in all directions", command=self.extend_notes_all_directions)
         extend_notes_sub_menu.add_separator()
-        extend_notes_sub_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
         extend_notes_sub_menu.add_command(label="Extend notes up", command=lambda: self.extend_notes(1, 0, 0, 0))
+        extend_notes_sub_menu.add_command(label="Extend notes down", command=lambda: self.extend_notes(0, 1, 0, 0))
         extend_notes_sub_menu.add_separator()
         extend_notes_sub_menu.add_command(label="Extend notes left", command=lambda: self.extend_notes(0, 0, 1, 0))
         extend_notes_sub_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
@@ -658,6 +663,7 @@ class ImageEditor(tk.Tk):
         reset_menu.add_separator()
         reset_menu.add_command(label="Regions", command=lambda: self.clear_region())
         reset_menu.add_command(label="Reset note and accidental letters", command=self.reset_note_and_accidental_letters)
+        reset_menu.add_command(label="Reset note is on line for quarter notes", command=self.reset_note_is_on_line)
 
         info_menu = tk.Menu(self.menu, tearoff=0)
         ##self.info_string = tk.StringVar()
@@ -872,6 +878,16 @@ class ImageEditor(tk.Tk):
                     acc.letter = ""
         self.draw_image_with_filters()
 
+    def reset_note_is_on_line(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        for i in loop:
+            if self.image_processor.notes[i] is not None:
+                for note in self.image_processor.notes[i]:
+                    if note.is_half_note == "quarter":
+                        note.is_on_line = None
+        self.draw_image_with_filters()
     def set_key_for_current_page(self):
         topleft = [0,0]
         bottomright = [self.image_processor.image_widths[self.image_index] - 1, self.image_processor.image_heights[self.image_index] - 1]
@@ -922,6 +938,7 @@ class ImageEditor(tk.Tk):
             lines = self.image_processor.staff_lines[i]
             #If staff lines is note multiple of 5
             if lines is not None and len(lines) % 5 == 0:
+                #todo compare angle of lines to spot outlier
                 pass
             else:
                 print("Page " + str(i) + " needs staff line action")
@@ -944,9 +961,29 @@ class ImageEditor(tk.Tk):
         if loop_list == "single":
             loop_list = [self.image_index]
         for i in loop_list:
-            self.image_processor.extend_notes(i, up, down, left, right, self.note_type.get(), self.include_auto_extended_notes.get())
+            if up == 1:
+                print("extend notes up", i)
+            if down == 1:
+                print("extend notes down", i)
+            if left == 1:
+                print("extend notes left", i)
+            if right == 1:
+                print("extend notes right", i)
+            self.image_processor.extend_notes(i, up, down, left, right)
         self.draw_image_with_filters()
 
+    def extend_notes_all_directions(self):
+        loop_list = self.get_loop_array_based_on_feature_mode()
+        if loop_list == "single":
+            loop_list = [self.image_index]
+        for i in loop_list:
+            print("extend notes in all directions", i)
+            self.image_processor.extend_notes(i, 1, 0, 0, 0)
+            self.image_processor.extend_notes(i, 0, 1, 0, 0)
+            self.image_processor.extend_notes(i, 0, 0, 1, 0)
+            self.image_processor.extend_notes(i, 0, 0, 0, 1)
+
+        self.draw_image_with_filters()
 
     def autosnap_notes(self):
         loop_array = self.get_loop_array_based_on_feature_mode()
@@ -1113,6 +1150,21 @@ class ImageEditor(tk.Tk):
             if override == True:
                 check_num_clefs_and_staff_lines = False
             self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines)
+        self.draw_image_with_filters()
+
+    def generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(self, override=False):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        check_num_clefs_and_staff_lines = False
+        for i in loop:
+            if i == self.image_index:
+                check_num_clefs_and_staff_lines = False
+            else:
+                check_num_clefs_and_staff_lines = True
+            if override == True:
+                check_num_clefs_and_staff_lines = False
+            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(i, check_num_clefs_and_staff_lines)
         self.draw_image_with_filters()
 
     def generate_staff_lines(self):
@@ -1795,6 +1847,7 @@ class ImageEditor(tk.Tk):
             print("no file selected")
             return
         with open(file_path, "rb") as file:
+            print("open", file_path)
             self.image_processor = pickle.load(file)
             self.file_name = pickle.load(file)
             self.num_pages = self.image_processor.num_pages
@@ -1808,7 +1861,14 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
                 self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
                 cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
-            self.image_processor.determine_if_half_notes_are_on_line()
+            problem = self.image_processor.determine_if_half_notes_are_on_line()
+            if problem:
+                messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
+            #todo remove
+            #todo add extending notes by 2 pixels
+            #self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(True)
+            #self.erode_strength_scale.set(250)
+            #self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(True)
             #self.convert_is_half_note()
             self.draw_image_with_filters()
 
@@ -1832,7 +1892,7 @@ class ImageEditor(tk.Tk):
         new_filepath = new_filepath.replace("\\", "/")
 
         return new_filepath
-
+    '''
     def save_binary_compressed(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
                                             initialfile=self.file_name)
@@ -1864,8 +1924,71 @@ class ImageEditor(tk.Tk):
             pickle.dump(self.image_processor.image_heights, file)
             pickle.dump(self.image_processor.image_widths, file)
             pickle.dump(self.image_processor.all_clefs, file)
+    '''
+
+    def save_binary_compressed(self):
+        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
+                                            initialfile=self.file_name)
+        if path == "":
+            print("no filename")
+            return
+        # todo save pdf of images and all other image processor info
+        # print(path)
+        path = self.modify_filepath(path)
+        # print(path)
+        print(path[:-4] + ".pdf")
+        with open(path, "wb") as file:
+            pickle.dump(self.num_pages)
+            # todo create folder: inset /filename/filename.pkl, save pdf and annotations in folder
+            for img in self.image_processor.images:
+                compressed = blosc.compress(img)
+                pickle.dump(compressed)
+            pickle.dump(self.file_name, file)
+            # pickle.dump(self.image_processor.images, file)
+            pickle.dump(self.image_processor.staff_lines, file)
+            pickle.dump(self.image_processor.treble_clefs, file)
+            pickle.dump(self.image_processor.bass_clefs, file)
+            pickle.dump(self.image_processor.barlines, file)
+            pickle.dump(self.image_processor.barlines_2d, file)
+            pickle.dump(self.image_processor.accidentals, file)
+            pickle.dump(self.image_processor.notes, file)
+            pickle.dump(self.image_processor.image_heights, file)
+            pickle.dump(self.image_processor.image_widths, file)
+            pickle.dump(self.image_processor.all_clefs, file)
     def load_binary_compressed(self):
         #todo open pdf, convert to image, get bw , grayscale. load rest of image processor
+        file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
+        if file_path == "":
+            print("no file selected")
+            return
+        with open(file_path, "rb") as file:
+            print("open", file_path)
+            self.num_pages = pickle.load(file)
+            self.image_processor = ImageProcessing(self.num_pages)
+            for i in range(self.num_pages):
+                self.image_processor.images[i] = blosc.decompress(pickle.load(file))
+            self.image_processor = pickle.load(file)
+            self.file_name = pickle.load(file)
+            self.image_index = 0
+            self.dirname = os.path.dirname(__file__)
+            self.image_processor.dirname = self.dirname
+            self.image_processor.images_filenames = []
+            self.image_processor.annotated_images_filenames = []
+            # write the images
+            for i in range(self.num_pages):
+                self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
+                self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
+                cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
+            problem = self.image_processor.determine_if_half_notes_are_on_line()
+            if problem:
+                messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
+            # todo remove
+            # todo add extending notes by 2 pixels
+            # self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(True)
+            # self.erode_strength_scale.set(250)
+            # self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(True)
+            # self.convert_is_half_note()
+            self.draw_image_with_filters()
         pass
     '''
     def save_annotations(self):
