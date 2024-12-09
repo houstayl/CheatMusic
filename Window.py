@@ -36,6 +36,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    on open: extend notes in all directions, set erode to 300, determine if notes are on line, click overwrite button, calculate notes
     compress image
     piano tape
     save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
@@ -43,7 +44,6 @@ Big TODOn
     on distorted staff lines: set overwrite to false
     2 horizontal images. one for noes the other for staff lines and detecting notes on line
     change current feature text color to match color as well
-    for note checking: show only one color at a time
     selecting multiple features at same time
     on single click to add: dont let rect be out of bounds
     make sure rect is in bounds in fill in feature
