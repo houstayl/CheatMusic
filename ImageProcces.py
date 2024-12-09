@@ -966,8 +966,13 @@ class ImageProcessing:
             features.sort(key=lambda x: (x.topleft[1], x.topleft[0]))
 
 
-    def is_feature_in_rectange(self, feature, topleft, bottomright):
+    def is_feature_in_rectangle(self, feature, topleft, bottomright):
         if topleft[0] < feature.center[0] < bottomright[0] and topleft[1] < feature.center[1] < bottomright[1]:
+            return True
+        else:
+            return False
+    def is_feature_in_rectangle_inclusive(self, feature, topleft, bottomright):
+        if topleft[0] <= feature.center[0] <= bottomright[0] and topleft[1] <= feature.center[1] <= bottomright[1]:
             return True
         else:
             return False
@@ -977,7 +982,7 @@ class ImageProcessing:
     def reset_accidentals(self, page_index, topleft, bottomright):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
-                if self.is_feature_in_rectange(note, topleft, bottomright) == True:
+                if self.is_feature_in_rectangle(note, topleft, bottomright) == True:
                     #todo dont override captal accidental
                     note.accidental = ""
     '''
@@ -986,7 +991,7 @@ class ImageProcessing:
     def set_key(self, page_index, topleft, bottomright, accidental_type, key):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
-                if self.is_feature_in_rectange(note, topleft, bottomright) == True and note.accidental == "":
+                if self.is_feature_in_rectangle(note, topleft, bottomright) == True and note.accidental == "":
                     if note.letter.lower() in key:
                         note.accidental = accidental_type
 
@@ -1153,12 +1158,12 @@ class ImageProcessing:
     Manually extending notes in a direction. If notes overlap, wont extend
     '''
     def extend_notes_vertical(self, page_index, up, down, notes):
-        if self.is_list_iterable(self.notes[page_index]):
-            for i in range(0, len(notes) - 1, 1):
+        if self.is_list_iterable(notes):
+            for i in range(0, len(notes), 1):
                 note = notes[i]
                 note.topleft = [note.topleft[0], note.topleft[1] - up]
                 note.bottomright = [note.bottomright[0], note.bottomright[1] + down]
-                for j in range(len(self.notes[page_index])):
+                for j in range(0, len(notes), 1):
                         if up != 0:  # Extending vertically
                             if self.does_horizontal_line_intersect_feature(note.topleft, note.get_topright(), notes[j]) == True:
                                 note.topleft[1] += up
@@ -1168,12 +1173,14 @@ class ImageProcessing:
                                 note.bottomright[1] -= down
                                 break
     def extend_notes_horizontal(self, page_index, left, right, notes):
-        if self.is_list_iterable(self.notes[page_index]):
-            for i in range(0, len(notes) - 1, 1):
+        if self.is_list_iterable(notes):
+            for i in range(0, len(notes), 1):
                 note = notes[i]
                 note.topleft = [note.topleft[0] - left, note.topleft[1]]
                 note.bottomright = [note.bottomright[0] + right, note.bottomright[1]]
-                for j in range(i, len(notes), 1):
+                for j in range(0, len(notes), 1):
+                    if i == j:
+                        continue
                     if left != 0:  # extending horizontally
                         if self.does_vertical_line_intersect_feature(note.topleft, note.get_bottomleft(), notes[j]) == True:
                             note.topleft[0] += left
@@ -1184,21 +1191,43 @@ class ImageProcessing:
                             break
 
     def extend_notes(self, page_index, up, down, left, right, note_type=None):
-        #todo put notes into bucket, maybe sort features by top to bottom for up and down, and left to right for left to right
-        sorted_vertical = []
-        sorted_horizontal = []
-        if left == 1 or right == 1:
-            sorted_horizontal = sorted(self.notes[page_index], key=lambda x: x.center[0])
-        if left == 1:
-            self.extend_notes_horizontal(page_index, 1, 0, sorted_horizontal)
-        if right == 1:
-            self.extend_notes_horizontal(page_index, 0, 1, sorted_horizontal)
-        if up == 1 or down == 1:
-            sorted_vertical = sorted(self.notes[page_index], key=lambda x: x.center[0])
-        if up == 1:
-            self.extend_notes_vertical(page_index, 0, 1, sorted_vertical)
-        if down == 1:
-            self.extend_notes_vertical(page_index, 1, 0, sorted_vertical)
+        w, h = self.image_widths[page_index], self.image_heights[page_index]
+        mid_x = w // 2
+        mid_y = h // 2
+        notes = self.notes[page_index]
+        if self.is_list_iterable(notes) == False:
+            print("need to add notes to the page")
+            return
+        mask = [False * len(notes)]
+        topleft_bucket = []
+        topright_bucket = []
+        bottomleft_bucket = []
+        bottomright_bucket = []
+
+        #todo keep track of notes in multiple buckets so that they are only extended once
+        #todo, either sort or change loop to handle unsorted
+        #todo: redo buckets after each extension
+        for note in notes:
+            if self.is_feature_in_rectangle_inclusive(note, (0, 0), (mid_x, mid_y)):#topleft bucket
+                topleft_bucket.append(note)
+            if self.is_feature_in_rectangle_inclusive(note, (mid_x, 0), (w - 1, mid_y)):#topright bucket
+                topright_bucket.append(note)
+            if self.is_feature_in_rectangle_inclusive(note, (0, mid_y), (mid_x, h - 1)):#bottomleft bucket
+                bottomleft_bucket.append(note)
+            if self.is_feature_in_rectangle_inclusive(note, (mid_x, mid_y), (w - 1, h - 1)):#bottomright bucket
+                bottomright_bucket.append(note)
+
+        buckets = [topleft_bucket, topright_bucket, bottomleft_bucket, bottomright_bucket]
+        #todo see if note intersects border lines. if not, compare center to midx and midy to determine bucket
+        for bucket in buckets:
+            if left == 1:
+                self.extend_notes_horizontal(page_index, 1, 0, bucket)
+            if right == 1:
+                self.extend_notes_horizontal(page_index, 0, 1, bucket)
+            if up == 1:
+                self.extend_notes_vertical(page_index, 0, 1, bucket)
+            if down == 1:
+                self.extend_notes_vertical(page_index, 1, 0, bucket)
 
 
         '''
