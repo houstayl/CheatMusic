@@ -2277,7 +2277,19 @@ class ImageProcessing:
             count += 1
         #print("line height", count)
         return count
-
+    def get_width_of_line(self, x, y, img):
+        x_start = x
+        count = 0
+        width = img.shape[1]
+        while x > 0 and img[y][x] == 255:
+            x -= 1
+            count += 1
+        x = x_start
+        while x < width and img[y][x] == 255:
+            x += 1
+            count += 1
+        # print("line height", count)
+        return count
     def determine_if_notes_are_on_line(self, page_index, erode_strength):
         horizontal = self.get_horizontal_image(page_index, erode_strength)
         num_notes_on_line = 0
@@ -2293,7 +2305,8 @@ class ImageProcessing:
                             if y < self.image_heights[page_index]:
                                 if horizontal[y][note.center[0]] == 255:
                                     line_height = self.get_height_of_line(note.center[0], y, horizontal)
-                                    if line_height > note.get_height() / 2:
+                                    line_width = self.get_width_of_line(note.center[0], y, horizontal)
+                                    if line_height > note.get_height() / 2 or line_width <= note.get_width()():
                                         #print("note center is white, but line has height greater than the note height / 2:", line_height, "pxls")
                                         note.is_on_line = None
                                         num_notes_skipped += 1
@@ -2507,7 +2520,7 @@ class ImageProcessing:
                                 #x, y, width, height = rect
                                 if rect != (0, 0, 0, 0):
 
-                                    print("rect found")
+                                    #print("rect found")
                                     x, y, width, height = rect
                                     if height > note_height * 1.5 or width > note_height * 2:
                                         print("Half note is open")
@@ -2526,7 +2539,7 @@ class ImageProcessing:
                 if break_loop:
                     break
 
-            print(accidental, "accidental")
+            #print(accidental, "accidental")
             if accidental == "flat":
                 #print("flat")
                 topleft[1] = center[1]
@@ -2537,7 +2550,7 @@ class ImageProcessing:
                 bottomright[0] = center[0]
             elif accidental == "double_sharp":
                 topleft[0] = center[0]
-            print(topleft, bottomright)
+            #print(topleft, bottomright)
             #for y in range(topleft[1], bottomright[1], 1):
             #    for x in range(topleft[0], bottomright[0], 1):
             #        if sub_mask[y - topleft[1] + 1][x - topleft[0] + 1] == 1:
