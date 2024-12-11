@@ -78,7 +78,7 @@ class Region:
                     #note.topleft = (note.topleft[0], adjacent_implied_lines.calculate_y(note.topleft[0]))
                     #note.bottomright = (note.bottomright[0], adjacent_implied_lines[1])
     '''
-    def find_accidental_for_note(self, overwrite):
+    def find_accidental_for_note(self, overwrite, note_height):
         #TODO find other closest lines. get rid of closest lines, just within note height pixels and same letter
         for note in self.notes:
             if note.accidental != "" and overwrite == False:
@@ -89,7 +89,7 @@ class Region:
                 # if note and accidental are on same line, and accidental is to left of note
                 #if acc.type == "flat":
                     #print("flat:", acc, "center: ", acc.get_center()
-                if acc.letter == note.letter and acc.center[0] < note.center[0] and abs(acc.center[1] - note.center[1]) < 20:
+                if acc.letter.lower() == note.letter.lower() and acc.center[0] < note.center[0] and abs(acc.center[1] - note.center[1]) < 2 * note_height:
                     if type(closest) == int:
                         closest = acc
                         # if there is another accidental on the same line
@@ -118,7 +118,7 @@ class Region:
             if type(closest) != int:
                 #if closest.letter == note.letter:#TODO
                 #print("outer", closest.letter)
-                if closest.letter == note.letter and (note.accidental.islower() or note.accidental == ""):
+                if closest.letter.lower() == note.letter.lower() and (note.accidental.islower() or note.accidental == ""):
                     note.accidental = closest.type#[letter, accidental]
                     #print("innter", note.accidental)
             else:

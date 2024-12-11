@@ -1322,6 +1322,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            note_height = self.image_processor.get_note_height(i)
             if self.image_processor.all_clefs[i] is not None:
                 self.image_processor.all_clefs[i].clear()
             if self.image_processor.regions[i] is not None:
@@ -1336,7 +1337,7 @@ class ImageEditor(tk.Tk):
             if self.image_processor.regions[i] is not None:
                 for region in self.image_processor.regions[i]:
                     region.fill_implied_lines(self.image_processor.staff_lines[i], self.image_processor.image_widths[i], self.image_processor.image_heights[i])
-                    region.find_accidental_for_note(overwrite)
+                    region.find_accidental_for_note(overwrite, note_height)
         self.draw_image_with_filters()
 
 
