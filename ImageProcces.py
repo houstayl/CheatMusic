@@ -2290,6 +2290,45 @@ class ImageProcessing:
             count += 1
         # print("line height", count)
         return count
+
+    def is_note_bp_or_pb(self, page_index, note):
+        notes = self.notes[page_index]
+        if self.is_list_iterable(notes):
+            for n in notes:
+                angle_margin = 45
+                n_topleft = [n.topleft[0] - 1, n.topleft[1] - 1]
+                n_bottomright = [n.bottomright[0] + 1, n.bottomright[1] + 1]
+                n_topright = [n_bottomright[0], n_topleft[1]]
+                n_bottomleft = [n_topleft[0], n_bottomright[1]]
+                #if if n i to right of note
+                if self.does_vertical_line_intersect_feature(n_topleft, n_bottomleft, note) == True:
+                    delta_y = note.center[1] - n.center[1]
+                    delta_x = note.center[0] - n.center[0]
+                    angle = math.atan2(delta_y, delta_x)
+                    angle_deg = math.degrees(angle)
+                    if angle_deg < 0:
+                        angle_deg += 360
+
+                    #if note near 90 and 270
+                    if abs(angle - 90) < 20 or abs(angle - 270)< 20:
+                        pass
+                    else:
+                        return True
+                # if n is to left of note
+                elif self.does_vertical_line_intersect_feature(n_topright, n_bottomright, note) == True:
+                    delta_y = note.center[1] - n.center[1]
+                    delta_x = note.center[0] - n.center[0]
+                    angle = math.atan2(delta_y, delta_x)
+                    angle_deg = math.degrees(angle)
+                    if angle_deg < 0:
+                        angle_deg += 360
+                    #print(angle_deg)
+
+                    if abs(angle - 90) < 20 or abs(angle - 270) < 20:
+                        pass
+                    else:
+                        return True
+        return False
     def determine_if_notes_are_on_line(self, page_index, erode_strength):
         horizontal = self.get_horizontal_image(page_index, erode_strength)
         num_notes_on_line = 0
@@ -2299,6 +2338,8 @@ class ImageProcessing:
             for note in self.notes[page_index]:
                 if note.is_on_line == None:
                     if note.is_half_note == "quarter":
+                        if self.is_note_bp_or_pb(page_index, note):
+                            continue
                         spacing = 2#int(note.get_height() / 4)
                         white_pixel_found = False
                         for y in range(note.center[1] - spacing, note.center[1] + spacing, 1):
@@ -2306,7 +2347,7 @@ class ImageProcessing:
                                 if horizontal[y][note.center[0]] == 255:
                                     line_height = self.get_height_of_line(note.center[0], y, horizontal)
                                     line_width = self.get_width_of_line(note.center[0], y, horizontal)
-                                    if line_height > note.get_height() / 2 or line_width <= note.get_width()():
+                                    if line_height > note.get_height() / 2 or line_width <= note.get_width():
                                         #print("note center is white, but line has height greater than the note height / 2:", line_height, "pxls")
                                         note.is_on_line = None
                                         num_notes_skipped += 1

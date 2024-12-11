@@ -886,6 +886,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
+            print("reset quarter note is_on_line", i)
             if self.image_processor.notes[i] is not None:
                 for note in self.image_processor.notes[i]:
                     if note.is_half_note == "quarter":
