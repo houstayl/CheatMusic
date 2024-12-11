@@ -474,6 +474,7 @@ class ImageEditor(tk.Tk):
         select_color_to_view_sub_menu.add_separator()
         select_color_to_view_sub_menu.add_radiobutton(label="Notes that are on line", variable=self.only_show_this_note_type, value='on_line', command=self.draw_image_with_filters)
         select_color_to_view_sub_menu.add_radiobutton(label="Notes that are note on line", variable=self.only_show_this_note_type, value='not_on_line', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_radiobutton(label="Notes that are undetermined if they are on line", variable=self.only_show_this_note_type, value='undetermined', command=self.draw_image_with_filters)
         view_menu.add_cascade(label="Only show notes of a single type for making letter corrections easily", menu=select_color_to_view_sub_menu)
 
 

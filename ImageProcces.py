@@ -2607,6 +2607,11 @@ class ImageProcessing:
                         return False
                     else:
                         return True
+                elif only_show_this_note_type == "undetermined":
+                    if isinstance(feature, Note) and feature.is_on_line == None:
+                        return True
+                    else:
+                        return False
 
     def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs, only_show_this_note_type=None):
         #print("Drawing the features loop")
