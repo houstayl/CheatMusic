@@ -1890,9 +1890,9 @@ class ImageEditor(tk.Tk):
                 self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
                 self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
                 cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
-            problem = self.image_processor.determine_if_half_notes_are_on_line()
-            if problem:
-                messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
+            #problem = self.image_processor.determine_if_half_notes_are_on_line()
+            #if problem:
+            #    messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
             #todo remove
             #todo add extending notes by 2 pixels
             #self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(True)
@@ -2527,12 +2527,14 @@ class ImageEditor(tk.Tk):
                         existing_features = self.image_processor.array_types_dict[rectangle.type][i]
                         if existing_features is None:
                             break
+                        count = len(results[i - index_adjustment])
                         filtered_results = [
                             new_feature for new_feature in results[i - index_adjustment]
                             if not any(
                                 ImageEditor.do_features_overlap(new_feature, existing_feature) for existing_feature
                                 in existing_features)
                         ]
+                        print("Page", i, ":", count, "features found.", count - len(filtered_results), "features removed for overlap")
                         results[i - index_adjustment] = filtered_results
                         #if existing_features is not None and len(existing_features) > 0 and len(results[i - index_adjustment]) > 0:
                         #    for new_feature in results[i - index_adjustment][:]:
@@ -2584,7 +2586,7 @@ class ImageEditor(tk.Tk):
                                     messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
                         if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
                             self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
-                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        self.calculate_notes_for_regions_using_staff_lines(overwrite=False)
                         self.draw_image_with_filters()
                         return
                 #if append_rect is True:
@@ -2652,15 +2654,15 @@ class ImageEditor(tk.Tk):
                     print("No feature in click area")
                     if self.current_feature_type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
                         self.image_processor.add_feature_on_click(self.image_index, x_img, y_img, self.current_feature_type)
-                        self.image_processor.calculate_accidental_letter_by_finding_closest_note(self.image_index, self.overwrite_regions.get())
+                        self.image_processor.calculate_accidental_letter_by_finding_closest_note(self.image_index, overwrite=False)
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.erode_strength_scale.get() / 100)
-                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        self.calculate_notes_for_regions_using_staff_lines(overwrite=False)
                     if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:
                         self.image_processor.extend_half_note_single_click(self.image_index, x_img, y_img, self.note_type.get())
-                        self.calculate_notes_for_regions_using_staff_lines(self.overwrite_regions.get())
+                        self.calculate_notes_for_regions_using_staff_lines(overwrite=False)
                     self.draw_image_with_filters()
 
 
@@ -2792,7 +2794,7 @@ class ImageEditor(tk.Tk):
         if features is not None:
             #TODO remove adjacent matches based on feature size
             #print("num features: ", len(features), "on page: ", i)
-            print("On page ", i, ": ", len(features), "features found")
+            print("On page ", i, ": ", len(features), "features found.")
 
         #print("Process ", i, "ended")
         return features

@@ -93,6 +93,8 @@ class ImageProcessing:
             "staff_line": self.staff_lines
         }
 
+    '''
+    cant have 2 constructors
     def __init__(self, num_pages):
         # TODO add stack for states
         self.dirname = ""
@@ -160,6 +162,7 @@ class ImageProcessing:
             "note": self.notes,
             "staff_line": self.staff_lines
         }
+    '''
     '''
     def __reduce__(self):
         pass
@@ -234,15 +237,18 @@ class ImageProcessing:
 
     def remove_adjacent_matches(self, points, error):
         i = 0
+        count = 0
         #todo handle 2d list?
         while points is not None and i < len(points):
             j = i + 1
             while j < len(points):
                 if self.get_distance(points[i].topleft, points[j].topleft) < error:
                     points.pop(j)
+                    count += 1
                 else:
                     j += 1
             i += 1
+        return count
 
     '''
     Takes a 2d set of features(barlines) and draws them on the image
