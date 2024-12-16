@@ -36,6 +36,15 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    change buttons for accidentals
+    current feature tab
+    draw current feature on canvas
+    interpret small click and drag as click
+    ignore small notes for notes on line
+    erode strength multiplier
+    show staff line groups. add groups to regioins. when regions get regenerated, go through each group and add to new region
+    for bijective funciton between notes and keys: for double flats, double sharps, or accidentals that result in playing white key, acutally change the image and move the note up or down a half step
+    is on line detection: to see if is on space if horizontal lines pass through not near the center
     on open: extend notes in all directions, set erode to 300, determine if notes are on line, click overwrite button, calculate notes
     compress image
     piano tape
@@ -358,6 +367,8 @@ class ImageEditor(tk.Tk):
         self.bind("<Control-=>", self.ctrl_equals_key_press)
         self.bind("<Control-0>", self.ctrl_zero_key_press)
 
+        self.bind("<Control-9>", self.ctrl_nine_key_press)
+
 
 
         self.bind("<Key>", self.keypress)
@@ -477,6 +488,9 @@ class ImageEditor(tk.Tk):
         select_color_to_view_sub_menu.add_radiobutton(label="Notes that are on line(CTRL -)", variable=self.only_show_this_note_type, value='on_line', command=self.draw_image_with_filters)
         select_color_to_view_sub_menu.add_radiobutton(label="Notes that are not on line(CTRL =)", variable=self.only_show_this_note_type, value='not_on_line', command=self.draw_image_with_filters)
         select_color_to_view_sub_menu.add_radiobutton(label="Notes that are undetermined if they are on line(CTRL 0)", variable=self.only_show_this_note_type, value='undetermined', command=self.draw_image_with_filters)
+        select_color_to_view_sub_menu.add_separator()
+        select_color_to_view_sub_menu.add_radiobutton(label="Detect chord letter errors(CTRL 9)", variable=self.only_show_this_note_type, value='chord_errors',command=self.draw_image_with_filters)
+
         view_menu.add_cascade(label="Only show notes of a single type for making letter corrections easily", menu=select_color_to_view_sub_menu)
 
 
@@ -744,14 +758,16 @@ class ImageEditor(tk.Tk):
 
     def convert_is_half_note(self):
         for i in range(self.num_pages):
+            bw = self.image_processor.bw_images[i]
+            h, w = bw.shape[:2]
             notes = self.image_processor.notes[i]
             if notes is not None and len(notes) > 0:
                 for note in notes:
-                    if note.is_half_note == True:
-                        note.is_half_note = "half"
-                    else:
-                        note.is_half_note = "quarter"
-        print("converted notes")
+                    x_center, y_center = note.center
+                    for y in range(y_center - 2, y_center + 2, 1):
+                        for x in range(x_center - 2, x_center + 2, 1):
+                            if 0 < y < h and 0 < x < w and bw[y][x] == 255:
+                                note.is_half_note = "half"
     def auto_detect_note_letter_irregularities(self):
         #TODO look for adjacent notes and compare letters
         pass
@@ -1768,6 +1784,13 @@ class ImageEditor(tk.Tk):
         else:
             self.only_show_this_note_type.set('undetermined')
         self.draw_image_with_filters()
+    def ctrl_nine_key_press(self, event):
+        print("keypress: ctrl 9 show chord errors")
+        if self.only_show_this_note_type.get() == 'chord_errors':
+            self.only_show_this_note_type.set("none")
+        else:
+            self.only_show_this_note_type.set('chord_errors')
+        self.draw_image_with_filters()
 
     def on_f1_press(self, event):
         print("keypress: f1 generate staff lines")
@@ -1857,7 +1880,29 @@ class ImageEditor(tk.Tk):
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
 
-
+    def save_pdf_for_double_sided_printing(self):
+        pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")],
+                                                initialfile=self.file_name + "_cheatmusic.pdf")
+        if pdf_path == "":
+            print("no pdf selected")
+            return
+        images = []
+        filter_list = []
+        for i in range(8):
+            filter_list.append(tk.IntVar())
+            if i == 5 or i == 6:
+                filter_list[i].set(1)
+            else:
+                filter_list[i].set(0)
+        loop = range(self.num_pages // 2)
+        #todo change loop to
+        for i in loop:
+            print("save pdf page", i)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, None, 1),
+                                cv.COLOR_BGR2RGB)
+            images.append(Image.fromarray(image))
+        images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
+        print("pdf saved", pdf_path)
     def save_binary(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
         if path == "":
@@ -2484,7 +2529,7 @@ class ImageEditor(tk.Tk):
                     for x_traverse in range(w):
                         if template_bw[y_traverse][x_traverse] == 255:
                             white_count += 1
-                print(white_count / (h * w) > .90, " white percentage")
+                #print(white_count / (h * w) > .90, " white percentage")
                 if white_count / (h * w) > .90:
                     print("rect to white, try disabling Allow small or all white rectangles for template matching in Info menu")
                     return
@@ -2521,27 +2566,32 @@ class ImageEditor(tk.Tk):
                                 results[i - index_adjustment] = self.convert_notes(results[i - index_adjustment])
 
                 #remove overlapping squares:
+                total_features_found, total_features_removed = 0, 0
+                print_features_removed = True
                 if self.allow_overlapping.get() == 0:
                     print("removing overlapping squares")
                     for i in loop_list:
                         existing_features = self.image_processor.array_types_dict[rectangle.type][i]
                         if existing_features is None:
+                            print_features_removed = False
                             break
-                        count = len(results[i - index_adjustment])
+                        total_features_found += len(results[i - index_adjustment])
                         filtered_results = [
                             new_feature for new_feature in results[i - index_adjustment]
                             if not any(
                                 ImageEditor.do_features_overlap(new_feature, existing_feature) for existing_feature
                                 in existing_features)
                         ]
-                        print("Page", i, ":", count, "features found.", count - len(filtered_results), "features removed for overlap")
+                        total_features_removed += len(results[i - index_adjustment]) - len(filtered_results)
+                        #print("Page", i, ":", count, "features found.", count - len(filtered_results), "features removed for overlap")
                         results[i - index_adjustment] = filtered_results
                         #if existing_features is not None and len(existing_features) > 0 and len(results[i - index_adjustment]) > 0:
                         #    for new_feature in results[i - index_adjustment][:]:
                         #        for existing_feature in existing_features:
                         #            if ImageEditor.do_features_overlap(new_feature, existing_feature) == True:
                         #                results[i - index_adjustment].remove(new_feature)
-
+                    if print_features_removed == True:
+                        print("total number of features found after removing overlapping features:", total_features_found - total_features_removed)
                 for i in loop_list:
                     self.undo_features[i] = results[i - index_adjustment]
                     self.image_processor.append_features(i, rectangle.type, results[i - index_adjustment])
@@ -2642,7 +2692,7 @@ class ImageEditor(tk.Tk):
             else:
                 feature = self.image_processor.find_closest_feature(self.current_feature_type, self.image_index, x_img, y_img, error=1)
                 if feature is not None:
-                    print("feature found: ", feature)
+                    print("feature found: ", feature.type)
                     self.current_feature = feature
                     topleft = [int(feature.topleft[0] * self.scale), int(feature.topleft[1] * self.scale)]
                     bottomright = [int(feature.bottomright[0] * self.scale), int(feature.bottomright[1] * self.scale)]

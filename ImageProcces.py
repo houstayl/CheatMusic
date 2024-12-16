@@ -861,7 +861,7 @@ class ImageProcessing:
         for note in notes:
             self.calculate_note_or_accidental_using_staff_lines(note, lines_in_region, region.clef, overwrite)
 
-    def calculate_accidental_letter_by_finding_closest_note(self, page_index, override):
+    def calculate_accidental_letter_by_finding_closest_note(self, page_index, overwrite):
         #todo pass in accidental
         print("calculating accidental by finding closest note page", page_index)
         if self.is_list_iterable(self.accidentals[page_index]):
@@ -882,7 +882,7 @@ class ImageProcessing:
                                 closest_note = note
                     #if note was found and has letter
                     if closest_note is not None and closest_note.letter != "":
-                        if override == True:
+                        if overwrite == True:
                             accidental.letter = closest_note.letter
                         else:
                             if accidental.letter == "":
@@ -985,7 +985,8 @@ class ImageProcessing:
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
                 if self.is_feature_in_rectangle(note, topleft, bottomright) == True:
-                    #todo dont override captal accidental
+                    if note.accidental.isupper() == True:
+                        continue
                     note.accidental = ""
     '''
     Finds notes in the rectangle drawn on the screen and sets the accidental as long as the current note doesnt have an accidental
@@ -1056,6 +1057,15 @@ class ImageProcessing:
             return False
         #if one feature is above
         if one.bottomright[1] <= two.topleft[1] or two.bottomright[1] <= one.topleft[1]:
+            return False
+        return True
+
+    def do_features_overlap_inclusive(self, one, two):
+        # if one feature is to the left
+        if one.bottomright[0] < two.topleft[0] or two.bottomright[0] < one.topleft[0]:
+            return False
+        # if one feature is above
+        if one.bottomright[1] < two.topleft[1] or two.bottomright[1] < one.topleft[1]:
             return False
         return True
 
@@ -1687,7 +1697,8 @@ class ImageProcessing:
                 note = Note(topleft, bottomright, is_half_note="quarter", auto_extended=True)
                 self.append_features(page_index, "note", [note])
         else:
-            print("center note black")
+            pass
+            #print("center note black")
 
     '''
     usign an image that removes staff lines, extends notes
@@ -2463,12 +2474,6 @@ class ImageProcessing:
                     return True
         return False
 
-    def chord_error_detection(self, page_index):
-        self.find_note_perfectly_overlapping_above()
-        self.find_note_perfectly_overlapping_below()
-        self.detect_adjacent_notes_to_left()
-        self.detect_adjacent_note_to_right()
-
     def find_notes_and_accidentals_in_region(self, page_index):
         if self.regions[page_index] is not None:#TODO is not None for all loops
             for region in self.regions[page_index]:
@@ -2521,6 +2526,55 @@ class ImageProcessing:
         else:
             self.array_types_dict[type][page_index] = new_features
         self.sort_features(self.array_types_dict[type][page_index])
+
+    def does_note_have_letter_error_based_off_overlapping_note(self, page_index, note):
+        notes = self.notes[page_index]
+        note_spacing = self.get_note_height(page_index) / 2
+        if self.is_list_iterable(notes):
+            for n in notes:
+                if note.center[0] == n.center[0] and n.center[1] == note.center[1]:
+                    continue
+                if self.do_features_overlap_inclusive(note, n) == True:
+                    # Calculate the vertical distance between the two notes
+                    distance = note.center[1] - n.center[1]
+
+                    # Expected difference based on note spacing
+                    expected_difference = abs(round(distance / note_spacing))
+
+                    # Convert note letters to indices (0 for 'a', 1 for 'b', ..., 6 for 'g')
+                    note_letter = ord(note.letter.lower()) - 97 + 1
+                    n_letter = ord(n.letter.lower()) - 97 + 1
+
+                    # Wrap-around constant for the 7-note scale
+                    scale_length = 7
+
+                    # Calculate the actual difference
+                    #print("note_letter:",note_letter,"n_letter",n_letter)
+                    if note.center[1] < n.center[1]:  # If note is above n
+                        #print("note above n")
+                        if note_letter >= n_letter:
+                            #print("normal equation")
+                            actual_difference = note_letter - n_letter
+                        else:
+                            #print("wrap around equation")
+                            actual_difference = (scale_length - n_letter) + note_letter
+                    else:  # If note is below n
+                        #print("n above note")
+                        if n_letter >= note_letter:
+                            #print("normal equation")
+
+                            actual_difference = n_letter - note_letter
+                        else:
+                            #print("wrap around equation")
+
+                            actual_difference = (scale_length - note_letter) + n_letter
+                    if expected_difference != actual_difference:
+                        #print(expected_difference, actual_difference)
+                        return True
+                    else:
+                        return False
+            return False
+
 
     def fill_in_half_note_without_writing(self, page_index, note, color, img):
         #travel from center to top until you hit black. if you dont hit black, dont fill.
@@ -2647,7 +2701,7 @@ class ImageProcessing:
         cv.line(img, (x_mid, y0), (x_mid, y1), self.type_colors[feature.type], 1)
         cv.line(img, (x0, y_mid), (x1, y_mid), self.type_colors[feature.type], 1)
 
-    def does_note_match_only_show_this_note_type(self, feature, only_show_this_note_type):
+    def does_note_match_only_show_this_note_type(self, feature, only_show_this_note_type, page_index):
         if only_show_this_note_type == None or only_show_this_note_type == "none":
             return True
         if only_show_this_note_type is not None:
@@ -2672,6 +2726,13 @@ class ImageProcessing:
                         return True
                     else:
                         return False
+                elif only_show_this_note_type == "chord_errors":
+                    if isinstance(feature, Note):
+                        if self.does_note_have_letter_error_based_off_overlapping_note(page_index, feature):
+                            return True
+                        else:
+                            return False
+
 
     def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs, only_show_this_note_type=None):
         #print("Drawing the features loop")
@@ -2679,7 +2740,7 @@ class ImageProcessing:
             for feature in features[page_index]:
                 # if it is a note or accidental that has a letter labeled
                 if feature.letter != "":
-                    if self.does_note_match_only_show_this_note_type(feature, only_show_this_note_type) is False:
+                    if self.does_note_match_only_show_this_note_type(feature, only_show_this_note_type, page_index) is False:
                         continue
                     color = self.letter_colors[feature.letter.lower()]
                     self.fill_in_feature_without_writing(page_index, feature, color, img)
