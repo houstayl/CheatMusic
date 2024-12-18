@@ -2732,6 +2732,8 @@ class ImageProcessing:
                             return True
                         else:
                             return False
+                    else:
+                        return False
 
 
     def draw_features_without_writing(self, features, page_index, img, show_borders, show_crosshairs, only_show_this_note_type=None):

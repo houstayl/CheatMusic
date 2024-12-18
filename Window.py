@@ -36,6 +36,13 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    single click key error
+    on change zoom reset canvas
+    only show accidentals and notes that apply to
+    make f1 use horizontal erode
+    make purple accidentals more visable
+    on_line_detection: erode each note by width plus 2
+    single click to add clef
     change buttons for accidentals
     current feature tab
     draw current feature on canvas
@@ -2617,33 +2624,41 @@ class ImageEditor(tk.Tk):
             else:#only add single feature
                 print("single feature")
                 #append_rect = True
-                if rectangle.type == "note": #if note
-                    auto_extended = not self.allow_note_to_be_auto_extended.get()
-                    #print(auto_extended, "auto_extended")
-                    note_type = self.note_type.get()
-                    #print("note_type", note_type)
-                    rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=note_type, auto_extended=auto_extended)
-                    if self.num_notes_combobox.get() != "1":
-                        rectangle = self.convert_notes([rectangle])
+                #if rect is small:
+                if rectangle.get_width() <=3 and rectangle.get_height() <= 3:
+                    if self.current_feature_type in ["double_flat", "flat", "natural", "sharp", "double_sharp"]:
+                        print("small rect interpreted as click")
+                        self.image_processor.add_feature_on_click(self.image_index, rectangle.center[0], rectangle.center[1], self.current_feature_type)
+                else:#if rect isnt small
+                    if rectangle.type == "note": #if note
+                        auto_extended = not self.allow_note_to_be_auto_extended.get()
+                        #print(auto_extended, "auto_extended")
+                        note_type = self.note_type.get()
+                        #print("note_type", note_type)
+                        rectangle = Note(rectangle.topleft, rectangle.bottomright, is_half_note=note_type, auto_extended=auto_extended)
+                        if self.num_notes_combobox.get() != "1":
+                            rectangle = self.convert_notes([rectangle])
+                        else:
+                            if self.allow_note_to_be_auto_extended.get() == True:
+                                #print("auto extend note single")
+                                if self.note_type.get() == "quarter":
+                                    self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100, rectangle)
+                                else:
+                                    is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
+                                    if is_note_on_space == True:
+                                        messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
+                            if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
+                                self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
+                            self.calculate_notes_for_regions_using_staff_lines(overwrite=False)
+                            self.draw_image_with_filters()
+                            return
+
+                    #if append_rect is True:
+
+                    if isinstance(rectangle, list):
+                        self.image_processor.append_features(self.image_index, rectangle[0].type, rectangle)
                     else:
-                        if self.allow_note_to_be_auto_extended.get() == True:
-                            #print("auto extend note single")
-                            if self.note_type.get() == "quarter":
-                                self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100, rectangle)
-                            else:
-                                is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
-                                if is_note_on_space == True:
-                                    messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
-                        if note_type != "quarter" and rectangle.auto_extended == True or self.allow_note_to_be_auto_extended.get() == False:
-                            self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
-                        self.calculate_notes_for_regions_using_staff_lines(overwrite=False)
-                        self.draw_image_with_filters()
-                        return
-                #if append_rect is True:
-                if isinstance(rectangle, list):
-                    self.image_processor.append_features(self.image_index, rectangle[0].type, rectangle)
-                else:
-                    self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
+                        self.image_processor.append_features(self.image_index, rectangle.type, [rectangle])
 
                 self.draw_image_with_filters()
 
