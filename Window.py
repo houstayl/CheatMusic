@@ -36,6 +36,7 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
+    confirm confirmation dialog box for all functions. display add mode, inputs
     single click key error
     on change zoom reset canvas
     only show accidentals and notes that apply to
@@ -714,6 +715,12 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Determine if quarter notes are on line\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+        if not messagebox.askokcancel("Extend Notes", message):
+            print("canceled")
+            return
         for i in loop:
             self.image_processor.determine_if_notes_are_on_line(i, self.erode_strength_scale.get() / 100)
         self.draw_image_with_filters()
@@ -730,6 +737,11 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Remove unautosnapped notes\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Remove Unautosnapped notes", message):
+            print("canceled")
+            return
         for i in loop:
             self.image_processor.remove_unautosnapped_notes(i)
         self.draw_image_with_filters()
@@ -775,6 +787,11 @@ class ImageEditor(tk.Tk):
                         for x in range(x_center - 2, x_center + 2, 1):
                             if 0 < y < h and 0 < x < w and bw[y][x] == 255:
                                 note.is_half_note = "half"
+                                if bw[y_center][x_center] == 255:
+                                    note.is_on_line = False
+                                else:
+                                    note.is_on_line = True
+
     def auto_detect_note_letter_irregularities(self):
         #TODO look for adjacent notes and compare letters
         pass
@@ -876,6 +893,13 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Auto extend notes\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Note height/width ratio: " + str(self.note_width_ratio_scale.get()) + "\n"
+        message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+        if not messagebox.askokcancel("Auto extend notes", message):
+            print("canceled")
+            return
         for i in loop:
             self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100)
         self.draw_image_with_filters()
@@ -987,6 +1011,20 @@ class ImageEditor(tk.Tk):
         loop_list = self.get_loop_array_based_on_feature_mode()
         if loop_list == "single":
             loop_list = [self.image_index]
+        direction = "up"
+        if up == 1:
+            direction = "up"
+        elif down == 1:
+            direction = "down"
+        elif left == 1:
+            direction = "left"
+        else:
+            direction = "right"
+        message = "Extend notes " + direction + "\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Extend Notes", message):
+            print("canceled")
+            return
         for i in loop_list:
             if up == 1:
                 print("extend notes up", i)
@@ -1003,6 +1041,11 @@ class ImageEditor(tk.Tk):
         loop_list = self.get_loop_array_based_on_feature_mode()
         if loop_list == "single":
             loop_list = [self.image_index]
+        message = "Extend notes in all directions\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Extend Notes", message):
+            print("canceled")
+            return
         for i in loop_list:
             print("extend notes in all directions", i)
             self.image_processor.extend_notes(i, 1, 0, 0, 0)
@@ -1234,9 +1277,17 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def calculate_notes_for_regions_using_staff_lines(self, overwrite):
+
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+
+        message = "Calculate Notes\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite)
+        if not messagebox.askokcancel("Calculate Notes", message):
+            print("canceled")
+            return
         for i in loop:
             print("calculate notes using staff lines page", i)
             if self.image_processor.all_clefs[i] is not None:
@@ -1264,6 +1315,12 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Calculate Notes for distorted staff lines\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite)
+        if not messagebox.askokcancel("Calculate Notes", message):
+            print("canceled")
+            return
         for i in loop:
             if self.image_processor.all_clefs[i] is not None:
                 self.image_processor.all_clefs[i].clear()
@@ -1290,6 +1347,14 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Calculate Notes for distorted staff lines using horizontal erode\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite) + "\n"
+        message += "Staff line error scale: " + str(self.staff_line_error_scale.get()) + " pixels\n"
+        message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+        if not messagebox.askokcancel("Calculate Notes", message):
+            print("canceled")
+            return
         for i in loop:
             if self.image_processor.all_clefs[i] is not None:
                 self.image_processor.all_clefs[i].clear()
@@ -1315,6 +1380,13 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Calculate Notes for distorted staff lines by only keeping pixels that are removed in vertical erode\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite) + "\n"
+        message += "Staff line error scale: " + str(self.staff_line_error_scale.get()) + " pixels\n"
+        if not messagebox.askokcancel("Calculate Notes", message):
+            print("canceled")
+            return
         for i in loop:
             if self.image_processor.all_clefs[i] is not None:
                 self.image_processor.all_clefs[i].clear()
@@ -1340,6 +1412,12 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Calculate accidental letter by finding closest note\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite) + "\n"
+        if not messagebox.askokcancel("Calculate Accidentals", message):
+            print("canceled")
+            return
         for i in loop:
             self.image_processor.calculate_accidental_letter_by_finding_closest_note(i, overwrite)
         self.draw_image_with_filters()
@@ -1348,6 +1426,12 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Calculate note accidentals\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        message += "Overwrite: " + str(overwrite) + "\n"
+        if not messagebox.askokcancel("Calculate Note Accidentals", message):
+            print("canceled")
+            return
         for i in loop:
             note_height = self.image_processor.get_note_height(i)
             if self.image_processor.all_clefs[i] is not None:
@@ -1800,8 +1884,9 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def on_f1_press(self, event):
-        print("keypress: f1 generate staff lines")
-        self.generate_staff_lines_diagonal_by_traversing_vertical_line()
+        print("keypress: f1 generate staff lines using horizontal erode")
+        #self.generate_staff_lines_diagonal_by_traversing_vertical_line()
+        self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(override=True)
     def on_f2_press(self, event):
         print("keypress: f2 extend notes")
         self.auto_extend_notes()
@@ -2542,6 +2627,18 @@ class ImageEditor(tk.Tk):
                     return
 
             if self.get_loop_array_based_on_feature_mode() != "single":#if the add mode is in single, dont need to match template
+                #todo add messageg box
+                loop_list = self.get_loop_array_based_on_feature_mode()
+
+                message = ""
+                if "note" == rectangle.type:
+                    message = "Template matching for " + self.note_type.get() + " " + rectangle.type + "\n"
+                else:
+                    message = "Template matching for " + rectangle.type + "\n"
+                message += "Pages(inclusive): " + str(loop_list[0]) + ":" + str(loop_list[-1]) + "\n"
+                if not messagebox.askokcancel("Template Matching", message):
+                    print("canceled")
+                    return
                 match_template_params = (
                     template,
                     (0, 255, 0),
@@ -2560,7 +2657,6 @@ class ImageEditor(tk.Tk):
                 # Create a pool of worker processes
                 with multiprocessing.Pool() as pool:
                     results = pool.map(ImageEditor.process_feature, tasks)
-                loop_list = self.get_loop_array_based_on_feature_mode()
                 index_adjustment = loop_list[0]
                 self.undo_features = [None] * self.num_pages
                 self.undo_feature_type = rectangle.type
