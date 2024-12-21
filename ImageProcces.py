@@ -2528,11 +2528,16 @@ class ImageProcessing:
         self.sort_features(self.array_types_dict[type][page_index])
 
     def does_note_have_letter_error_based_off_overlapping_note(self, page_index, note):
+        if note.letter == "":
+            return False
+
         notes = self.notes[page_index]
         note_spacing = self.get_note_height(page_index) / 2
         if self.is_list_iterable(notes):
             for n in notes:
                 if note.center[0] == n.center[0] and n.center[1] == note.center[1]:
+                    continue
+                if n.letter == "":
                     continue
                 if self.do_features_overlap_inclusive(note, n) == True:
                     # Calculate the vertical distance between the two notes
