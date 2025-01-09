@@ -617,6 +617,15 @@ class ImageProcessing:
     '''
     Todo: draws vertical lines, finds if vertical line intersects staff line exactly 5 times
     '''
+    def get_all_region_staff_line_groups(self, page_index):
+        groups = []
+        if self.is_list_iterable(self.regions[page_index]):
+            for region in self.regions[page_index]:
+                if self.is_list_iterable(region.staff_line_groups):
+                    for group in region.staff_line_groups:
+                        groups.append[group]
+        return groups
+
     def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index, check_num_clefs_and_staff_lines):
         print("getting staff lines on page", page_index)
         self.sort_clefs(page_index)
@@ -1982,11 +1991,11 @@ class ImageProcessing:
 
         multiple_in_row = False
         # Combine treble and bass clefs
-        if self.is_list_iterable(self.bass_clefs[page_index]) and self.is_list_iterable(self.treble_clefs):
+        if self.is_list_iterable(self.bass_clefs[page_index]) and self.is_list_iterable(self.treble_clefs[page_index]):
             self.all_clefs[page_index] = self.treble_clefs[page_index] + self.bass_clefs[page_index]
         elif self.is_list_iterable(self.bass_clefs[page_index]):
             self.all_clefs[page_index] =self.bass_clefs[page_index]
-        elif self.is_list_iterable(self.treble_clefs):
+        elif self.is_list_iterable(self.treble_clefs[page_index]):
             self.all_clefs[page_index] = self.treble_clefs[page_index]
         self.sort_features(self.all_clefs[page_index])
 
