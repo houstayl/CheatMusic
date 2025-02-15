@@ -14,7 +14,6 @@ import copy
 import sys
 from StaffLine import StaffLine
 from Note import Note
-import blosc
 import concurrent.futures
 import subprocess
 
@@ -2093,8 +2092,6 @@ class ImageEditor(tk.Tk):
             pickle.dump(self.image_processor.image_heights, file)
             pickle.dump(self.image_processor.image_widths, file)
             pickle.dump(self.image_processor.all_clefs, file)
-    '''
-
     def save_binary_compressed(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
                                             initialfile=self.file_name)
