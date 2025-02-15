@@ -429,6 +429,15 @@ class ImageEditor(tk.Tk):
         view_menu.add_command(label="Zoom In", command=self.zoom_in)
         view_menu.add_command(label="Zoom Out", command=self.zoom_out)
         view_menu.add_separator()
+        self.eye_comfort_mode = tk.StringVar()
+        self.eye_comfort_mode_values = ["none", '1', '2']
+        self.eye_comfort_mode.set(self.eye_comfort_mode_values[2])
+        eye_comfort_mode_sub_menu = tk.Menu(view_menu, tearoff=0)
+        eye_comfort_mode_sub_menu.add_radiobutton(label="None", variable=self.eye_comfort_mode, value=self.eye_comfort_mode_values[0], command=self.draw_image_with_filters)
+        eye_comfort_mode_sub_menu.add_radiobutton(label="Eye comfort mode 1", variable=self.eye_comfort_mode, value=self.eye_comfort_mode_values[1], command=self.draw_image_with_filters)
+        eye_comfort_mode_sub_menu.add_radiobutton(label="Eye comfort mode 2", variable=self.eye_comfort_mode, value=self.eye_comfort_mode_values[2], command=self.draw_image_with_filters)
+        view_menu.add_cascade(label="Eye comfort mode", menu=eye_comfort_mode_sub_menu)
+        view_menu.add_separator()
         self.show_borders = tk.BooleanVar()
         self.show_borders.set(False)
         self.show_borders_checkbutton = tk.Checkbutton(self.left_frame, text="Show borders", onvalue=1, offvalue=0, variable=self.show_borders)
@@ -693,7 +702,13 @@ class ImageEditor(tk.Tk):
         self.debugging = tk.BooleanVar()
         self.debugging.set(False)
         info_menu.add_checkbutton(label="(Checkbutton)Debugging", variable=self.debugging, command=self.on_toggle_debugging)
-
+        self.erode_strength_multiplier = tk.IntVar()
+        self.erode_strength_multiplier.set(1)
+        erode_strength_multiplier_menu = tk.Menu(info_menu, tearoff=0)
+        erode_strength_multiplier_menu.add_radiobutton(label="1.0", variable=self.erode_strength_multiplier, value=1, command=self.draw_image_with_filters)
+        erode_strength_multiplier_menu.add_radiobutton(label="2.0", variable=self.erode_strength_multiplier, value=2, command=self.draw_image_with_filters)
+        erode_strength_multiplier_menu.add_radiobutton(label="3.0", variable=self.erode_strength_multiplier, value=3, command=self.draw_image_with_filters)
+        info_menu.add_cascade(label="Erode strenth multiplier", menu=erode_strength_multiplier_menu)
 
     def handle_half_and_quarter_note_overlap(self):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -716,12 +731,12 @@ class ImageEditor(tk.Tk):
         else:
             message = "Determine if quarter notes are on line\n"
             message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
-            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
             if not messagebox.askokcancel("Extend Notes", message):
                 print("canceled")
                 return
         for i in loop:
-            self.image_processor.determine_if_notes_are_on_line(i, self.erode_strength_scale.get() / 100)
+            self.image_processor.determine_if_notes_are_on_line(i, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
         self.draw_image_with_filters()
     def on_closing(self):
         # Ask for confirmation before closing the window
@@ -797,8 +812,13 @@ class ImageEditor(tk.Tk):
         pass
 
     def reduce_image_size(self):
+        message = "Reduce pixels by half for all pages\n"
+        message += "Blackness scale: " + str(self.blackness_scale.get())
+        if not messagebox.askokcancel("Reduce pixels by half", message):
+            print("canceled")
+            return
         for i in range(self.num_pages):
-            self.image_processor.reduce_image_size(i)
+            self.image_processor.reduce_image_size(i, self.blackness_scale.get())
         self.draw_image_with_filters()
 
     def regenerate_images(self):
@@ -903,12 +923,12 @@ class ImageEditor(tk.Tk):
             message = "Auto extend notes\n"
             message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
             message += "Note height/width ratio: " + str(self.note_width_ratio_scale.get()) + "\n"
-            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
             if not messagebox.askokcancel("Auto extend notes", message):
                 print("canceled")
                 return
         for i in loop:
-            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100)
+            self.image_processor.auto_extend_notes(i, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
         self.draw_image_with_filters()
 
     def clear_combobox(self, event):
@@ -975,7 +995,7 @@ class ImageEditor(tk.Tk):
         if loop == "single":
             loop = [self.image_index]
         for i in loop:
-            self.image_processor.get_barlines(i)
+            self.image_processor.get_barlines(i, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
         self.draw_image_with_filters()
 
     def find_page_with_missing_clefs(self):
@@ -1294,7 +1314,7 @@ class ImageEditor(tk.Tk):
     def calculate_notes_for_regions_using_staff_lines_single_page(self, overwrite, page_index):
 
         print("calculate notes using staff lines page", page_index)
-        self.generate_regions_keeping_staff_line_groups(i)
+        self.generate_regions_keeping_staff_line_groups(page_index)
         if self.image_processor.regions[page_index] is not None:
             for region in self.image_processor.regions[page_index]:
                 region.fill_implied_lines(self.image_processor.staff_lines[page_index], self.image_processor.image_widths[page_index], self.image_processor.image_heights[page_index])
@@ -1336,14 +1356,14 @@ class ImageEditor(tk.Tk):
             message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
             message += "Overwrite: " + str(overwrite) + "\n"
             message += "Staff line error scale: " + str(self.staff_line_error_scale.get()) + " pixels\n"
-            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100)
+            message += "Erode strength scale: " + str(self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
             if not messagebox.askokcancel("Calculate Notes", message):
                 print("canceled")
                 return
         for i in loop:
             self.generate_regions_keeping_staff_line_groups(i)
             if self.image_processor.regions[i] is not None:
-                horizontal = self.image_processor.get_horizontal_image(i, self.erode_strength_scale.get() / 100)
+                horizontal = self.image_processor.get_horizontal_image(i, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
                 print("calculating notesletters for distorted staff lines using horizontal erode on page", i, "staff line error:", self.staff_line_error_scale.get(), "pxls")
                 for region in self.image_processor.regions[i]:
                     self.image_processor.calculate_notes_for_distorted_staff_lines(i, region, horizontal, self.staff_line_error_scale.get(), overwrite)
@@ -1950,7 +1970,7 @@ class ImageEditor(tk.Tk):
                 filter_list[i].set(0)
         for i in range(self.num_pages):
             print("save pdf page", i)
-            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, None, 1), cv.COLOR_BGR2RGB)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, False, None, 1), cv.COLOR_BGR2RGB)
             images.append(Image.fromarray(image))
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
@@ -1973,7 +1993,7 @@ class ImageEditor(tk.Tk):
         #todo change loop to
         for i in loop:
             print("save pdf page", i)
-            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, None, 1),
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, False, None, 1),
                                 cv.COLOR_BGR2RGB)
             images.append(Image.fromarray(image))
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
@@ -2197,17 +2217,33 @@ class ImageEditor(tk.Tk):
         self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
     def get_eye_comfort_image(self, image):
-        bw = self.image_processor.bw_images[self.image_index]
-        image[bw == 255] = (77,8,4)
-        return image
+        #gray = cv.cvtColor(image, cv.COLOR_RGB2GRAY)
+        #color = 230
+        #image[gray > 210] = (color, color, color)
+        #todo: find all parts of image with letter colors. exlude from inversion.
+        colors = self.image_processor.letter_colors.values()
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        # Generate a mask for each color and combine
+        for color in colors:
+            #print(color)
+            color_mask = cv.inRange(image, np.array(color[::-1]), np.array(color[::-1]))
+            mask = cv.bitwise_or(mask, color_mask)
+
+        # Invert the entire image
+        inverted_image = cv.bitwise_not(image)
+        #image[mask] = inverted_image
+        # Combine the inverted image with the original image using the mask
+        result = cv.bitwise_and(image, image, mask=mask) + cv.bitwise_and(inverted_image, inverted_image, mask=cv.bitwise_not(mask))
+        return result
     def reload_image(self):
         if self.view_mode.get() == self.view_mode_values[0]:#color:
-            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders.get(), self.show_crosshairs.get(), None, self.scale, self.only_show_this_note_type.get()), cv.COLOR_BGR2RGB)
-            #image = self.get_eye_comfort_image(image)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(self.filter_list, self.image_index, self.show_borders.get(), self.show_crosshairs.get(), self.eye_comfort_mode.get(), None, self.scale, self.only_show_this_note_type.get()), cv.COLOR_BGR2RGB)
+            #if self.eye_comfort_mode.get() == True:
+            #    image = self.get_eye_comfort_image(image)
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[1]:#erode image
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get(), draw_notes=True)
             h, w = image.shape[:2]
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
@@ -2220,13 +2256,13 @@ class ImageEditor(tk.Tk):
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[3]:#horizontal image
-            image = self.image_processor.get_horizontal_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            image = self.image_processor.get_horizontal_image(self.image_index, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get(), draw_notes=True)
             h, w = image.shape[:2]
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
             self.photo = ImageTk.PhotoImage(self.image)
         elif self.view_mode.get() == self.view_mode_values[4]:#vertical image
-            image = self.image_processor.get_vertical_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            image = self.image_processor.get_vertical_image(self.image_index, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get(), draw_notes=True)
             h, w = image.shape[:2]
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
@@ -2249,7 +2285,7 @@ class ImageEditor(tk.Tk):
         if self.view_mode.get() in [self.view_mode_values[1], self.view_mode_values[3], self.view_mode_values[4]]:
             self.draw_image_with_filters()
         if self.view_mode.get() == self.view_mode_values[0] and self.image_processor is not None:
-            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100, draw_notes=True)
+            image = self.image_processor.get_intersection_image(self.image_index, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get(), draw_notes=True)
             h, w = image.shape[:2]
             image = cv.resize(image, (int(w * self.scale), int(h * self.scale)))
             self.image = Image.fromarray(image)
@@ -2763,7 +2799,7 @@ class ImageEditor(tk.Tk):
                             if self.allow_note_to_be_auto_extended.get() == True:
                                 #print("auto extend note single")
                                 if self.note_type.get() == "quarter":
-                                    self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100, rectangle)
+                                    self.image_processor.auto_extend_notes(self.image_index, self.note_width_ratio_scale.get(), self.debugging.get(), self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get(), rectangle)
                                 else:
                                     is_note_on_space = self.image_processor.extend_half_note_single_drag(self.image_index, rectangle)
                                     if is_note_on_space == True:
@@ -2845,7 +2881,7 @@ class ImageEditor(tk.Tk):
                     if self.current_feature_type == "barline":
                         self.image_processor.add_barline_on_click(self.image_index, x_img, y_img)
                     if self.current_feature_type == "note" and self.note_type.get() == "quarter" and self.allow_note_to_be_auto_extended.get() == True:
-                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.erode_strength_scale.get() / 100)
+                        self.image_processor.extend_small_note(self.image_index, x_img, y_img, self.erode_strength_scale.get() / 100 * self.erode_strength_multiplier.get())
                         self.calculate_notes_for_regions_using_staff_lines_single_page(overwrite=False, page_index=self.image_index)
 
                     if self.current_feature_type == "note" and self.note_type.get() in ["half", "whole"] and self.allow_note_to_be_auto_extended.get() == True:

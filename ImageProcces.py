@@ -348,7 +348,7 @@ class ImageProcessing:
     '''
     Gets barlines by finding vertical lines that start at upper top staff line and end at lower bottom staff line
     '''
-    def get_barlines(self, page_index):
+    def get_barlines(self, page_index, erode_strength):
         self.barlines[page_index] = []
         print("getting barlines page", page_index)
         start_and_end_staff_lines = []
@@ -360,7 +360,7 @@ class ImageProcessing:
         else:
             print("needs staff lines")
             return
-
+        '''
         img = cv.imread(self.images_filenames[page_index], cv.IMREAD_COLOR)
         # Check if image is loaded fine
         if img is None:
@@ -385,17 +385,19 @@ class ImageProcessing:
         # Apply morphology operations
         vertical = cv.erode(vertical, verticalStructure)
         vertical = cv.dilate(vertical, verticalStructure)
-        height, width = vertical.shape[:2]
         #edges = cv.adaptiveThreshold(vertical, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 3, -2)
         #edges = cv.Canny(vertical, 50, 150, apertureSize=3)
         #cv.imwrite("vertical.jpg", vertical)
+        '''
+        vertical = self.get_vertical_image(page_index, erode_strength)
+        height, width = vertical.shape[:2]
 
         barlines = []
         error = 10
         mask = np.zeros((height + 2, width + 2), np.uint8)
         for start_and_end in start_and_end_staff_lines:
             start, end = start_and_end
-            for x in range(0, self.image_widths[page_index], 2):
+            for x in range(0, self.image_widths[page_index], 1):
                 y = start.calculate_y(x) + 10
                 #print(x, y)
                 if vertical[y][x] > 0:
@@ -1863,7 +1865,7 @@ class ImageProcessing:
 
         return image
 
-    def reduce_image_size(self, page_index):
+    def reduce_image_size(self, page_index, blackness):
         if self.is_list_iterable(self.staff_lines[page_index]):
             self.staff_lines[page_index] = []
         if self.is_list_iterable(self.treble_clefs[page_index]):
@@ -1887,7 +1889,7 @@ class ImageProcessing:
         self.image_heights[page_index] = self.image_heights[page_index] // 2
         self.images[page_index] = cv.resize(self.images[page_index], (self.image_widths[page_index], self.image_heights[page_index]), interpolation=cv.INTER_AREA)
         cv.imwrite(self.images_filenames[page_index], self.images[page_index])
-        self.regenerate_images(page_index)
+        self.regenerate_images(page_index, blackness)
 
     def regenerate_images(self, page_index, blackness):
         print("regenerating images ", page_index, "blackness: ", blackness)
@@ -2086,7 +2088,7 @@ class ImageProcessing:
                 for j in range(len(self.all_clefs[page_index][i])):
                     for k in range(len(region_lines)):
                         # find vertical region that clef lands in
-                        if self.all_clefs[page_index][i][j].topleft[1] < region_lines[k]:
+                        if self.all_clefs[page_index][i][j].center[1] < region_lines[k]:
                             # top left corner and bottom right corner
                             top_left = (self.all_clefs[page_index][i][j].topleft[0], region_lines[k - 1])
                             bottom_right = (self.image_widths[page_index], region_lines[k])
@@ -2138,11 +2140,13 @@ class ImageProcessing:
         #print("Sorted barlines: ", self.barlines[page_index])
 
     def is_bar_in_region(self, region, bar):
-        bottomleft_rect = (bar.topleft[0], bar.bottomright[1])
+        #bottomleft_rect = (bar.topleft[0], bar.bottomright[1])
         # see if any of the 4 points are in bounds
-        if region.is_point_in_region(bar.topleft):
-            return True
-        if region.is_point_in_region(bottomleft_rect):
+        #if region.is_point_in_region(bar.topleft):
+        #    return True
+        #if region.is_point_in_region(bottomleft_rect):
+        #    return True
+        if self.does_vertical_line_intersect_feature(bar.topleft, bar.get_bottomleft(), Feature(region.topleft, region.bottomright, "note")):
             return True
         return False
 
@@ -2628,7 +2632,9 @@ class ImageProcessing:
                         if (0 <= x_traverse < note.get_width() and 0 <= y_traverse < note.get_height()):
                             # Do your processing here with x_traverse and y_traverse
                             # if pixel is white, flood fill
+
                             if sub_image[y_traverse][x_traverse] > 0:
+
                                 start_point = (x_traverse, y_traverse)
                                 _, _, _, rect = cv.floodFill(sub_image, sub_mask, start_point, 255)
                                 # print(rect)
@@ -2696,6 +2702,9 @@ class ImageProcessing:
         sub_image = self.bw_images[page_index][topleft[1]:bottomright[1], topleft[0]:bottomright[0]]
         mask = sub_image == 0
         img[topleft[1]:bottomright[1], topleft[0]:bottomright[0]][mask] = color
+        #if isinstance(feature, Note):
+        #    img[] = self.images[page_index][]
+        #TODO if note: img[other side] = self.images[]
 
     def draw_staff_lines_without_writing(self, page_index, img):
         if self.staff_lines[page_index] is not None:
@@ -2771,9 +2780,14 @@ class ImageProcessing:
                     self.draw_crosshair(img, feature)
 
 
-    def draw_image_without_writing(self, filter_list, page_index, show_borders, show_crosshairs, current_feature, scale, only_show_this_note_type=None):
+    def draw_image_without_writing(self, filter_list, page_index, show_borders, show_crosshairs, eye_comfort_mode, current_feature, scale, only_show_this_note_type=None):
         img = np.copy(self.images[page_index])
-
+        if eye_comfort_mode == '1':
+            img = cv.bitwise_not(img)
+        if eye_comfort_mode == '2':
+            gray = self.gray_images[page_index]
+            color = 230
+            img[gray > 210] = (color, color, color)
         if filter_list[0].get() == 1:  # staffline
             self.draw_staff_lines_without_writing(page_index, img)
         if filter_list[1].get() == 1:  # implied line
