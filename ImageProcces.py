@@ -70,6 +70,7 @@ class ImageProcessing:
         for i in range(num_pages):
             self.images_filenames.append(dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
             self.annotated_images_filenames.append(dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
+            print(self.images_filenames[i])
             self.images.append(cv.imread(self.images_filenames[i]))
             self.image_heights.append(self.images[i].shape[0])
             self.image_widths.append(self.images[i].shape[1])
@@ -78,7 +79,7 @@ class ImageProcessing:
             #self.lines_removed_images.append(cv.adaptiveThreshold(self.graw_images[i], 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2))
             #self.get_staff_lines(page_index=i)
             #self.draw_staff_lines(page_index=i)
-            cv.imwrite(self.annotated_images_filenames[i], self.images[i])
+            #cv.imwrite(self.annotated_images_filenames[i], self.images[i])
 
         self.array_types_dict = {
             "treble_clef": self.treble_clefs,
@@ -1464,6 +1465,7 @@ class ImageProcessing:
 
                             if rect != (0, 0, 0, 0):
                                 rects.append(rect)
+
                             if len(rects) == 2:
                                 top_rect = rects[0]
                                 bottom_rect = rects[1]
@@ -1483,9 +1485,9 @@ class ImageProcessing:
                                     width_top = temp
 
                                 # adjustment = int((note_height - height) / 2)
-                                note.topleft = [x_topleft - horizontal_adjustment, y_top - vertical_adjustment]
-                                note.bottomright = [x_bottomright + width_bottom + horizontal_adjustment,
-                                                    y_bottom + height_bottom + vertical_adjustment]
+                                note.topleft = [max(0, x_topleft - horizontal_adjustment), max(0, y_top - vertical_adjustment)]
+                                note.bottomright = [min(self.image_widths[page_index] -1, x_bottomright + width_bottom + horizontal_adjustment),
+                                                    min(self.image_heights[page_index] - 1, y_bottom + height_bottom + vertical_adjustment)]
                                 note.reset_center()
                                 note.center[1] = y_top + height_top + int((y_bottom - (y_top + height_top)) / 2)
                                 note.auto_extended = True
@@ -1494,8 +1496,8 @@ class ImageProcessing:
                                 return
 
         if len(rects) == 1:
-            note.topleft = [x - horizontal_adjustment, y - vertical_adjustment]
-            note.bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+            note.topleft = [max(0, x - horizontal_adjustment), max(0, y - vertical_adjustment)]
+            note.bottomright = [min(self.image_widths[page_index] - 1, x + width + horizontal_adjustment), min(self.image_heights[page_index] - 1, y + height + vertical_adjustment)]
             note.reset_center()
             note.auto_extended = True
             note.is_on_line = False
@@ -1526,8 +1528,8 @@ class ImageProcessing:
             x, y, width, height = rect
 
             if rect != (0, 0, 0, 0):
-                topleft = [x - horizontal_adjustment, y - vertical_adjustment]
-                bottomright = [x + width + horizontal_adjustment, y + height + vertical_adjustment]
+                topleft = [max(0, x - horizontal_adjustment), max(0, y - vertical_adjustment)]
+                bottomright = [min(self.image_widths[page_index] - 1, x + width + horizontal_adjustment), min(self.image_heights[page_index] - 1, y + height + vertical_adjustment)]
                 note = Note(topleft, bottomright, is_half_note=type, is_on_line=False, auto_extended=True)
                 print(note, "on_line", note.is_on_line)
                 self.append_features(page_index, "note", [note])

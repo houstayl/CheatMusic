@@ -35,67 +35,19 @@ for small notes, turn of threshold and dont allow auto extending
 """
 TODO
 Big TODOn
-    when saving print ize of image processor
-    on change zoom reset canvas
-    only show accidentals and notes that apply to
-    make f1 use horizontal erode
-    make purple accidentals more visable
-    on_line_detection: erode each note by width plus 2
-    single click to add clef
-    change buttons for accidentals
-    current feature tab
-    draw current feature on canvas
     interpret small click and drag as click
     ignore small notes for notes on line
     erode strength multiplier
     show staff line groups. add groups to regioins. when regions get regenerated, go through each group and add to new region
-    for bijective funciton between notes and keys: for double flats, double sharps, or accidentals that result in playing white key, acutally change the image and move the note up or down a half step
-    is on line detection: to see if is on space if horizontal lines pass through not near the center
-    on open: extend notes in all directions, set erode to 300, determine if notes are on line, click overwrite button, calculate notes
-    compress image
-    piano tape
-    save annotations compressed: save pdf. when reloading, regenerate bw and grayscale images. how to remember blackness scale?
     show staff line groups from distorted staff line calculation in image.
-    on distorted staff lines: set overwrite to false
-    2 horizontal images. one for noes the other for staff lines and detecting notes on line
-    change current feature text color to match color as well
     selecting multiple features at same time
     on single click to add: dont let rect be out of bounds
     make sure rect is in bounds in fill in feature
     draw crosshairs in different color for red note
-    dont allow template matching for accidentals next to start clef
-    on quarter half note overlap, get color for moved note
-    amethyst, bubblegum, red c, suddy d, yEllow, frog f, g
-    look at note letters and display notes that have letters that are on line!!!
-    for staff lines: fill in white space and find rects of evenly sized heights
-    only display notes on line or notes not on line
-    detect is on line for half and whole notes if is_on_line is none when opening annotations
-    to change where the region border is: intentionally mess up staff lines: or just allow editing of regions 
-    zoom in and out scroll bar
     drop down tab for editing current feature: set letter, accidental
-    flood fill vertical image: find all notes whose center lies in the bounding rect for cord checking
-    chord letter error detection
-    fill in half note: check bounds to match topleft and bottomright
-    take staff line angle into account for note detection
-    on key set mode to single
-    online detection: find pixels that appear in horizonal erode, but not vertical and are attached from flood fill
-    find horizontal lines that are removed by vertical erode fo note online detection
-    detect anomalies: widest notes, tallest notes, notes with wierdest dimension rations. for notes that are accidentals: notes with smallest and largest amount of pixels changes
-    make sure to undo convert half notes.
     staff line error bar for staff line pixel length
     detect unused accidental, or accidental that is used far away
     transpsose notes
-    find un autosnapped half note
-    xmltodict: go measure by measure
-    write shorcut keys 
-    chord letter checking: if notes are vertically stacked then notes should be 2 apart. if horizontally stacked, then 1 apart
-    use both note detection and compare to find differences
-    mxl parser: get all notes in measure, and there alteration, compare with
-    extract notes and compare with mxml
-    save pdf for printing order
-    converts all notes into sharps or all notes into flats, display double flats as fully filled
-    watermark
-
 
 
 """
@@ -118,9 +70,9 @@ class ImageEditor(tk.Tk):
         os.mkdir(directory)
 
 
-        self.frame_location = "side"
-        if len(sys.argv) > 1 and sys.argv[1] == 'v':
-            self.frame_location = "top"
+        self.frame_location = "top"
+        if len(sys.argv) > 1 and sys.argv[1] == 'h':
+            self.frame_location = "side"
 
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
@@ -182,7 +134,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_error_scale = tk.Scale(self.left_frame, from_=0, to=42, orient="horizontal", label="Staff line error(pxls)")
         self.staff_line_error_scale.set(5)
 
-        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=5, orient="horizontal", label="Note height/width ratio %")
+        self.note_width_ratio_scale = tk.Scale(self.left_frame, from_=50, to=200, resolution=5, orient="horizontal", label="Note width %")
         self.note_width_ratio_scale.set(145)
 
 
@@ -251,8 +203,8 @@ class ImageEditor(tk.Tk):
             self.threshold_scale.grid(row=1, column=3)
             self.blackness_scale.grid(row=0, column=4)
             self.erode_strength_scale.grid(row=1, column=4)
-            self.num_notes_label.grid(row=0, column=5)
-            self.num_notes_combobox.grid(row=1, column=5)
+            #self.num_notes_label.grid(row=0, column=5)
+            #self.num_notes_combobox.grid(row=1, column=5)
 
 
         else:
@@ -274,8 +226,8 @@ class ImageEditor(tk.Tk):
             self.erode_strength_scale.pack()
             #self.key_label.pack()
             #self.key_combobox.pack()
-            self.num_notes_label.pack()
-            self.num_notes_combobox.pack()
+            #self.num_notes_label.pack()
+            #self.num_notes_combobox.pack()
 
 
 
@@ -402,7 +354,10 @@ class ImageEditor(tk.Tk):
         file_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Open pdf", command=self.open_pdf)
-        file_menu.add_command(label="Save pdf", command=self.save_pdf)
+        save_pdf_sub_menu = tk.Menu(file_menu, tearoff=0)
+        save_pdf_sub_menu.add_command(label="Save pdf", command=self.save_pdf)
+        save_pdf_sub_menu.add_command(label="Save pdf with cover page", command=self.save_pdf_with_cover_page)
+        file_menu.add_cascade(label="Save pdf", menu=save_pdf_sub_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
         file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
@@ -410,8 +365,8 @@ class ImageEditor(tk.Tk):
         #file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
         #file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
         #file_menu.add_separator()
-        file_menu.add_command(label="Undo", command=self.undo)
-        file_menu.add_command(label="Redo", command=self.redo)
+        file_menu.add_command(label="Undo template matching", command=self.undo)
+        file_menu.add_command(label="Redo template matching", command=self.redo)
         file_menu.add_separator()
         # file_menu.add_separator()
         file_menu.add_command(label="Regenerate images(F5)", command=self.regenerate_images)
@@ -425,8 +380,8 @@ class ImageEditor(tk.Tk):
         #View menu for zoom in and out
         view_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="Zoom In", command=self.zoom_in)
-        view_menu.add_command(label="Zoom Out", command=self.zoom_out)
+        view_menu.add_command(label="Zoom In(i)", command=self.zoom_in)
+        view_menu.add_command(label="Zoom Out(o)", command=self.zoom_out)
         view_menu.add_separator()
         self.eye_comfort_mode = tk.StringVar()
         self.eye_comfort_mode_values = ["none", '1', '2']
@@ -443,8 +398,8 @@ class ImageEditor(tk.Tk):
         self.show_crosshairs = tk.BooleanVar()
         self.show_crosshairs.set(False)
         self.show_crosshairs_checkbutton = tk.Checkbutton(self.left_frame, text="Show crosshairs", onvalue=1, offvalue=0, variable=self.show_crosshairs)
-        view_menu.add_checkbutton(label="Show borders(Checkbutton)", onvalue=True, offvalue=False, variable=self.show_borders, command=self.draw_image_with_filters)
-        view_menu.add_checkbutton(label="Show crosshairs(Checkbutton)", onvalue=True, offvalue=False, variable=self.show_crosshairs, command=self.draw_image_with_filters)
+        view_menu.add_checkbutton(label="Show borders (m)", onvalue=True, offvalue=False, variable=self.show_borders, command=self.draw_image_with_filters)
+        view_menu.add_checkbutton(label="Show crosshairs(m)", onvalue=True, offvalue=False, variable=self.show_crosshairs, command=self.draw_image_with_filters)
 
         #view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
         #view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
@@ -522,9 +477,9 @@ class ImageEditor(tk.Tk):
         '''
         set_feature_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Set Feature Type", menu=set_feature_menu)
-        set_feature_menu.add_command(label="Staff line(1 click)", command=lambda: self.set_feature_type("staff_line"))
+        set_feature_menu.add_command(label="Staff line (s) (1 click)", command=lambda: self.set_feature_type("staff_line"))
         set_feature_menu.add_command(label="Diagonal Staff Line(2 clicks)", command=lambda: self.set_feature_type("staff_line_diagonal"))
-        set_feature_menu.add_command(label="Staff line region(3 clicks)", command=lambda: self.set_feature_type("staff_line_block"))
+        #set_feature_menu.add_command(label="Staff line region(3 clicks)", command=lambda: self.set_feature_type("staff_line_block"))
         set_feature_menu.entryconfig(0, foreground=self.bgr_to_hex((0, 255, 0)))
         set_feature_menu.entryconfig(1, foreground=self.bgr_to_hex((0, 255, 0)))
         set_feature_menu.entryconfig(2, foreground=self.bgr_to_hex((0, 255, 0)))
@@ -537,7 +492,7 @@ class ImageEditor(tk.Tk):
         set_feature_menu.add_command(label="Barline (y)", command=lambda :self.set_feature_type("barline"))
         set_feature_menu.entryconfig(7, foreground=self.bgr_to_hex((0, 255, 255)))
         set_feature_menu.add_separator()
-        set_feature_menu.add_command(label="Note (n)", command=lambda :self.set_feature_type("note", "quarter"))
+        set_feature_menu.add_command(label="Quarter Note (q)", command=lambda :self.set_feature_type("note", "quarter"))
         set_feature_menu.add_command(label="Half Note (h)", command=lambda :self.set_feature_type("note", "half"))
         set_feature_menu.add_command(label="Whole Note (w)", command=lambda :self.set_feature_type("note", "whole"))
         set_feature_menu.entryconfig(9, foreground=self.bgr_to_hex((0, 0, 255)))
@@ -564,20 +519,16 @@ class ImageEditor(tk.Tk):
         #Clef menu
         clef_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Clef", menu=clef_menu)
-        clef_menu.add_command(label="Find page missing start clefs", command=self.find_page_with_missing_clefs)
+        #clef_menu.add_command(label="Find page missing start clefs", command=self.find_page_with_missing_clefs)
 
 
         # Staff line menu
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
-        #staff_line_menu.add_command(label="Generate staff lines horizontal", command=self.generate_staff_lines)
-        staff_line_menu.add_command(label="Generate staff lines (Prerequisite: Clefs) Warning: Will overwrite manual changes (F1)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
-        #staff_line_menu.add_command(label="Generate staff lines diagonal, Alternate method (Prerequisite: Clefs)", command=lambda :self.generate_staff_lines_diagonal(use_union_image=False))
+        staff_line_menu.add_command(label="Generate staff lines primary method(Prerequisite: Clefs)(F1)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(override=True))
+        staff_line_menu.add_command(label="Generate staff lines secondary method(Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
         staff_line_menu.add_separator()
-        staff_line_menu.add_command(label="Generate staff lines override(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line(override=True))
-        staff_line_menu.add_separator()
-        staff_line_menu.add_command(label="Generate staff lines using horizontal erode(Prerequisite: Clefs)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(override=True))
-        #staff_line_menu.add_command(label="Find action needed page", command=self.find_page_with_wrong_staff_lines)
+
 
         # Barline menu
         barline_menu = tk.Menu(self.menu, tearoff=0)
@@ -599,6 +550,9 @@ class ImageEditor(tk.Tk):
         #note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines) (F2)", command=self.auto_extend_notes)
+        note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
+        note_menu.add_separator()
+        note_menu.add_command(label="Detect if notes are on line or on space", command=self.determine_if_notes_are_on_line)
         note_menu.add_separator()
         extend_notes_sub_menu = tk.Menu(note_menu, tearoff=0)
         #extend_notes_sub_menu.add_checkbutton(label="(Checkbox)Include auto extended notes", variable=self.include_auto_extended_notes)
@@ -612,10 +566,7 @@ class ImageEditor(tk.Tk):
         extend_notes_sub_menu.add_command(label="Extend notes right", command=lambda: self.extend_notes(0, 0, 0, 1))
         note_menu.add_cascade(label="Extend notes in direction by 1 pixel", menu=extend_notes_sub_menu)
         note_menu.add_separator()
-        note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
-        note_menu.add_separator()
-        note_menu.add_command(label="Detect if notes are on line or on space", command=self.determine_if_notes_are_on_line)
-        note_menu.add_separator()
+
         note_menu.add_command(label="Handle half/whole note vertical overlap with quarter note (F7)", command=self.handle_half_and_quarter_note_overlap)
 
 
@@ -623,7 +574,31 @@ class ImageEditor(tk.Tk):
 
 
 
-        #Key menu
+
+
+
+
+        #Region menu
+        self.overwrite_regions = tk.BooleanVar()
+        self.overwrite_regions.set(True)
+        region_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Region", menu=region_menu)
+        region_menu.add_checkbutton(label="(Checkbox)Overwrite notes and accidentals that already are assigned letters", variable=self.overwrite_regions)
+        #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate note letters(Give notes color)(F3)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
+
+        distorted_image_sub_menu = tk.Menu(region_menu, tearoff=0)
+        distorted_image_sub_menu.add_command(label="Calculate note letters for distorted image", command=lambda: self.calculate_notes_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
+        distorted_image_sub_menu.add_command(label="Calculate note letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
+        distorted_image_sub_menu.add_command(label="Calculate note letters for distorted image by only keeping pixels that are removed on vertical erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_by_only_keeping_pixels_that_are_removed_in_vertical_erode(overwrite=self.overwrite_regions.get()))
+        region_menu.add_cascade(label="Calculate note letters for distorted image", menu=distorted_image_sub_menu)
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)(F4)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
+        region_menu.add_separator()
+        region_menu.add_command(label="Calculate note accidentals(Shade notes)", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
+
+        # Key menu
         key_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Key", menu=key_menu)
         key_menu.add_command(label="Set key for current page", command=self.set_key_for_current_page)
@@ -645,26 +620,6 @@ class ImageEditor(tk.Tk):
         key_menu.add_radiobutton(label="5 flats", variable=self.key_type, value=self.key_values[12])
         key_menu.add_radiobutton(label="6 flats", variable=self.key_type, value=self.key_values[13])
         key_menu.add_radiobutton(label="7 flats", variable=self.key_type, value=self.key_values[14])
-
-
-
-        #Region menu
-        self.overwrite_regions = tk.BooleanVar()
-        self.overwrite_regions.set(False)
-        region_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Region", menu=region_menu)
-        region_menu.add_checkbutton(label="(Checkbox)Overwrite notes and accidentals that already are assigned letters", variable=self.overwrite_regions)
-        #region_menu.add_command(label="Generate regions", command=lambda: self.generate_regions(overwrite=self.overwrite_regions.get()))
-        region_menu.add_separator()
-        region_menu.add_command(label="Calculate note letters(Give notes color)(F3)", command=lambda: self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get()))
-        region_menu.add_command(label="Calculate note letters for distorted image", command=lambda: self.calculate_notes_for_distorted_staff_lines(overwrite=self.overwrite_regions.get()))
-        region_menu.add_command(label="Calculate note letters for distorted image using horizontal erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(overwrite=self.overwrite_regions.get()))
-        region_menu.add_command(label="Calculate note letters for distorted image by only keeping pixels that are removed on vertical erode", command=lambda: self.calculate_notes_for_distorted_staff_lines_by_only_keeping_pixels_that_are_removed_in_vertical_erode(overwrite=self.overwrite_regions.get()))
-        region_menu.add_separator()
-        region_menu.add_command(label="Calculate accidental letters by finding closest note to the right(Give accidentals color)(F4)", command=lambda: self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get()))
-        region_menu.add_separator()
-        region_menu.add_command(label="Calculate note accidentals(Shade notes)", command=lambda: self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get()))
-
 
         #Reset menu
         reset_menu = tk.Menu(self.menu, tearoff=0)
@@ -1463,6 +1418,11 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Reset " + type + "\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Reset note", message):
+            print("canceled")
+            return
         for i in loop:
             if self.image_processor.is_list_iterable(self.image_processor.notes[i]):
                 for j in range(len(self.image_processor.notes[i]) - 1, - 1, -1):
@@ -1476,6 +1436,11 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Reset " + type + "\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Reset accidental", message):
+            print("canceled")
+            return
         for i in loop:
             if self.image_processor.is_list_iterable(self.image_processor.accidentals[i]):
                 for j in range(len(self.image_processor.accidentals[i]) - 1, - 1, -1):
@@ -1488,6 +1453,11 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        message = "Reset " + feature_type + "\n"
+        message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+        if not messagebox.askokcancel("Reset feature", message):
+            print("canceled")
+            return
         for i in loop:
             self.image_processor.array_types_dict[feature_type][i] = []
         self.draw_image_with_filters()
@@ -1893,7 +1863,7 @@ class ImageEditor(tk.Tk):
         self.calculate_notes_for_regions_using_staff_lines(overwrite=self.overwrite_regions.get())
     def on_f4_press(self, event):
         print("keypress: f4 calculate accidental letters")
-        self.calculate_note_accidentals_for_regions(overwrite=self.overwrite_regions.get())
+        self.calculate_accidental_letter_by_finding_closest_note(overwrite=self.overwrite_regions.get())
     def on_f5_press(self, event):
         print("keypress: f5 regenerate image")
         self.regenerate_images()
@@ -1947,7 +1917,7 @@ class ImageEditor(tk.Tk):
         self.file_name = self.file_name[:-4]  # remove .pdf
         if file_path:
             print("Filename: ", self.file_name)
-            self.num_pages = PDFtoImages.filename_to_images(file_path)
+            self.num_pages = PDFtoImages.filename_to_images(self.dirname, file_path)
             self.image_processor = ImageProcessing(self.dirname, file_path, self.num_pages)
             self.draw_image_with_filters()
         else:
@@ -1974,6 +1944,29 @@ class ImageEditor(tk.Tk):
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
 
+    def save_pdf_with_cover_page(self):
+        pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name + "_cheatmusic.pdf")
+        if pdf_path == "":
+            print("no pdf selected")
+            return
+        images = []
+        filter_list = []
+        for i in range(8):
+            filter_list.append(tk.IntVar())
+            if i == 5 or i == 6:
+                filter_list[i].set(1)
+            else:
+                filter_list[i].set(0)
+        cover_page = cv.imread(self.dirname + "\\cover_page.jpg")
+        cover_page = cv.cvtColor(cover_page, cv.COLOR_BGR2RGB)
+        cv.resize(cover_page, (self.image_processor.image_widths[0], self.image_processor.image_heights[0]), interpolation=cv.INTER_AREA)
+        images.append(Image.fromarray(cover_page))
+        for i in range(self.num_pages):
+            print("save pdf page", i)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, False, None, 1), cv.COLOR_BGR2RGB)
+            images.append(Image.fromarray(image))
+        images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
+        print("pdf saved", pdf_path)
     def save_pdf_for_double_sided_printing(self):
         pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")],
                                                 initialfile=self.file_name + "_cheatmusic.pdf")
@@ -2156,6 +2149,7 @@ class ImageEditor(tk.Tk):
             # self.convert_is_half_note()
             self.draw_image_with_filters()
         pass
+    '''
     '''
     def save_annotations(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")],
@@ -3026,6 +3020,7 @@ class ImageEditor(tk.Tk):
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     app = ImageEditor()
     app.mainloop()
 
