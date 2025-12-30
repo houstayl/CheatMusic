@@ -357,6 +357,9 @@ class ImageEditor(tk.Tk):
         save_pdf_sub_menu = tk.Menu(file_menu, tearoff=0)
         save_pdf_sub_menu.add_command(label="Save pdf", command=self.save_pdf)
         save_pdf_sub_menu.add_command(label="Save pdf with cover page", command=self.save_pdf_with_cover_page)
+        save_pdf_sub_menu.add_command(label="Save as jpg", command=self.save_jpg)
+        save_pdf_sub_menu.add_command(label="Save split up jpg", command=self.save_jpg_split_up)
+
         file_menu.add_cascade(label="Save pdf", menu=save_pdf_sub_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
@@ -482,33 +485,33 @@ class ImageEditor(tk.Tk):
         #set_feature_menu.add_command(label="Staff line region(3 clicks)", command=lambda: self.set_feature_type("staff_line_block"))
         set_feature_menu.entryconfig(0, foreground=self.bgr_to_hex((0, 255, 0)))
         set_feature_menu.entryconfig(1, foreground=self.bgr_to_hex((0, 255, 0)))
-        set_feature_menu.entryconfig(2, foreground=self.bgr_to_hex((0, 255, 0)))
+        #set_feature_menu.entryconfig(2, foreground=self.bgr_to_hex((0, 255, 0)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Bass Clef (r)", command=lambda :self.set_feature_type("bass_clef"))
         set_feature_menu.add_command(label="Treble Clef (t)", command=lambda :self.set_feature_type("treble_clef"))
+        set_feature_menu.entryconfig(3, foreground=self.bgr_to_hex((255, 0, 0)))
         set_feature_menu.entryconfig(4, foreground=self.bgr_to_hex((0, 125, 0)))
-        set_feature_menu.entryconfig(5, foreground=self.bgr_to_hex((255, 0, 0)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Barline (y)", command=lambda :self.set_feature_type("barline"))
-        set_feature_menu.entryconfig(7, foreground=self.bgr_to_hex((0, 255, 255)))
+        set_feature_menu.entryconfig(6, foreground=self.bgr_to_hex((0, 255, 255)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Quarter Note (q)", command=lambda :self.set_feature_type("note", "quarter"))
         set_feature_menu.add_command(label="Half Note (h)", command=lambda :self.set_feature_type("note", "half"))
         set_feature_menu.add_command(label="Whole Note (w)", command=lambda :self.set_feature_type("note", "whole"))
+        set_feature_menu.entryconfig(8, foreground=self.bgr_to_hex((0, 0, 255)))
         set_feature_menu.entryconfig(9, foreground=self.bgr_to_hex((0, 0, 255)))
         set_feature_menu.entryconfig(10, foreground=self.bgr_to_hex((0, 0, 255)))
-        set_feature_menu.entryconfig(11, foreground=self.bgr_to_hex((0, 0, 255)))
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Double Sharp (1)", command=lambda: self.set_feature_type("double_sharp"))
         set_feature_menu.add_command(label="Sharp (2)", command=lambda: self.set_feature_type("sharp"))
         set_feature_menu.add_command(label="Natural (3)", command=lambda: self.set_feature_type("natural"))
         set_feature_menu.add_command(label="Flat (4)", command=lambda: self.set_feature_type("flat"))
         set_feature_menu.add_command(label="Double Flat (5)", command=lambda: self.set_feature_type("double_flat"))
-        set_feature_menu.entryconfig(13, foreground=self.bgr_to_hex((255, 0, 255)))
-        set_feature_menu.entryconfig(14, foreground=self.bgr_to_hex((0, 127, 255)))
-        set_feature_menu.entryconfig(15, foreground=self.bgr_to_hex((255, 255, 86)))
-        set_feature_menu.entryconfig(16, foreground=self.bgr_to_hex((127, 0, 0)))
-        set_feature_menu.entryconfig(17, foreground=self.bgr_to_hex((63, 0, 127)))
+        set_feature_menu.entryconfig(12, foreground=self.bgr_to_hex((255, 0, 255)))
+        set_feature_menu.entryconfig(13, foreground=self.bgr_to_hex((0, 127, 255)))
+        set_feature_menu.entryconfig(14, foreground=self.bgr_to_hex((255, 255, 86)))
+        set_feature_menu.entryconfig(15, foreground=self.bgr_to_hex((127, 0, 0)))
+        set_feature_menu.entryconfig(16, foreground=self.bgr_to_hex((63, 0, 127)))
 
         set_feature_menu.add_separator()
         set_feature_menu.add_command(label="Key (k)", command=lambda :self.set_feature_type("key"))
@@ -1967,6 +1970,67 @@ class ImageEditor(tk.Tk):
             images.append(Image.fromarray(image))
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
+
+    def save_jpg(self):
+        folder_path = filedialog.askdirectory(title="Select a Folder")
+        if folder_path == "":
+            print("no folder selected")
+            return
+        images = []
+        filter_list = []
+        for i in range(8):
+            filter_list.append(tk.IntVar())
+            if i == 5 or i == 6:
+                filter_list[i].set(1)
+            else:
+                filter_list[i].set(0)
+        for i in range(self.num_pages):
+            print("save jpg page", i)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, False, None, 1), cv.COLOR_BGR2RGB)
+            images.append(Image.fromarray(image))
+        for i, img in enumerate(images):
+            file_path = folder_path + f"/{self.file_name}_{i}.jpg"
+            print(file_path)
+            img.convert("RGB").save(file_path, "JPEG", quality=100)
+        print("jpg saved", folder_path)
+
+    def save_jpg_split_up(self):
+        folder_path = filedialog.askdirectory(title="Select a Folder")
+        if folder_path == "":
+            print("no folder selected")
+            return
+        images = []
+        filter_list = []
+        for i in range(8):
+            filter_list.append(tk.IntVar())
+            if i == 5 or i == 6:
+                filter_list[i].set(1)
+            else:
+                filter_list[i].set(0)
+
+        for i in range(self.num_pages):
+            print("save jpg page", i)
+            image = cv.cvtColor(self.image_processor.draw_image_without_writing(filter_list, i, False, False, False, None, 1), cv.COLOR_BGR2RGB)
+            images.append(Image.fromarray(image))
+        for i, img in enumerate(images):
+            staff_lines = self.image_processor.staff_lines[i]
+            if staff_lines is None:
+                print("No staff lines on page", i)
+                continue
+            mid_x = self.image_processor.image_widths[i]
+            y_split_values = [0]
+            # find 20 and 21 staff line and average
+            for j in range(19, len(staff_lines) - 1, 20):
+                y = (staff_lines[j].calculate_y(mid_x) + staff_lines[j + 1].calculate_y(mid_x)) / 2
+                y_split_values.append(y)
+            y_split_values.append(self.image_processor.image_heights[i] - 1)
+            num_sub_images = len(y_split_values) - 1
+            for j in range(num_sub_images):
+                file_path = folder_path + f"/{self.file_name}_{i}_{j}.jpg"
+                print(file_path)
+                img.convert("RGB").crop((0, y_split_values[j], self.image_processor.image_widths[i] - 1, y_split_values[j + 1])).save(file_path, "JPEG", quality=100)
+        print("jpg saved", folder_path)
+
     def save_pdf_for_double_sided_printing(self):
         pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")],
                                                 initialfile=self.file_name + "_cheatmusic.pdf")
