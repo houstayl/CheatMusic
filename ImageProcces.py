@@ -971,16 +971,18 @@ class ImageProcessing:
         accidentals = self.accidentals[page_index]
         if self.is_list_iterable(notes) == True:
             for i in range(len(notes)):
-                number = ord(notes[i].letter.lower()) - ord('a')
-                number = (number + direction) % 7
-                notes[i].letter = chr(ord('a') + number)
+                if notes[i].letter != "":
+                    number = ord(notes[i].letter.lower()) - ord('a')
+                    number = (number + direction) % 7
+                    notes[i].letter = chr(ord('a') + number)
         else:
             print("No notes to shift on page", page_index)
         if self.is_list_iterable(accidentals) == True:
             for i in range(len(accidentals)):
-                number = ord(accidentals[i].letter.lower()) - ord('a')
-                number = (number + direction) % 7
-                accidentals[i].letter = chr(ord('a') + number)
+                if accidentals[i].letter != "":
+                    number = ord(accidentals[i].letter.lower()) - ord('a')
+                    number = (number + direction) % 7
+                    accidentals[i].letter = chr(ord('a') + number)
         else:
             print("No accidentals to shift on page", page_index)
             

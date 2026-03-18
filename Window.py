@@ -18,6 +18,7 @@ from Note import Note
 import concurrent.futures
 import subprocess
 import re
+import argparse
 
 '''
 Steps: Find clefs
@@ -73,8 +74,8 @@ class ImageEditor(tk.Tk):
 
 
         self.frame_location = "top"
-        if len(sys.argv) > 1 and sys.argv[1] == 'h':
-            self.frame_location = "side"
+        #if len(sys.argv) > 1 and sys.argv[1] == 'h':
+        #    self.frame_location = "side"
  
 
         #Left frame
@@ -846,11 +847,27 @@ class ImageEditor(tk.Tk):
         self.draw_image_with_filters()
 
     def system_arguments(self):
+        parser = argparse.ArgumentParser(description="Argparser")
+        parser.add_argument("--pdf", type=str, help="Name of pdf file to open")
+        parser.add_argument("--pkl", type=str, help="Name of the pkl file to open")
+        parser.add_argument("--pkl_to_pdf", type=str, help="Folder with pkl files to save as pdfs")
+        parser.add_argument("--pkl_to_split_jpg", type=str, help="Folder with pkl files to save as split up jpgs")
+        args = parser.parse_args()
+        if args.pdf:
+            self.open_pdf(args.pdf)
+        if args.pkl:
+            print(2, args.pkl)
+        if args.pkl_to_pdf:
+            print(3, args.pkl_to_pdf)
+        if args.pkl_to_split_jpg:
+            print(4, args.pkl_to_split_jpg)
+        '''
         if "-j" in sys.argv:
             print(sys.argv)
             if len(sys.argv) >= 4:
                 self.load_binary(sys.argv[2])#first argument is load pkl
                 self.save_jpg_split_up(sys.argv[3])#second argument is save jpg split up
+        '''
 
     def handle_half_and_quarter_note_overlap(self):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -2290,8 +2307,9 @@ class ImageEditor(tk.Tk):
 
 
 
-    def open_pdf(self):
-        file_path = filedialog.askopenfilename(title="Open PDF File", initialdir=self.dirname, filetypes=[("PDF Files", "*.pdf")])  # TODO initialdir
+    def open_pdf(self, file_path=""):
+        if file_path == "":
+            file_path = filedialog.askopenfilename(title="Open PDF File", initialdir=self.dirname, filetypes=[("PDF Files", "*.pdf")])  # TODO initialdir
         if file_path:
             f = file_path.split('/')
             self.file_name = f[-1]  # extracting filename from full directory
@@ -2412,12 +2430,13 @@ class ImageEditor(tk.Tk):
                 img.convert("RGB").crop((0, y_split_values[j], self.image_processor.image_widths[i] - 1, y_split_values[j + 1])).save(file_path, "JPEG", quality=100)
         print("jpg saved", folder_path)
 
-    def batch_save_pdf(self):
-        print("Please select the root folder to scan for .pkl files")
-        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
-        if not root_dir:
-            print("\nFolder selection cancelled. Exiting.")
-            return
+    def batch_save_pdf(self, root_dir=""):
+        if root_dir == "":
+            print("Please select the root folder to scan for .pkl files")
+            root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+            if not root_dir:
+                print("\nFolder selection cancelled. Exiting.")
+                return
         for dirpath, dirnames, filenames in os.walk(root_dir):
         # dirpath: The path to the current directory
         # filenames: A list of files in the current directory
@@ -2431,12 +2450,13 @@ class ImageEditor(tk.Tk):
                     self.save_pdf(pdf_path)
 
 
-    def batch_save_jpg(self):
-        print("Please select the root folder to scan for .pkl files")
-        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
-        if not root_dir:
-            print("\nFolder selection cancelled. Exiting.")
-            return
+    def batch_save_jpg(self, root_dir=""):
+        if root_dir == "":
+            print("Please select the root folder to scan for .pkl files")
+            root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+            if not root_dir:
+                print("\nFolder selection cancelled. Exiting.")
+                return
         for dirpath, dirnames, filenames in os.walk(root_dir):
         # dirpath: The path to the current directory
         # filenames: A list of files in the current directory
@@ -2451,12 +2471,13 @@ class ImageEditor(tk.Tk):
                         os.mkdir(folder_name)
                     self.save_jpg(folder_name)
 
-    def batch_save_jpg_split_up(self):
-        print("Please select the root folder to scan for .pkl files")
-        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
-        if not root_dir:
-            print("\nFolder selection cancelled. Exiting.")
-            return
+    def batch_save_jpg_split_up(self, root_dir=""):
+        if root_dir == "":
+            print("Please select the root folder to scan for .pkl files")
+            root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+            if not root_dir:
+                print("\nFolder selection cancelled. Exiting.")
+                return
         for dirpath, dirnames, filenames in os.walk(root_dir):
         # dirpath: The path to the current directory
         # filenames: A list of files in the current directory
