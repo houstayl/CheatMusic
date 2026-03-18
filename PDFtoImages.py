@@ -7,10 +7,10 @@ def filename_to_images(dirname, filename):
         poppler_path = os.path.join(sys._MEIPASS, "bin")
         images = convert_from_path(filename, poppler_path=poppler_path)
         for i in range(len(images)):
-            images[i].save(dirname + '/SheetsMusic/page' + str(i) + '.jpg', 'JPEG')
+            images[i].save(os.path.join(dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'), 'JPEG')
         return len(images)
     else:
         images = convert_from_path(filename)
         for i in range(len(images)):
-            images[i].save(dirname + '/SheetsMusic/page' + str(i) + '.jpg', 'JPEG')
+            images[i].save(os.path.join(dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'), 'JPEG')
         return len(images)

@@ -3,6 +3,7 @@ import cv2 as cv
 from tkinter import filedialog, Canvas, Scale, ttk, messagebox
 from PIL import Image, ImageTk, ImageDraw
 import os, shutil
+import platform
 import PDFtoImages
 from ImageProcces import ImageProcessing
 from FeatureObject import Feature
@@ -16,6 +17,7 @@ from StaffLine import StaffLine
 from Note import Note
 import concurrent.futures
 import subprocess
+import re
 
 '''
 Steps: Find clefs
@@ -73,6 +75,7 @@ class ImageEditor(tk.Tk):
         self.frame_location = "top"
         if len(sys.argv) > 1 and sys.argv[1] == 'h':
             self.frame_location = "side"
+ 
 
         #Left frame
         self.left_frame = tk.Frame(self, width=300, height=800)
@@ -258,6 +261,13 @@ class ImageEditor(tk.Tk):
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
         self.canvas.bind("<MouseWheel>", self.scroll_vertical)
+
+        #for scrolling on linux
+        self.canvas.bind("<Button-4>", self.scroll_vertical)
+        self.canvas.bind("<Button-5>", self.scroll_vertical)
+        self.canvas.bind("<Shift-Button-4>", self.scroll_horizontal)
+        self.canvas.bind("<Shift-Button-5>", self.scroll_horizontal)
+
         self.canvas.bind("<Shift-MouseWheel>", self.scroll_horizontal)
         self.canvas.bind("<ButtonPress-3>", self.on_right_click)
         self.canvas.bind("<B3-Motion>", self.on_right_click_drag)
@@ -307,11 +317,11 @@ class ImageEditor(tk.Tk):
         self.bind("<Control-j>", self.ctrl_j_key_press)
         self.bind("<Control-k>", self.ctrl_k_key_press)
         self.bind("<Control-l>", self.ctrl_l_key_press)
-        self.bind("<Control-;>", self.ctrl_semi_colon_key_press)
-        self.bind("<Control-'>", self.ctrl_single_quote_key_press)
+        #self.bind("<Control-;>", self.ctrl_semi_colon_key_press)
+        #self.bind("<Control-'>", self.ctrl_single_quote_key_press)
 
         self.bind("<Control-minus>", self.ctrl_minus_key_press)
-        self.bind("<Control-=>", self.ctrl_equals_key_press)
+        #self.bind("<Control-=>", self.ctrl_equals_key_press)
         self.bind("<Control-0>", self.ctrl_zero_key_press)
 
         self.bind("<Control-9>", self.ctrl_nine_key_press)
@@ -362,8 +372,11 @@ class ImageEditor(tk.Tk):
 
         file_menu.add_cascade(label="Save pdf", menu=save_pdf_sub_menu)
         file_menu.add_separator()
-        file_menu.add_command(label="Open uncompressed annotations", command=self.load_binary)
-        file_menu.add_command(label="Save uncompressed annotations", command=self.save_binary)
+        file_menu.add_command(label="Open uncompressed annotations (.pkl)", command=self.load_binary)
+        save_annotations_sub_menu = tk.Menu(file_menu, tearoff=0)
+        save_annotations_sub_menu.add_command(label="Save with images", command=self.save_binary)
+        #save_annotations_sub_menu.add_command(label="Save without images", command=self.save_binary_without_images)
+        file_menu.add_cascade(label="Save uncompressed annotations (.pkl)", menu=save_annotations_sub_menu)
         file_menu.add_separator()
         #file_menu.add_command(label="Open compressed annotations", command=self.load_binary_compressed)
         #file_menu.add_command(label="Save compressed annotations", command=self.save_binary_compressed)
@@ -377,6 +390,12 @@ class ImageEditor(tk.Tk):
         file_menu.add_command(label="Open current image in system's default .jpg editor(F6)", command=self.open_paint)
         file_menu.add_separator()
         file_menu.add_command(label="Reduce pixels by half(For pdfs that have unnecessarily high resolution)", command=self.reduce_image_size)
+        file_menu.add_separator()
+        batch_operations_sub_menu = tk.Menu(file_menu, tearoff=0)
+        batch_operations_sub_menu.add_command(label="Open pkl, save pdf", command=self.batch_save_pdf)
+        batch_operations_sub_menu.add_command(label="Open pkl, save jpg", command=self.batch_save_jpg)
+        batch_operations_sub_menu.add_command(label="Open pkl, save jpg split up", command=self.batch_save_jpg_split_up)
+        file_menu.add_cascade(label="Batch operations", menu=batch_operations_sub_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
@@ -406,6 +425,25 @@ class ImageEditor(tk.Tk):
 
         #view_menu.add_command(label="Rotate CW", command=self.rotate_cw)
         #view_menu.add_command(label="Rotate CCW", command=self.rotate_ccw)
+        view_menu.add_separator()
+        colors_sub_menu = tk.Menu(view_menu, tearoff=0)
+        colors_sub_menu.add_command(label="Set to default colors", command=self.set_default_colors)
+        colors_sub_menu.add_separator()
+        colors_sub_menu.add_command(label="Open colors.txt", command=self.open_colors_text_file)
+        colors_sub_menu.add_command(label="Read in colors from colors.txt", command=self.get_colors_from_text_file)
+        colors_sub_menu.add_separator()
+        colors_sub_menu.add_command(label="Shift colors up 1 letter (A becomes B)", command=lambda: self.shift_note_and_accidental_colors(1))
+        colors_sub_menu.add_command(label="Shift colors up 1 letter (A becomes G)", command=lambda: self.shift_note_and_accidental_colors(-1))
+        #colors_sub_menu.add_command(label="Set A", command=lambda: self.set_color("a"))
+        #colors_sub_menu.add_command(label="Set B", command=lambda: self.set_color("b"))
+        #colors_sub_menu.add_command(label="Set C", command=lambda: self.set_color("c"))
+        #colors_sub_menu.add_command(label="Set D", command=lambda: self.set_color("d"))
+        #colors_sub_menu.add_command(label="Set E", command=lambda: self.set_color("e"))
+        #colors_sub_menu.add_command(label="Set F", command=lambda: self.set_color("f"))
+        #colors_sub_menu.add_command(label="Set G", command=lambda: self.set_color("g"))
+        #colors_sub_menu.add_separator()
+        #colors_sub_menu.add_command(label="Set all colors", command=self.set_all_colors)
+        view_menu.add_cascade(label="Colors", menu=colors_sub_menu)
         view_menu.add_separator()
         self.view_mode = tk.StringVar()
         self.view_mode_values = ["color", "erode", "bw", "horizontal", "vertical", "only_vertical_erode"]
@@ -526,11 +564,15 @@ class ImageEditor(tk.Tk):
 
 
         # Staff line menu
+        self.treble_clef_margin = tk.BooleanVar()
+        self.treble_clef_margin.set(True)
         staff_line_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Staff Lines", menu=staff_line_menu)
         staff_line_menu.add_command(label="Generate staff lines primary method(Prerequisite: Clefs)(F1)", command=lambda: self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(override=True))
         staff_line_menu.add_command(label="Generate staff lines secondary method(Prerequisite: Clefs)", command=self.generate_staff_lines_diagonal_by_traversing_vertical_line)
         staff_line_menu.add_separator()
+        staff_line_menu.add_checkbutton(label="Add 20 pixel margin for treble clefs", variable=self.treble_clef_margin)
+
 
 
         # Barline menu
@@ -553,6 +595,8 @@ class ImageEditor(tk.Tk):
         #note_menu.add_separator()
         note_menu.add_checkbutton(label="(Checkbox)Allow note to be auto extended", variable=self.allow_note_to_be_auto_extended)
         note_menu.add_command(label="Auto extend and center notes (Prerequisite: Staff lines) (F2)", command=self.auto_extend_notes)
+        note_menu.add_command(label="Draw on unautosnapped half notes", command=self.draw_unautosnapped_half_notes)
+        note_menu.add_command(label="Draw on unautosnapped half notes all", command=self.draw_unautosnapped_half_notes_all)
         note_menu.add_command(label="Remove unautosnapped notes", command=self.remove_unautosnapped_notes)
         note_menu.add_separator()
         note_menu.add_command(label="Detect if notes are on line or on space", command=self.determine_if_notes_are_on_line)
@@ -666,6 +710,147 @@ class ImageEditor(tk.Tk):
         erode_strength_multiplier_menu.add_radiobutton(label="2.0", variable=self.erode_strength_multiplier, value=2, command=self.draw_image_with_filters)
         erode_strength_multiplier_menu.add_radiobutton(label="3.0", variable=self.erode_strength_multiplier, value=3, command=self.draw_image_with_filters)
         info_menu.add_cascade(label="Erode strenth multiplier", menu=erode_strength_multiplier_menu)
+        info_menu.add_command(label="Execute sys args", command=self.system_arguments)
+    
+    def shift_note_and_accidental_colors(self, direction):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        else:
+            message = "Shift colors" + str(direction) + "\n"
+            message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+            if not messagebox.askokcancel("Shift colors", message):
+                print("canceled")
+                return
+        for i in loop:
+            print("Colors shifted", direction, "on page", i)
+            self.image_processor.shift_note_and_accidental_colors(i, direction)
+        self.draw_image_with_filters()
+
+    def set_default_colors(self):
+        print("Default colors")
+        self.image_processor.letter_colors = {
+            'a': (182, 58, 103),
+            'b': (160, 66, 216),
+            'c': (62, 47, 246),
+            'd': (41, 152, 254),
+            'e': (1, 224, 255),
+            'f': (52, 202, 119),
+            'g': (136, 151, 1)
+        }
+        self.draw_image_with_filters()
+
+    def get_colors_from_text_file(self):
+
+        file_path = os.path.join(self.dirname, "colors.txt")
+        #if text file does not exit, create one
+        if not os.path.exists(file_path):
+            try:
+                with open(file_path, 'w') as file:
+                    content = "(182, 58, 103), (160, 66, 216), (62, 47, 246), (41, 152, 254), (1, 224, 255), (52, 202, 119), (136, 151, 1)"
+                    file.write(content)
+                print(f"File '{file_path}' created successfully.")
+            except IOError as e:
+                print(f"An error occurred: {e}")
+        if self.image_processor is None:
+            print("No image is loaded")
+            return
+        #Read in text file
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+                #print(content)
+                numbers = re.findall(r'\d+', content)
+                numbers = [int(n) for n in numbers]
+                for n in numbers:
+                    if n < 0 or n > 255:
+                        print("Number out of range", n)
+                        return
+                rgb_tuples = [tuple(numbers[i:i+3]) for i in range(0, len(numbers), 3)]
+                print("Parsed colors.txt:", rgb_tuples)
+                if len(rgb_tuples) == 7:
+                    self.image_processor.letter_colors['a'] = rgb_tuples[0]
+                    self.image_processor.letter_colors['b'] = rgb_tuples[1]
+                    self.image_processor.letter_colors['c'] = rgb_tuples[2]
+                    self.image_processor.letter_colors['d'] = rgb_tuples[3]
+                    self.image_processor.letter_colors['e'] = rgb_tuples[4]
+                    self.image_processor.letter_colors['f'] = rgb_tuples[5]
+                    self.image_processor.letter_colors['g'] = rgb_tuples[6]
+        except FileNotFoundError:
+            print(f"Error: The file '{file_path}' was not found.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        self.draw_image_with_filters()
+    
+    def open_colors_text_file(self):
+        file_path = os.path.join(self.dirname, "colors.txt")
+        try:
+            if platform.system() == "Windows":
+                os.startfile(file_path)
+            elif platform.system() == "Darwin":
+                subprocess.run(['open', file_path], check=True)
+            else:#for linux
+               subprocess.run(['xdg-open', file_path], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error opening image: {e}")
+        except FileNotFoundError:
+            print("xdg-open not found. Ensure you are on a Linux desktop environment.")
+        
+    def set_all_colors(self):
+        print("Defalut values: (182, 58, 103), (160, 66, 216), (62, 47, 246), (41, 152, 254), (1, 224, 255), (52, 202, 119), (136, 151, 1)")
+        print("Copy this sequence, then edit it with the RBG values you want, and then paste it back into the terminal")
+        print("(, , ), (, , ), (, , ), (, , ), (, , ), (, , ), (, , )")
+        colors = str(input("Enter the filled in sequence: "))
+        # \d+ matches one or more digits
+        numbers = re.findall(r'\d+', colors)
+
+        # Convert strings to integers
+        numbers = [int(n) for n in numbers]
+        for n in numbers:
+            if n < 0 or n > 255:
+                print("Number out of range", n)
+                return
+
+        # If you want them grouped back into tuples of 3:
+        rgb_tuples = [tuple(numbers[i:i+3]) for i in range(0, len(numbers), 3)]
+        print("Parsed:", rgb_tuples)
+        if len(rgb_tuples) == 7:
+            self.image_processor.letter_colors['a'] = rgb_tuples[0]
+            self.image_processor.letter_colors['b'] = rgb_tuples[1]
+            self.image_processor.letter_colors['c'] = rgb_tuples[2]
+            self.image_processor.letter_colors['d'] = rgb_tuples[3]
+            self.image_processor.letter_colors['e'] = rgb_tuples[4]
+            self.image_processor.letter_colors['f'] = rgb_tuples[5]
+            self.image_processor.letter_colors['g'] = rgb_tuples[6]
+        self.draw_image_with_filters()
+        
+    def set_color(self, letter):
+        current_values = self.image_processor.letter_colors[letter]
+        r = current_values[2]
+        g = current_values[1]
+        b = current_values[0]
+        r = int(input("Enter the red value between 0 and 255: "))
+        if r < 0 or r > 255:
+            print("invalid value")
+            return
+        g = int(input("Enter the green value between 0 and 255: "))
+        if g < 0 or g > 255:
+            print("invalid value")
+            return
+        b = int(input("Enter the blue value between 0 and 255: "))
+        if b < 0 or b > 255:
+            print("invalid value")
+            return
+        self.image_processor.letter_colors[letter] = (b, g, r)
+        print("Change", letter, "to", self.image_processor.letter_colors[letter])
+        self.draw_image_with_filters()
+
+    def system_arguments(self):
+        if "-j" in sys.argv:
+            print(sys.argv)
+            if len(sys.argv) >= 4:
+                self.load_binary(sys.argv[2])#first argument is load pkl
+                self.save_jpg_split_up(sys.argv[3])#second argument is save jpg split up
 
     def handle_half_and_quarter_note_overlap(self):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -704,6 +889,106 @@ class ImageEditor(tk.Tk):
         if self.debugging.get() == True:
             self.add_mode_combobox.set(self.add_mode_combobox_values[3])
 
+    def draw_unautosnapped_half_notes(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        else:
+            message = "Draw on unautosnapped half notes\n"
+            message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+            if not messagebox.askokcancel("Draw on unautosnapped half notes", message):
+                print("canceled")
+                return
+        for i in loop:
+            image_coordinates = self.image_processor.get_unautosnapped_half_note_images(i)
+            
+            #print(image_coordinates)
+            #TODO show a cropped image to a user. The user draws on it. Only the cropped part of the image gets reloaded
+            #Go image by image opening in default editor. Save image and coordinates in sheetsmusic called half_note.jpg
+            #everytime the user clicks next, the previous half note crop is updated
+            count = 1
+            for coord in image_coordinates:
+                print(count, "/", len(image_coordinates))
+                count = count + 1
+                sub_image = self.image_processor.images[i][coord[1]:coord[3], coord[0]:coord[2]]#cropped image
+                #print(sub_image)
+                image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'half_note.jpg')
+                cv.imwrite(image_path, sub_image)
+                self.open_sub_image(image_path)
+                if not messagebox.askokcancel("Draw half note", "Fill in the half note, then save, then press OK"):
+                    print("canceled")
+                    return
+                else:
+                    reload_sub_image = cv.imread(image_path, cv.IMREAD_COLOR)
+                    self.image_processor.load_sub_image(i, coord, reload_sub_image, self.blackness_scale.get())
+                    #cv.imwrite(self.image_processor.dirname + '/SheetsMusic/half_note_check.jpg', sub_image)
+                    #self.image_processor.images[i][coord[1]:coord[3], coord[0]:coord[2]] = reload_sub_image
+            if len(image_coordinates) > 0:
+                cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
+        self.draw_image_with_filters()
+
+    def draw_unautosnapped_half_notes_all(self):
+        loop = self.get_loop_array_based_on_feature_mode()
+        if loop == "single":
+            loop = [self.image_index]
+        else:
+            message = "Draw on unautosnapped half notes\n"
+            message += "Pages(inclusive): " + str(loop[0]) + ":" + str(loop[-1]) + "\n"
+            if not messagebox.askokcancel("Draw on unautosnapped half notes", message):
+                print("canceled")
+                return
+
+        for i in loop:
+            image_coordinates = self.image_processor.get_unautosnapped_half_note_images_uniform(i)
+            if len(image_coordinates) == 0:
+                continue
+            #Writes all the half note images at once
+            combined_image = None
+            image_length = self.image_processor.get_note_height(i) * 2
+            #Find all half notes on page, then combine them into a single image, then read back in
+            for coord in image_coordinates:
+                sub_image = self.image_processor.images[i][coord[1]:coord[3], coord[0]:coord[2]]#cropped image
+                if combined_image is None:
+                    combined_image = sub_image
+                else:
+                    combined_image = np.vstack((combined_image, sub_image))
+            image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'half_notes.jpg')
+            cv.imwrite(image_path, combined_image)
+            self.open_sub_image(image_path)
+
+            if not messagebox.askokcancel("Draw half note", "Fill in the half note, then save, then press OK"):
+                print("canceled")
+                return
+            else:
+                image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'half_notes.jpg')
+                reload_sub_image = cv.imread(image_path, cv.IMREAD_COLOR)
+                count = 0
+                for coord in image_coordinates:
+                    sub_image = reload_sub_image[count * image_length:(count + 1) * image_length, 0:image_length]
+                    count = count + 1
+                    self.image_processor.load_sub_image(i, coord, sub_image, self.blackness_scale.get())
+                    
+                    #cv.imwrite(self.image_processor.dirname + '/SheetsMusic/half_note_check.jpg', sub_image)
+                    #self.image_processor.images[i][coord[1]:coord[3], coord[0]:coord[2]] = reload_sub_image
+                if len(image_coordinates) > 0:
+                    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
+        self.draw_image_with_filters()
+
+    def open_sub_image(self, image_path):
+        #print(path)
+        try:
+            #image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'half_note.jpg')
+            if platform.system() == "Windows":
+                os.startfile(image_path)
+            elif platform.system() == "Darwin":
+                subprocess.run(['open', image_path], check=True)
+            else:
+                subprocess.run(['xdg-open', image_path], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error opening image: {e}")
+        except FileNotFoundError:
+            print("xdg-open not found. Ensure you are on a Linux desktop environment.")
+
     def remove_unautosnapped_notes(self):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
@@ -714,8 +999,10 @@ class ImageEditor(tk.Tk):
             if not messagebox.askokcancel("Remove Unautosnapped notes", message):
                 print("canceled")
                 return
+        count = 0
         for i in loop:
-            self.image_processor.remove_unautosnapped_notes(i)
+            count += self.image_processor.remove_unautosnapped_notes(i)
+        print(count, "unautosnapped notes removed")
         self.draw_image_with_filters()
 
     def detect_unautosnapped_half_notes(self):
@@ -727,7 +1014,7 @@ class ImageEditor(tk.Tk):
 
     def set_cursor(self):
         if self.add_mode_combobox.get() == self.add_mode_combobox_values[0]:
-            self.canvas.config(cursor="arrow")
+            self.canvas.config(cursor="cross")
         elif self.add_mode_combobox.get() == self.add_mode_combobox_values[1]:
             self.canvas.config(cursor="dotbox")
         elif self.add_mode_combobox.get() == self.add_mode_combobox_values[2]:
@@ -738,12 +1025,49 @@ class ImageEditor(tk.Tk):
             print("something wrong with setting add mode combobox values")
 
     def open_paint(self):
-        path = self.image_processor.images_filenames[self.image_index]
-        print(path)
-        paint_path = r'C:\Windows\System32\mspaint.exe'
-        if os.path.exists(path):
+        if self.current_feature is None:
+            image_path = self.image_processor.images_filenames[self.image_index]
+            print(image_path)
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(image_path)
+                elif platform.system() == "Darwin":
+                    subprocess.run(['open', image_path], check=True)
+                else:#for linux
+                    subprocess.run(['xdg-open', image_path], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error opening image: {e}")
+            except FileNotFoundError:
+                print("xdg-open not found. Ensure you are on a Linux desktop environment.")
+        else:
+            tl = self.current_feature.topleft
+            br = self.current_feature.bottomright
+            note_height = self.image_processor.get_note_height(self.image_index)
+            coord = [max(tl[0] - note_height, 0), max(tl[1] - note_height, 0), min(br[0] + note_height, self.image_processor.image_heights[self.image_index] - 1), min(br[1] + note_height, self.image_processor.image_heights[self.image_index] - 1)]
+            sub_image = self.image_processor.images[self.image_index][coord[1]:coord[3], coord[0]:coord[2]]#cropped image
+            image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'feature.jpg')
+            print(image_path)
+            cv.imwrite(image_path, sub_image)
+            self.open_sub_image(image_path)
+
+            if not messagebox.askokcancel("Draw on feature", "Fill in the feature, then save, then press OK"):
+                print("canceled")
+                return
+            else:
+                #image_path = os.path.join(self.image_processor.dirname, 'SheetsMusic', 'Annotated', 'half_note' + str(count) + '.jpg')
+                reload_sub_image = cv.imread(image_path, cv.IMREAD_COLOR)
+                self.image_processor.load_sub_image(self.image_index, coord, reload_sub_image, self.blackness_scale.get())
+                #cv.imwrite(self.image_processor.dirname + '/SheetsMusic/half_note_check.jpg', sub_image)
+                #self.image_processor.images[i][coord[1]:coord[3], coord[0]:coord[2]] = reload_sub_image
+                cv.imwrite(self.image_processor.images_filenames[self.image_index], self.image_processor.images[self.image_index])
+                    
+        self.draw_image_with_filters()
+            
+        #for windows
+        #paint_path = r'C:\Windows\System32\mspaint.exe'
+        #if os.path.exists(path):
             #subprocess.run([paint_path, path])
-            os.startfile(path)
+        #    os.startfile(path)
             #subprocess.run(['mspaint.exe'])
 
 
@@ -825,7 +1149,37 @@ class ImageEditor(tk.Tk):
         loop = self.get_loop_array_based_on_feature_mode()
         if loop == "single":
             loop = [self.image_index]
+        '''
+        min_size = 20
+        for i in loop:
+            print("Fill in white spots page", i)
+            for note in self.image_processor.notes[i]:
+                if note.is_half_note == "quarter":
+                    tl = note.topleft
+                    br = note.bottomright
+                    image = self.image_processor.images[i][tl[1]:br[1], tl[0]:br[0]]
+                    bw_image = self.image_processor.bw_images[i][tl[1]:br[1], tl[0]:br[0]]
+                    cv.imwrite(os.path.join(self.dirname, 'SheetsMusic', 'aquarter.jpg'), image)
+                    # Find connected components (to detect individual white regions)
+                    # 'connectivity=4' ensures only direct neighbors are considered connected
+                    num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(bw_image, connectivity=4)
 
+                    # Loop through the detected components and fill small white regions
+                    for j in range(1, num_labels):  # Ignore label 0 (background)
+                        area = stats[j, cv.CC_STAT_AREA]
+
+                        # If the area of the component is less than the minimum size, fill it
+                        if area < min_size:
+                            # Fill the region with black
+                            #binary_img[labels == i] = 0  # Set pixels of this label to black
+                            print("hole found")
+                            image[labels == j] = [0, 0, 0]
+                    cv.imwrite(os.path.join(self.dirname, 'SheetsMusic', 'aquarterfilled.jpg'), image)
+                    self.image_processor.images[i][tl[1]:br[1], tl[0]:br[0]] = image
+        self.regenerate_images()
+        self.draw_image_with_filters()
+
+        '''
         # Prepare the arguments for each task
         tasks = [
             (i, self.image_processor.images[i], self.image_processor.bw_images[i], self.image_processor.images_filenames[i])
@@ -837,6 +1191,7 @@ class ImageEditor(tk.Tk):
             results = pool.map(ImageEditor.fill_in_white_spots_parallel, tasks)
         self.regenerate_images()
         self.draw_image_with_filters()
+ 
 
     def auto_detect_quarter_notes(self):
         loop = self.get_loop_array_based_on_feature_mode()
@@ -926,21 +1281,21 @@ class ImageEditor(tk.Tk):
     def set_key_for_current_page(self):
         topleft = [0,0]
         bottomright = [self.image_processor.image_widths[self.image_index] - 1, self.image_processor.image_heights[self.image_index] - 1]
-
+        print("key set on page", self.image_index)
         key = self.key_type.get()
         if key == "None":
-            print("key is none")
+            print("key is none", "on page", self.image_index)
             # todo get rid of all accidentals for none key
             self.image_processor.reset_accidentals(self.image_index, topleft, bottomright)
         elif "sharp" in key:
             num_sharp = int(key[0])
             letters = self.sharp_order[0: num_sharp]
-            print("Key: ", key, "letters: ", letters)
+            print("Key: ", key, "letters: ", letters, "on page", self.image_index)
             self.image_processor.set_key(self.image_index, topleft, bottomright, "sharp", letters)
         elif "flat" in key:
             num_flat = int(key[0])
             letters = self.flat_order[0: num_flat]
-            print("Key: ", key, "letters: ", letters)
+            print("Key: ", key, "letters: ", letters, "on page", self.image_index)
             self.image_processor.set_key(self.image_index, topleft, bottomright, "flat", letters)
         else:
             print("someghing bad happened with key combobox values")
@@ -1206,7 +1561,7 @@ class ImageEditor(tk.Tk):
                 check_num_clefs_and_staff_lines = True
             if override == True:
                 check_num_clefs_and_staff_lines = False
-            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines)
+            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line(i, check_num_clefs_and_staff_lines, self.treble_clef_margin.get())
         self.draw_image_with_filters()
 
     def generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(self, override=False):
@@ -1221,7 +1576,7 @@ class ImageEditor(tk.Tk):
                 check_num_clefs_and_staff_lines = True
             if override == True:
                 check_num_clefs_and_staff_lines = False
-            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(i, check_num_clefs_and_staff_lines)
+            self.image_processor.get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(i, check_num_clefs_and_staff_lines, self.treble_clef_margin.get())
         self.draw_image_with_filters()
 
     def generate_staff_lines(self):
@@ -1901,34 +2256,58 @@ class ImageEditor(tk.Tk):
         print("event", event)
 
     def scroll_vertical(self, event):
+        #print("scroll vertical test", event.delta)
         self.current_feature = None
         if self.current_feature_rect:
             self.canvas.delete(self.current_feature_rect)
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        # Linux (Button-4 is scroll up, Button-5 is scroll down)
+        if event.num == 4:
+            direction = -1
+        elif event.num == 5:
+            direction = 1
+        # Windows/macOS (delta is usually +/- 120)
+        else:
+            direction = int(-1 * (event.delta / 120))
+
+        self.canvas.yview_scroll(direction, "units")
 
     def scroll_horizontal(self, event):
         self.current_feature = None
         if self.current_feature_rect:
             self.canvas.delete(self.current_feature_rect)
-        self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+        # Linux (Button-4 is scroll up, Button-5 is scroll down)
+        if event.num == 4:
+            direction = -1
+        elif event.num == 5:
+            direction = 1
+        # Windows/macOS (delta is usually +/- 120)
+        else:
+            direction = int(-1 * (event.delta / 120))
+
+        self.canvas.xview_scroll(direction, "units")
+
+
 
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(title="Open PDF File", initialdir=self.dirname, filetypes=[("PDF Files", "*.pdf")])  # TODO initialdir
-        f = file_path.split('/')
-        self.file_name = f[-1]  # extracting filename from full directory
-        self.file_name = self.file_name[:-4]  # remove .pdf
         if file_path:
+            f = file_path.split('/')
+            self.file_name = f[-1]  # extracting filename from full directory
+            self.file_name = self.file_name[:-4]  # remove .pdf
             print("Filename: ", self.file_name)
             self.num_pages = PDFtoImages.filename_to_images(self.dirname, file_path)
             self.image_processor = ImageProcessing(self.dirname, file_path, self.num_pages)
+            self.get_colors_from_text_file()
             self.draw_image_with_filters()
         else:
             print("no file selected")
 
 
-    def save_pdf(self):
-        pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name + "_cheatmusic.pdf")
+    def save_pdf(self, pdf_path=""):
+        if pdf_path == "":
+            pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")], initialfile=self.file_name + "_cheatmusic.pdf")
         if pdf_path == "":
             print("no pdf selected")
             return
@@ -1960,7 +2339,7 @@ class ImageEditor(tk.Tk):
                 filter_list[i].set(1)
             else:
                 filter_list[i].set(0)
-        cover_page = cv.imread(self.dirname + "\\cover_page.jpg")
+        cover_page = cv.imread(os.path.join(self.dirname, "cover_page.jpg"))
         cover_page = cv.cvtColor(cover_page, cv.COLOR_BGR2RGB)
         cv.resize(cover_page, (self.image_processor.image_widths[0], self.image_processor.image_heights[0]), interpolation=cv.INTER_AREA)
         images.append(Image.fromarray(cover_page))
@@ -1971,8 +2350,9 @@ class ImageEditor(tk.Tk):
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
 
-    def save_jpg(self):
-        folder_path = filedialog.askdirectory(title="Select a Folder")
+    def save_jpg(self, folder_path=""):
+        if folder_path == "":
+            folder_path = filedialog.askdirectory(title="Select a Folder")
         if folder_path == "":
             print("no folder selected")
             return
@@ -1994,8 +2374,9 @@ class ImageEditor(tk.Tk):
             img.convert("RGB").save(file_path, "JPEG", quality=100)
         print("jpg saved", folder_path)
 
-    def save_jpg_split_up(self):
-        folder_path = filedialog.askdirectory(title="Select a Folder")
+    def save_jpg_split_up(self, folder_path=""):
+        if folder_path == "":
+            folder_path = filedialog.askdirectory(title="Select a Folder")
         if folder_path == "":
             print("no folder selected")
             return
@@ -2031,6 +2412,65 @@ class ImageEditor(tk.Tk):
                 img.convert("RGB").crop((0, y_split_values[j], self.image_processor.image_widths[i] - 1, y_split_values[j + 1])).save(file_path, "JPEG", quality=100)
         print("jpg saved", folder_path)
 
+    def batch_save_pdf(self):
+        print("Please select the root folder to scan for .pkl files")
+        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+        if not root_dir:
+            print("\nFolder selection cancelled. Exiting.")
+            return
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+        # dirpath: The path to the current directory
+        # filenames: A list of files in the current directory
+            for filename in filenames:
+                # Check if the file is a PDF (case-insensitive)
+                if filename.lower().endswith('.pkl'):
+                    pkl_path = os.path.join(dirpath, filename)
+                    self.load_binary(pkl_path)
+
+                    pdf_path = os.path.join(dirpath, filename[:-4] + ".pdf")
+                    self.save_pdf(pdf_path)
+
+
+    def batch_save_jpg(self):
+        print("Please select the root folder to scan for .pkl files")
+        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+        if not root_dir:
+            print("\nFolder selection cancelled. Exiting.")
+            return
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+        # dirpath: The path to the current directory
+        # filenames: A list of files in the current directory
+            for filename in filenames:
+                # Check if the file is a PDF (case-insensitive)
+                if filename.lower().endswith('.pkl'):
+                    pkl_path = os.path.join(dirpath, filename)
+                    self.load_binary(pkl_path)
+
+                    folder_name = os.path.join(dirpath, filename[:-4])
+                    if not os.path.exists(folder_name):
+                        os.mkdir(folder_name)
+                    self.save_jpg(folder_name)
+
+    def batch_save_jpg_split_up(self):
+        print("Please select the root folder to scan for .pkl files")
+        root_dir = filedialog.askdirectory(title="Select Root Folder to scan for .pkl files")
+        if not root_dir:
+            print("\nFolder selection cancelled. Exiting.")
+            return
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+        # dirpath: The path to the current directory
+        # filenames: A list of files in the current directory
+            for filename in filenames:
+                # Check if the file is a PDF (case-insensitive)
+                if filename.lower().endswith('.pkl'):
+                    pkl_path = os.path.join(dirpath, filename)
+                    self.load_binary(pkl_path)
+
+                    folder_name = os.path.join(dirpath, filename[:-4])
+                    if not os.path.exists(folder_name):
+                        os.mkdir(folder_name)
+                    self.save_jpg_split_up(folder_name)
+
     def save_pdf_for_double_sided_printing(self):
         pdf_path = filedialog.asksaveasfilename(filetypes=[("PDF", "*.pdf")], defaultextension=[("PDF", "*.pdf")],
                                                 initialfile=self.file_name + "_cheatmusic.pdf")
@@ -2054,6 +2494,7 @@ class ImageEditor(tk.Tk):
             images.append(Image.fromarray(image))
         images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
         print("pdf saved", pdf_path)
+
     def save_binary(self):
         path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
         if path == "":
@@ -2066,8 +2507,71 @@ class ImageEditor(tk.Tk):
             pickle.dump(self.file_name, file)
             print("saved", path)
 
-    def load_binary(self):
-        file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
+    def save_binary_without_images(self):
+        path = filedialog.asksaveasfilename(filetypes=[("pkl", "*.pkl")], defaultextension=[("pkl", "*.pkl")], initialfile=self.file_name)
+        if path == "":
+            print("no filename")
+            return
+        with open(path, "wb") as file:
+            for i in range(self.num_pages):
+                self.image_processor.images[i] = None
+                self.image_processor.gray_images[i] = None
+                self.image_processor.bw_images[i] = None
+            pickle.dump(self.image_processor, file)
+            pickle.dump(self.file_name, file)
+            print("saved", path)
+
+    def load_binary(self, file_path=""):
+        if file_path == "":
+            file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
+        if file_path == "":
+            print("no file selected")
+            return
+        with open(file_path, "rb") as file:
+            print("open", file_path)
+            self.image_processor = pickle.load(file)
+            load_images=False
+            if self.image_processor.images[0] is None:
+                load_images = True
+            self.file_name = pickle.load(file)
+            self.num_pages = self.image_processor.num_pages
+            self.image_index = 0
+            self.dirname = os.path.dirname(__file__)
+            self.image_processor.dirname = self.dirname
+            self.image_processor.images_filenames = []
+            self.image_processor.annotated_images_filenames = []
+            
+            if load_images is True:
+                for i in range(self.num_pages):
+                    self.image_processor.images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'))
+                    self.image_processor.annotated_images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'Annotated', 'annotated' + str(i) + '.png'))
+                    self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
+                    height, width = self.image_processor.images[i].shape[:2]
+                    if height != self.image_processor.image_heights[i] and width != self.image_processor.image_heights[i]:
+                        print("Error. Image dimensions do not match")
+                    self.image_processor.gray_images[i] = cv.cvtColor(self.image_processor.images[i], cv.COLOR_BGR2GRAY)
+                    self.image_processor.bw_images[i] = cv.threshold(self.image_processor.gray_images[i], 210, 255, cv.THRESH_BINARY)[1]
+            else:
+                # write the images
+                for i in range(self.num_pages):
+                    self.image_processor.images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'))
+                    self.image_processor.annotated_images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'Annotated', 'annotated' + str(i) + '.png'))
+                    cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
+            #problem = self.image_processor.determine_if_half_notes_are_on_line()
+            #if problem:
+            #    messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
+            #todo remove
+            #todo add extending notes by 2 pixels
+            #self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(True)
+            #self.erode_strength_scale.set(250)
+            #self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(True)
+            #self.convert_is_half_note()
+            self.get_colors_from_text_file()
+            self.draw_image_with_filters()
+    '''
+    def load_binary_without_images(self):
+        if file_path == "":
+            file_path = filedialog.askopenfilename(title="Open pkl File", initialdir=self.dirname, filetypes=[("pkl files", "*.pkl")])  # TODO initialdir
         if file_path == "":
             print("no file selected")
             return
@@ -2081,22 +2585,14 @@ class ImageEditor(tk.Tk):
             self.image_processor.dirname = self.dirname
             self.image_processor.images_filenames = []
             self.image_processor.annotated_images_filenames = []
-            # write the images
+            # Read the images
             for i in range(self.num_pages):
-                self.image_processor.images_filenames.append(self.dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
-                self.image_processor.annotated_images_filenames.append(self.dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
-                cv.imwrite(self.image_processor.images_filenames[i], self.image_processor.images[i])
-            #problem = self.image_processor.determine_if_half_notes_are_on_line()
-            #if problem:
-            #    messagebox.showinfo("Half note expected to be on line", "Used click and drage to detect half note, however only 1 rect was found.")
-            #todo remove
-            #todo add extending notes by 2 pixels
-            #self.generate_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(True)
-            #self.erode_strength_scale.set(250)
-            #self.calculate_notes_for_distorted_staff_lines_using_horizontal_erode(True)
-            #self.convert_is_half_note()
+                self.image_processor.images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'))
+                self.image_processor.annotated_images_filenames.append(os.path.join(self.dirname, 'SheetsMusic', 'Annotated', 'annotated' + str(i) + '.png'))
+                self.image_processor.images[i] = cv.imread(self.image_processor.images_filenames[i], cv.IMREAD_COLOR)
+            self.get_colors_from_text_file()
             self.draw_image_with_filters()
-
+    '''
     def modify_filepath(self, filepath):
         # Split the path into directory and filename
         dir_path, file_name = os.path.split(filepath)
@@ -2523,6 +3019,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_diagonal_coordinates = []
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index + 1) % self.num_pages
+        print("page", self.image_index)
         #self.draw_image_canvas_mode()
         self.draw_image_with_filters()
 
@@ -2534,6 +3031,7 @@ class ImageEditor(tk.Tk):
         self.staff_line_diagonal_coordinates = []
         self.staff_line_block_coordinates = []
         self.image_index = (self.image_index - 1) % self.num_pages
+        print("page", self.image_index)
         #self.draw_image_canvas_mode()
         self.draw_image_with_filters()
 

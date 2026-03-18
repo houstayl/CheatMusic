@@ -3,6 +3,7 @@ import sys
 import cv2 as cv
 import tkinter as tk
 import numpy as np
+import os
 from tkinter import Scrollbar, Canvas
 from PIL import Image, ImageTk
 from FeatureObject import Feature
@@ -68,8 +69,14 @@ class ImageProcessing:
         # Used to instantly convert from type to array for that type
 
         for i in range(num_pages):
-            self.images_filenames.append(dirname + '\\SheetsMusic\\page' + str(i) + '.jpg')
-            self.annotated_images_filenames.append(dirname + '\\SheetsMusic\\Annotated\\annotated' + str(i) + '.png')
+            #self.images_filenames.append(dirname + '/SheetsMusic/page' + str(i) + '.jpg')
+            #self.annotated_images_filenames.append(dirname + '/SheetsMusic/Annotated/annotated' + str(i) + '.png')
+            self.images_filenames.append(os.path.join(dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'))
+            #print('test')
+            #print(dirname + '/SheetsMusic/page' + str(i) + '.jpg')
+            #print(os.path.join(dirname, 'SheetsMusic', 'page' + str(i) + '.jpg'))
+            #self.annotated_images_filenames.append(os.path.join(dirname, '/SheetsMusic/Annotated/annotated' + str(i) + '.png'))
+            self.annotated_images_filenames.append(os.path.join(dirname, 'SheetsMusic', 'Annotated', 'annotated' + str(i) + '.png'))
             print(self.images_filenames[i])
             self.images.append(cv.imread(self.images_filenames[i]))
             self.image_heights.append(self.images[i].shape[0])
@@ -629,7 +636,7 @@ class ImageProcessing:
                         groups.append[group]
         return groups
 
-    def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index, check_num_clefs_and_staff_lines):
+    def get_staff_lines_diagonal_by_traversing_vertical_line(self, page_index, check_num_clefs_and_staff_lines, treble_clef_margin):
         print("getting staff lines on page", page_index)
         self.sort_clefs(page_index)
         num_lines = 0
@@ -643,7 +650,7 @@ class ImageProcessing:
         for row in self.all_clefs[page_index]:
             clef = row[0]
             adjustment = 20
-            if clef.type == "treble_clef":
+            if clef.type == "treble_clef" and treble_clef_margin is False:
                 adjustment = 0
             top = [clef.topleft[0], clef.topleft[1] - adjustment]
             bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
@@ -738,7 +745,7 @@ class ImageProcessing:
         else:
             self.staff_lines[page_index] = self.staff_lines[page_index] + current_staff_lines
 
-    def get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(self, page_index, check_num_clefs_and_staff_lines):
+    def get_staff_lines_diagonal_by_traversing_vertical_line_using_horizontal_erode(self, page_index, check_num_clefs_and_staff_lines, treble_clef_margin):
         print("getting staff lines using horizontal erode on page", page_index)
         self.sort_clefs(page_index)
         num_lines = 0
@@ -752,7 +759,7 @@ class ImageProcessing:
         for row in self.all_clefs[page_index]:
             clef = row[0]
             adjustment = 20
-            if clef.type == "treble_clef":
+            if clef.type == "treble_clef" and treble_clef_margin is False:
                 adjustment = 0
             top = [clef.topleft[0], clef.topleft[1] - adjustment]
             bottom = [clef.topleft[0], clef.bottomright[1] + adjustment]
@@ -900,7 +907,7 @@ class ImageProcessing:
                             if accidental.letter == "":
                                 accidental.letter = closest_note.letter
 
-
+   
     def calculate_notes_for_distorted_staff_lines(self, page_index, region, img, staff_line_error, overwrite):
         notes = region.notes
         height, width = img.shape[:2]
@@ -958,6 +965,25 @@ class ImageProcessing:
                 self.calculate_note_or_accidental(note, closest_group, region.clef, overwrite)
             else:
                 print("couldnt find any groups for region", region.topleft, region.bottomright)
+    
+    def shift_note_and_accidental_colors(self, page_index, direction):
+        notes = self.notes[page_index]
+        accidentals = self.accidentals[page_index]
+        if self.is_list_iterable(notes) == True:
+            for i in range(len(notes)):
+                number = ord(notes[i].letter.lower()) - ord('a')
+                number = (number + direction) % 7
+                notes[i].letter = chr(ord('a') + number)
+        else:
+            print("No notes to shift on page", page_index)
+        if self.is_list_iterable(accidentals) == True:
+            for i in range(len(accidentals)):
+                number = ord(accidentals[i].letter.lower()) - ord('a')
+                number = (number + direction) % 7
+                accidentals[i].letter = chr(ord('a') + number)
+        else:
+            print("No accidentals to shift on page", page_index)
+            
 
     def generate_diagonal_staff_lines_block(self, page_index, topleft, topright, bottomright):
         line_spacing = int(abs(topright[1] - bottomright[1]) / 4)
@@ -1050,11 +1076,48 @@ class ImageProcessing:
                 self.notes[page_index].pop(i)
     '''
 
+    def get_unautosnapped_half_note_images(self, page_index):
+        notes = self.notes[page_index]
+        image_coordinates = []
+        #Find all unautosnapped half notes
+        if self.is_list_iterable(notes):
+            for note in notes:
+                if note.is_half_note in ["half", "whole"] and note.auto_extended is False:
+                    #Get slightly zoomed out cropped image of half notes
+                    note_height = self.get_note_height(page_index)
+                    coordinate = [max(note.topleft[0] - note_height, 0), max(note.topleft[1] - note_height, 0), min(note.bottomright[0] + note_height, self.image_heights[page_index] - 1), min(note.bottomright[1] + note_height, self.image_heights[page_index] - 1)]
+                    image_coordinates.append(coordinate)
+            print(len(image_coordinates), "unautosnapped half notes on page", page_index)
+        else:
+            print("No notes on page", page_index)
+        return image_coordinates
+
+    def get_unautosnapped_half_note_images_uniform(self, page_index):
+        notes = self.notes[page_index]
+        image_coordinates = []
+        #Find all unautosnapped half notes
+        if self.is_list_iterable(notes):
+            for note in notes:
+                if note.is_half_note in ["half", "whole"] and note.auto_extended is False:
+                    #Get slightly zoomed out cropped image of half notes
+                    note_height = self.get_note_height(page_index)
+                    coordinate = [max(note.center[0] - note_height, 0), max(note.center[1] - note_height, 0), min(note.center[0] + note_height, self.image_heights[page_index] - 1), min(note.center[1] + note_height, self.image_heights[page_index] - 1)]
+                    image_coordinates.append(coordinate)
+            print(len(image_coordinates), "unautosnapped half notes on page", page_index)
+        else:
+            print("No notes on page", page_index)
+        return image_coordinates
+
+
     def remove_unautosnapped_notes(self, page_index):
+        count = 0
         print("remove unautosnapped notes", page_index)
-        for i in range(len(self.notes[page_index]) - 1, -1, -1):
-             if self.notes[page_index][i].auto_extended == False:
-                self.notes[page_index].pop(i)
+        if self.is_list_iterable(self.notes[page_index]):
+            for i in range(len(self.notes[page_index]) - 1, -1, -1):
+                 if self.notes[page_index][i].auto_extended == False:
+                    self.notes[page_index].pop(i)
+                    count += 1
+        return count
 
     '''
     def detect_unautosnapped_half_notes(self, page_index):
@@ -1328,6 +1391,7 @@ class ImageProcessing:
     '''
     def auto_extend_half_note(self, page_index, note, img, mask, note_height, note_width):
         rects = []
+        #note_height = note_height - 4
         #adjustment = 2
         vertical_adjustment = 2
         horizontal_adjustment = 2
@@ -1898,6 +1962,11 @@ class ImageProcessing:
         self.images[page_index] = cv.imread(self.images_filenames[page_index])
         self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
         self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)[1]
+
+    def load_sub_image(self, page_index, coord, sub_image, blackness):
+        self.images[page_index][coord[1]:coord[3], coord[0]:coord[2]] = sub_image
+        self.gray_images[page_index][coord[1]:coord[3], coord[0]:coord[2]] = cv.cvtColor(sub_image, cv.COLOR_BGR2GRAY)
+        self.bw_images[page_index][coord[1]:coord[3], coord[0]:coord[2]] = cv.threshold(self.gray_images[page_index][coord[1]:coord[3], coord[0]:coord[2]], blackness, 255, cv.THRESH_BINARY)[1]
 
     def rotate_based_off_staff_lines(self, page_index):
         angle = 0
