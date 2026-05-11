@@ -182,6 +182,14 @@ class ImageProcessing:
                 if self.notes == other.notes and self.accidentals == other.acidentals:
                     return
 
+    def get_page_stats(self, page_index):
+        n = 0
+        a = 0
+        if self.is_list_iterable(self.notes[page_index]):
+            n = len(self.notes[page_index])
+        if self.is_list_iterable(self.accidentals[page_index]):
+            a = len(self.accidentals[page_index])
+        return (n, a)
 
     '''
     WHen user clicks mouse, removes feature associated with mouse click
@@ -1034,15 +1042,21 @@ class ImageProcessing:
     def set_key(self, page_index, topleft, bottomright, accidental_type, key):
         if self.notes[page_index] is not None and len(self.notes[page_index]) > 0:
             for note in self.notes[page_index]:
-                if self.is_feature_in_rectangle(note, topleft, bottomright) == True and note.accidental == "":
+                if self.is_feature_in_rectangle(note, topleft, bottomright) == True:
                     if note.letter.lower() in key:
-                        note.accidental = accidental_type
-
-    def get_note_height(self, page_index):
+                        if note.accidental == "":
+                            note.accidental = accidental_type
+                        elif note.accidental.lower() == accidental_type:#note already assigned accidental
+                            x = int(note.center[0] / self.image_widths[page_index] * 100)
+                            y = int(note.center[1] / self.image_heights[page_index] * 100)
+                            print("x%", x, "y%", y, note.letter, " redundant accidental")
+                
+    def get_note_height(self, page_index, adjustment=0):
         note_height = 5
         if self.is_list_iterable(self.staff_lines[page_index]) and len(self.staff_lines[page_index]) > 4:
             mid = int(self.image_widths[page_index] / 2)
             note_height = int(abs(self.staff_lines[page_index][4].calculate_y(mid) - self.staff_lines[page_index][0].calculate_y(mid)) / 4)
+            note_height = note_height - adjustment
             #print(note_size)
         else:
             print("need more staff lines to auto resize notes")
@@ -1961,9 +1975,14 @@ class ImageProcessing:
 
     def regenerate_images(self, page_index, blackness):
         print("regenerating images ", page_index, "blackness: ", blackness)
-        self.images[page_index] = cv.imread(self.images_filenames[page_index])
-        self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
-        self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)[1]
+        img = cv.imread(self.images_filenames[page_index])
+        h, w = img.shape[:2]
+        if h == self.image_heights[page_index] and w == self.image_widths[page_index]:
+            self.images[page_index] = img
+            self.gray_images[page_index] = cv.cvtColor(self.images[page_index], cv.COLOR_BGR2GRAY)
+            self.bw_images[page_index] = cv.threshold(self.gray_images[page_index], blackness, 255, cv.THRESH_BINARY)[1]
+        else:
+            print("Error. Current image dimensions", self.image_heights[page_index], self.image_widths[page_index], "Read in image dims", h, w)
 
     def load_sub_image(self, page_index, coord, sub_image, blackness):
         self.images[page_index][coord[1]:coord[3], coord[0]:coord[2]] = sub_image
